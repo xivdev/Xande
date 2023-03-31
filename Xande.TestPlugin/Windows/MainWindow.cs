@@ -27,7 +27,7 @@ public class MainWindow : Window, IDisposable {
                 Service.Framework.RunOnTick( () => {
                     var sklbData   = File.ReadAllBytes( path );
                     var readStream = new MemoryStream( sklbData );
-                    var sklb       = new SklbFile( readStream );
+                    var sklb       = SklbFile.FromStream( readStream );
 
                     var outputName = Path.GetFileNameWithoutExtension( path ) + ".hkx";
 
@@ -48,7 +48,7 @@ public class MainWindow : Window, IDisposable {
                 Service.Framework.RunOnTick( () => {
                     var sklbData   = File.ReadAllBytes( path );
                     var readStream = new MemoryStream( sklbData );
-                    var sklb       = new SklbFile( readStream );
+                    var sklb       = SklbFile.FromStream( readStream );
                     var xml        = _converter.HkxToXml( sklb.HkxData );
 
                     var outputName = Path.GetFileNameWithoutExtension( path ) + ".xml";
@@ -110,7 +110,7 @@ public class MainWindow : Window, IDisposable {
                         var hkx        = _converter.XmlToHkx( xml );
                         var sklbData   = File.ReadAllBytes( path2 );
                         var readStream = new MemoryStream( sklbData );
-                        var sklb       = new SklbFile( readStream );
+                        var sklb       = SklbFile.FromStream( readStream );
 
                         sklb.ReplaceHkxData( hkx );
 

@@ -37,7 +37,7 @@ To convert a `.sklb` file into an `.xml` file (and vice versa):
 var sklbData = File.ReadAllBytes("skl_c0101b0001.sklb");
 // Parse the .sklb to obtain the .hkx
 var readStream = new MemoryStream(sklbData);
-var sklb = new SklbFile(readStream);
+var sklb = SklbFile.FromStream(readStream);
 
 // Create the converter, using a SigScanner (obtain via dependency injection with plugin services)
 var converter = new HavokConverter(sigScanner);
