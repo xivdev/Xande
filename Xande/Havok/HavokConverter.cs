@@ -190,20 +190,24 @@ public unsafe class HavokConverter {
             Storage = ( uint )optionBits
         };
 
-        var                   name         = @"hkRootLevelContainer"u8;
-        var                   resourceVtbl = *( hkResourceVtbl** )resource;
-        hkRootLevelContainer* resourcePtr;
-        fixed( byte* n = name ) {
-            resourcePtr = ( hkRootLevelContainer* )resourceVtbl->getContentsPointer(
-                resource, n, hkBuiltinTypeRegistrySingleton->vtbl->GetTypeInfoRegistry( hkBuiltinTypeRegistrySingleton ) );
-        }
+        try {
+            var                   name         = @"hkRootLevelContainer"u8;
+            var                   resourceVtbl = *( hkResourceVtbl** )resource;
+            hkRootLevelContainer* resourcePtr;
+            fixed( byte* n = name ) {
+                resourcePtr = ( hkRootLevelContainer* )resourceVtbl->getContentsPointer(
+                    resource, n, hkBuiltinTypeRegistrySingleton->vtbl->GetTypeInfoRegistry( hkBuiltinTypeRegistrySingleton ) );
+            }
 
-        if( resourcePtr == null ) {
+            if( resourcePtr == null ) {
+                throw new Exceptions.HavokWriteException();
+            }
+
+            hkSerializeUtil_Save( result, resourcePtr, hkRootLevelContainerClass, oStream->m_writer.ptr, options );
+        } finally {
             hkOstream_Dtor( oStream );
-            throw new Exceptions.HavokWriteException();
         }
 
-        hkSerializeUtil_Save( result, resourcePtr, hkRootLevelContainerClass, oStream->m_writer.ptr, options );
         hkOstream_Dtor( oStream );
 
         if( result->Result == hkResult.hkResultEnum.Failure ) {
