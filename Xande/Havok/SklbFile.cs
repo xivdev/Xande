@@ -5,7 +5,7 @@
 /// </summary>
 public sealed class SklbFile : BinaryReader {
     public readonly  int    HkxOffset;
-    private readonly byte[] Header;
+    private readonly byte[] _header;
     public byte[] HkxData { get; private set; }
 
     /// <summary>
@@ -32,7 +32,7 @@ public sealed class SklbFile : BinaryReader {
         }
 
         BaseStream.Seek( 0, SeekOrigin.Begin );
-        Header = ReadBytes( HkxOffset );
+        _header = ReadBytes( HkxOffset );
         BaseStream.Seek( HkxOffset, SeekOrigin.Begin );
         HkxData = ReadBytes( ( int )( BaseStream.Length - HkxOffset ) );
     }
@@ -42,7 +42,7 @@ public sealed class SklbFile : BinaryReader {
     }
 
     public void Write( Stream stream ) {
-        stream.Write( Header );
+        stream.Write( _header );
         stream.Write( HkxData );
     }
 }

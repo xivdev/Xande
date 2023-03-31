@@ -1,0 +1,9 @@
+{
+  "Author": "XIV Dev",
+  "Name": "Xande.TestPlugin",
+  "Punchline": "\"unit testing in my plugin development?\" - Ottermandias",
+  "Description": "Do I really need to put a description here?",
+  "InternalName": "Xande.TestPlugin",
+  "ApplicableVersion": "any",
+  "Tags": ["xande", "model", "exporting"]
+}
