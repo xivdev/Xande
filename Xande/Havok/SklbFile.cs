@@ -24,13 +24,13 @@ public sealed class SklbFile {
     /// Constructs a new SklbFile instance from a stream.
     /// </summary>
     /// <param name="stream">A stream to the .sklb data.</param>
-    /// <exception cref="Exceptions.SklbInvalidException">Thrown if magic does not match.</exception>
+    /// <exception cref="InvalidDataException">Thrown if magic does not match.</exception>
     public static SklbFile FromStream( Stream stream ) {
         using var reader = new BinaryReader( stream );
 
         var magic = reader.ReadInt32();
         if( magic != 0x736B6C62 ) {
-            throw new Exceptions.SklbInvalidException();
+            throw new InvalidDataException( "Invalid .sklb magic" );
         }
 
         var version = reader.ReadInt32();

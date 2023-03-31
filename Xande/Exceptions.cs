@@ -13,8 +13,4 @@ public class Exceptions {
     public class HavokWriteException : Exception {
         public HavokWriteException() : base( "Havok failed to write resource" ) { }
     }
-
-    public class SklbInvalidException : Exception {
-        public SklbInvalidException() : base( ".sklb file is invalid" ) { }
-    }
 }
