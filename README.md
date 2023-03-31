@@ -2,7 +2,7 @@
 
 Xande is a (WIP) C# library meant to be used in Dalamud plugins for interacting with FINAL FANTASY XIV models. It is able to parse Havok files (`.hkx`, `.xml`) using functions in the client, and (soon:tm:) perform model imports/exports.
 
-Xande was made possible by:
+Xande was made possible thanks to:
 
 - [perchbird](https://github.com/lmcintyre)
   - [AnimAssist](https://github.com/lmcintyre/AnimAssist), providing information on the `.sklb` file format
