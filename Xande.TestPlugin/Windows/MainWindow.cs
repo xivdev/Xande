@@ -15,7 +15,7 @@ public class MainWindow : Window, IDisposable {
         _fileDialogManager = new FileDialogManager();
         _converter         = new HavokConverter();
 
-        SizeConstraints = new WindowSizeConstraints() {
+        SizeConstraints = new WindowSizeConstraints {
             MinimumSize = new Vector2( 375, 350 ),
             MaximumSize = new Vector2( 1000, 500 ),
         };
