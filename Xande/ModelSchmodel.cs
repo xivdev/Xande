@@ -279,6 +279,8 @@ VertexPosition
 
                 var idx = incompleteJoints.Count - 1;
                 fakeToRealMap[ idx ] = boneIdx;
+
+                seenBones.Add( name );
             }
 
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
