@@ -39,9 +39,8 @@ var sklbData = File.ReadAllBytes("skl_c0101b0001.sklb");
 var readStream = new MemoryStream(sklbData);
 var sklb = SklbFile.FromStream(readStream);
 
-// Create the converter, using a SigScanner (obtain via dependency injection with plugin services)
-var converter = new HavokConverter(sigScanner);
 // Do the thing
+var converter = new HavokConverter();
 var xml = converter.HkxToXml(sklb.HkxData);
 
 // Convert the .xml back into a .hkx
