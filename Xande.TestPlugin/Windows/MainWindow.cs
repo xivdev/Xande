@@ -7,18 +7,20 @@ using Xande.Havok;
 namespace Xande.TestPlugin.Windows;
 
 public class MainWindow : Window, IDisposable {
-    private FileDialogManager _fileDialogManager;
-    private HavokConverter    _converter;
-    private ModelSchmodel     _modelSchmodel;
+    private readonly FileDialogManager _fileDialogManager;
+    private readonly HavokConverter    _converter;
+    private readonly ModelSchmodel     _modelSchmodel;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
         _converter         = new HavokConverter();
 
-        Size          = new Vector2( 375, 350 );
-        SizeCondition = ImGuiCond.FirstUseEver;
+        SizeConstraints = new WindowSizeConstraints() {
+            MinimumSize = new Vector2( 375, 350 ),
+            MaximumSize = new Vector2( 1000, 500 ),
+        };
 
-        _modelSchmodel = new ModelSchmodel();
+        _modelSchmodel = new ModelSchmodel(Service.DataManager.GameData);
     }
 
     public override void Draw() {
@@ -32,7 +34,7 @@ public class MainWindow : Window, IDisposable {
             Directory.CreateDirectory( tempPath );
 
             _modelSchmodel.THE_PATH = tempPath + "/";
-            _modelSchmodel.Main( Service.DataManager.GameData, _converter );
+            _modelSchmodel.Main( _converter );
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {

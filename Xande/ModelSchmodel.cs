@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.Compression;
@@ -17,6 +18,43 @@ using Mesh = Lumina.Models.Models.Mesh;
 
 namespace Xande;
 
+public class LuminaManager {
+    public readonly GameData GameData;
+
+    public LuminaManager( GameData gameData ) => GameData = gameData;
+
+    public Model GetModel( string path ) {
+        var mdlFile = GameData.GetFile< MdlFile >( path );
+        return mdlFile != null
+            ? new Model( mdlFile )
+            : throw new Exception( $"Lumina was unable to fetch a .mdl file from {path}." );
+    }
+
+    public Lumina.Models.Materials.Material GetMaterial( Lumina.Models.Materials.Material material ) {
+        var path = material.ResolvedPath ?? material.MaterialPath;
+
+        var mtrlFile = GameData.GetFile< MtrlFile >( path );
+        return mtrlFile != null
+            ? new Lumina.Models.Materials.Material( mtrlFile )
+            : throw new Exception( $"Lumina was unable to fetch a .mtrl file from {path}." );
+    }
+
+    public unsafe Bitmap GetTextureBuffer( Lumina.Models.Materials.Texture texture ) {
+        var texFile = GameData.GetFile< TexFile >( texture.TexturePath );
+        if( texFile == null ) throw new Exception( $"Lumina was unable to fetch a .tex file from {texture.TexturePath}." );
+        var texBuffer = texFile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
+        fixed( byte* raw = texBuffer.RawData ) { return new Bitmap( texBuffer.Width, texBuffer.Height, texBuffer.Width * 4, PixelFormat.Format32bppArgb, ( nint )raw ); }
+    }
+
+    public string SaveTexture( string basePath, Lumina.Models.Materials.Texture texture ) {
+        var png      = GetTextureBuffer( texture );
+        var convPath = texture.TexturePath[ ( texture.TexturePath.LastIndexOf( '/' ) + 1 ).. ] + ".png";
+
+        png.Save( basePath + convPath );
+        return convPath;
+    }
+}
+
 public class ModelSchmodel {
     public string THE_PATH = string.Empty;
 
@@ -29,58 +67,13 @@ public class ModelSchmodel {
 
         while( !streamReader.EndOfStream ) {
             var s = streamReader.ReadLine();
-            if( s.EndsWith( extension ) ) { paths.Add( s ); }
+            if( s.EndsWith( extension ) ) paths.Add( s );
         }
 
         return paths.ToArray();
     }
 
-    private GameData Lumina;
-
-    private Model GetModel( string path ) {
-        var mdlFile = Lumina.GetFile< MdlFile >( path );
-        return new Model( mdlFile );
-    }
-
-    private Lumina.Models.Materials.Material GetMaterial( Lumina.Models.Materials.Material material ) {
-        var path = material.ResolvedPath ?? material.MaterialPath;
-
-        var mtrlFile = Lumina.GetFile< MtrlFile >( path );
-
-        return new Lumina.Models.Materials.Material( mtrlFile );
-    }
-
-    private string SaveTexture( Lumina.Models.Materials.Texture texture ) {
-        var texfile = Lumina.GetFile< TexFile >( texture.TexturePath );
-
-        var    texbuffer = texfile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
-        Bitmap png;
-        unsafe {
-            fixed( byte* rawbuffer = texbuffer.RawData ) {
-                png = new Bitmap( texbuffer.Width, texbuffer.Height, texbuffer.Width * 4, PixelFormat.Format32bppArgb, ( IntPtr )rawbuffer );
-            }
-        }
-
-        var convpath = texture.TexturePath.Substring( texture.TexturePath.LastIndexOf( "/" ) + 1 ) + ".png";
-        png.Save( THE_PATH                                                                         + convpath );
-
-        return convpath;
-    }
-
-    private Bitmap GetTextureBuffer( Lumina.Models.Materials.Texture texture ) {
-        var texfile = Lumina.GetFile< TexFile >( texture.TexturePath );
-
-        var    texbuffer = texfile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
-        Bitmap png;
-        unsafe {
-            fixed( byte* rawbuffer = texbuffer.RawData ) {
-                png = new Bitmap( texbuffer.Width, texbuffer.Height, texbuffer.Width * 4, PixelFormat.Format32bppArgb, ( IntPtr )rawbuffer );
-            }
-        }
-
-        return png;
-    }
-
+    private readonly LuminaManager _lumina;
 
 /*
 UV null and Color null => Not happening
@@ -110,21 +103,10 @@ VertexPosition
 */
 
 
-    private byte UInt16To8BitColour( ushort s ) => ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Floor( ( float )BitConverter.UInt16BitsToHalf( s ) * 256 ) ) );
-
-    private Color ColourBlend( byte XR, byte XG, byte XB, byte YR, byte YG, byte YB, byte A, double XBlendScalar )
-        => Color.FromArgb(
-            A,
-            ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YR * XBlendScalar + XR * ( 1 - XBlendScalar ) ) ) ),
-            ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YG * XBlendScalar + XG * ( 1 - XBlendScalar ) ) ) ),
-            ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YB * XBlendScalar + XB * ( 1 - XBlendScalar ) ) ) )
-        );
-
-
     private unsafe void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
         var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
-        foreach( var xivTexture in xivMaterial.Textures ) { xivTextureMap.Add( xivTexture.TextureUsageRaw, GetTextureBuffer( xivTexture ) ); }
+        foreach( var xivTexture in xivMaterial.Textures ) { xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) ); }
 
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
@@ -146,35 +128,35 @@ VertexPosition
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
 
-                        var diffuseBlendColour = ColourBlend(
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 0 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 1 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 2 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 0 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 1 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 2 ] ),
+                        var diffuseBlendColour = ColorUtility.Blend(
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 0 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 1 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 2 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 0 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 1 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 2 ] ),
                             normalPixel.B,
                             colorSetBlend
                         );
 
-                        var specularBlendColour = ColourBlend(
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 4 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 5 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 6 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 4 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 5 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 6 ] ),
+                        var specularBlendColour = ColorUtility.Blend(
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 4 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 5 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 6 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 4 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 5 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 6 ] ),
                             255,
                             colorSetBlend
                         );
 
-                        var emissionBlendColour = ColourBlend(
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 8 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 9 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 10 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 8 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 9 ] ),
-                            UInt16To8BitColour( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 10 ] ),
+                        var emissionBlendColour = ColorUtility.Blend(
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 8 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 9 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 10 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 8 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 9 ] ),
+                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 10 ] ),
                             255,
                             colorSetBlend
                         );
@@ -264,15 +246,16 @@ VertexPosition
         }
     }
 
+    public ModelSchmodel( LuminaManager lumina ) => _lumina = lumina;
+    public ModelSchmodel( GameData gameData ) => _lumina = new LuminaManager( gameData );
 
-    public void Main( GameData gameData, HavokConverter converter ) {
-        Lumina = gameData;
 
+    public void Main( HavokConverter converter ) {
         var path       = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
         var skellyPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
-        var xivModel   = GetModel( path );
+        var xivModel   = _lumina.GetModel( path );
 
-        var skellyData   = gameData.GetFile( skellyPath ).Data;
+        var skellyData   = _lumina.GameData.GetFile( skellyPath ).Data;
         var skellyStream = new MemoryStream( skellyData );
         var skelly       = SklbFile.FromStream( skellyStream );
         var xmlStr       = converter.HkxToXml( skelly.HkxData );
@@ -318,10 +301,10 @@ VertexPosition
 
         var glTFScene = new SceneBuilder( path );
         foreach( var xivMesh in xivModel.Meshes ) {
-            if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) { continue; }
+            if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
 
-            xivMesh.Material.Update( Lumina );
-            var xivMaterial  = GetMaterial( xivMesh.Material );
+            xivMesh.Material.Update( _lumina.GameData );
+            var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
             var glTFMaterial = new MaterialBuilder();
 
             ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
@@ -447,9 +430,9 @@ VertexPosition
             var hasColor = vertex[ 0 ].Color != null;
             var hasUV    = vertex[ 0 ].UV    != null;
 
-            if( hasColor && hasUV ) { return typeof( VertexColor1Texture1 ); }
+            if( hasColor && hasUV ) return typeof( VertexColor1Texture1 );
 
-            if( !hasColor && hasUV ) { return typeof( VertexTexture1 ); }
+            if( !hasColor && hasUV ) return typeof( VertexTexture1 );
 
             return typeof( VertexColor1 );
         }
