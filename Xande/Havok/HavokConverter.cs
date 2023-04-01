@@ -208,8 +208,6 @@ public unsafe class HavokConverter {
             hkOstream_Dtor( oStream );
         }
 
-        hkOstream_Dtor( oStream );
-
         if( result->Result == hkResult.hkResultEnum.Failure ) {
             throw new Exceptions.HavokFailureException();
         }
