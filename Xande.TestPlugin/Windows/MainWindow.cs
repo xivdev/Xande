@@ -1,5 +1,6 @@
 ﻿using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
+using Dalamud.Logging;
 using ImGuiNET;
 using Xande.Havok;
 
@@ -8,6 +9,7 @@ namespace Xande.TestPlugin.Windows;
 public class MainWindow : Window, IDisposable {
     private FileDialogManager _fileDialogManager;
     private HavokConverter    _converter;
+    private ModelSchmodel     _modelSchmodel;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
@@ -15,10 +17,23 @@ public class MainWindow : Window, IDisposable {
 
         Size          = new(375, 350);
         SizeCondition = ImGuiCond.FirstUseEver;
+
+        _modelSchmodel = new ModelSchmodel();
     }
 
     public override void Draw() {
         _fileDialogManager.Draw();
+
+        if( ImGui.Button( "model" ) ) {
+            var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
+            Directory.CreateDirectory( tempDir );
+
+            var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
+            Directory.CreateDirectory( tempPath );
+
+            _modelSchmodel.THE_PATH = tempPath + "/";
+            _modelSchmodel.Main( Service.DataManager.GameData, _converter );
+        }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {
             _fileDialogManager.OpenFileDialog( "Select SKLB file", "FFXIV Skeleton{.sklb}", ( result, path ) => {
