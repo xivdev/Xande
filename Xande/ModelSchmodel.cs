@@ -224,18 +224,11 @@ VertexPosition
         var parentIndicies = xml.GetParentIndicies();
         var refPose        = xml.GetReferencePose();
 
-        var boneCount = boneNames.Length;
-
-        var stringMap = xivModel.StringOffsetToStringMap
-            .Select( kvp => kvp.Value )
-            .ToArray();
-
-        NodeBuilder boneRoot = null;
-
+        NodeBuilder                    boneRoot     = null;
         Dictionary< int, NodeBuilder > boneMap      = new();
         Dictionary< string, int >      nameToIdxMap = new();
 
-        for( var i = 0; i < boneCount; i++ ) {
+        for( var i = 0; i < boneNames.Length; i++ ) {
             var name = boneNames[ i ];
 
             var bone       = new NodeBuilder( name );
@@ -254,10 +247,10 @@ VertexPosition
             var affineTransform = new AffineTransform( scale, rotation, translation );
             bone.SetLocalTransform( affineTransform, false );
 
-            if( i == 0 ) { boneRoot = bone; }
+            var boneRootID = parentIndicies[ i ];
+            if( boneRootID == -1 ) { boneRoot = bone; }
             else {
-                var boneRootID = parentIndicies[ i ];
-                var parent     = boneMap[ boneRootID ];
+                var parent = boneMap[ boneRootID ];
                 parent.AddNode( bone );
             }
 
@@ -271,6 +264,22 @@ VertexPosition
         foreach( var xivMesh in xivModel.Meshes ) {
             var boneSet = xivMesh.BoneTable.Select( b => xivModel.StringOffsetToStringMap[ ( int )xivModel.File!.BoneNameOffsets[ b ] ] );
             PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
+
+            var joints           = boneMap.Values.ToArray();
+            var incompleteJoints = new List< NodeBuilder >();
+            var fakeToRealMap    = new Dictionary< int, int >();
+            var seenBones        = new List< string >();
+
+            foreach( var name in boneSet ) {
+                if( seenBones.Contains( name ) ) break;
+
+                var boneIdx = nameToIdxMap[ name ];
+                var bone    = boneMap[ boneIdx ];
+                incompleteJoints.Add( bone );
+
+                var idx = incompleteJoints.Count - 1;
+                fakeToRealMap[ idx ] = boneIdx;
+            }
 
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
 
@@ -367,8 +376,10 @@ VertexPosition
                         for( var k = 0; k < 4; k++ ) {
                             var boneIndex  = vertex.BlendIndices[ k ];
                             var boneIndex2 = xivMesh.BoneTable[ boneIndex ];
+                            var boneIndex3 = fakeToRealMap[ boneIndex2 ];
+
                             var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                            bindings.Add( ( boneIndex2, boneWeight ) );
+                            bindings.Add( ( boneIndex3, boneWeight ) );
                         }
 
                         foreach( var binding in bindings ) {
@@ -399,17 +410,8 @@ VertexPosition
                 );
             }
 
-            var joints    = new List< NodeBuilder >();
-            var seenBones = new List< string >();
-            foreach( var name in boneSet ) {
-                if( seenBones.Contains( name ) ) break;
 
-                var boneIdx = nameToIdxMap[ name ];
-                var bone    = boneMap[ boneIdx ];
-                joints.Add( bone );
-            }
-
-            glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints.ToArray() );
+            glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints );
         }
 
 
