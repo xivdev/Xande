@@ -1,4 +1,4 @@
-﻿namespace Xande.Havok;
+namespace Xande.Havok;
 
 // I don't know if this is a good idea or not, someone please yell at me if so (you can tell I miss Result<> and thiserror) ~jules
 public class Exceptions {

@@ -1,4 +1,4 @@
-﻿namespace Xande.Havok;
+namespace Xande.Havok;
 
 /// <summary>
 /// Class for parsing .hkx data from a .sklb file.
@@ -29,9 +29,7 @@ public sealed class SklbFile {
         using var reader = new BinaryReader( stream );
 
         var magic = reader.ReadInt32();
-        if( magic != 0x736B6C62 ) {
-            throw new InvalidDataException( "Invalid .sklb magic" );
-        }
+        if( magic != 0x736B6C62 ) { throw new InvalidDataException( "Invalid .sklb magic" ); }
 
         var version = reader.ReadInt32();
 

@@ -1,6 +1,6 @@
-﻿using Dalamud.Interface.ImGuiFileDialog;
+using System.Numerics;
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
-using Dalamud.Logging;
 using ImGuiNET;
 using Xande.Havok;
 
@@ -13,9 +13,9 @@ public class MainWindow : Window, IDisposable {
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
-        _converter         = new HavokConverter( Service.SigScanner );
+        _converter         = new HavokConverter();
 
-        Size          = new(375, 350);
+        Size          = new Vector2( 375, 350 );
         SizeCondition = ImGuiCond.FirstUseEver;
 
         _modelSchmodel = new ModelSchmodel();

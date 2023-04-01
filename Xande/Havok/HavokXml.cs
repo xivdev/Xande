@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml;
 using Dalamud.Logging;
@@ -14,8 +14,8 @@ public class HavokXml {
         _document.LoadXml( xml );
 
         _skeleton = _document.GetElementsByTagName( "object" )
-            .Cast< XmlElement >()
-            .First( x => x.GetAttribute( "type" ) == "hkaSkeleton" );
+           .Cast< XmlElement >()
+           .First( x => x.GetAttribute( "type" ) == "hkaSkeleton" );
 
         if( _skeleton == null ) {
             // TODO custom exception
@@ -25,9 +25,9 @@ public class HavokXml {
 
     public float[][] GetReferencePose() {
         var referencePose = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "referencePose" )
-            .ToArray()[ 0 ];
+           .Cast< XmlElement >()
+           .Where( x => x.GetAttribute( "name" ) == "referencePose" )
+           .ToArray()[ 0 ];
 
         var size = int.Parse( referencePose.GetAttribute( "size" ) );
 
@@ -43,10 +43,10 @@ public class HavokXml {
             str = commentRegex.Replace( str, "" );
 
             var floats = str.Split( " " )
-                .Select( x => x.Trim() )
-                .Where( x => !string.IsNullOrWhiteSpace( x ) )
-                .Select( x => x[ 1.. ] )
-                .Select( x => BitConverter.ToSingle( BitConverter.GetBytes( int.Parse( x, NumberStyles.HexNumber ) ) ) );
+               .Select( x => x.Trim() )
+               .Where( x => !string.IsNullOrWhiteSpace( x ) )
+               .Select( x => x[ 1.. ] )
+               .Select( x => BitConverter.ToSingle( BitConverter.GetBytes( int.Parse( x, NumberStyles.HexNumber ) ) ) );
 
             referencePoseArr[ i ] = floats.ToArray();
 
@@ -58,16 +58,16 @@ public class HavokXml {
 
     public int[] GetParentIndicies() {
         var parentIndicies = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "parentIndices" )
-            .ToArray()[ 0 ];
+           .Cast< XmlElement >()
+           .Where( x => x.GetAttribute( "name" ) == "parentIndices" )
+           .ToArray()[ 0 ];
 
         var parentIndiciesArr = new int[int.Parse( parentIndicies.GetAttribute( "size" ) )];
 
         var parentIndiciesStr = parentIndicies.InnerText.Split( "\n" )
-            .Select( x => x.Trim() )
-            .Where( x => !string.IsNullOrWhiteSpace( x ) )
-            .ToArray();
+           .Select( x => x.Trim() )
+           .Where( x => !string.IsNullOrWhiteSpace( x ) )
+           .ToArray();
 
         var i = 0;
         for( var j = 0; j < parentIndiciesStr.Length; j++ ) {
@@ -83,17 +83,17 @@ public class HavokXml {
 
     public string[] GetBoneNames() {
         var bonesObj = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "bones" )
-            .ToArray()[ 0 ];
+           .Cast< XmlElement >()
+           .Where( x => x.GetAttribute( "name" ) == "bones" )
+           .ToArray()[ 0 ];
 
         var bones = new string[int.Parse( bonesObj.GetAttribute( "size" ) )];
 
         var boneNames = bonesObj.GetElementsByTagName( "struct" )
-            .Cast< XmlElement >()
-            .Select( x => x.GetElementsByTagName( "string" )
-                .Cast< XmlElement >()
-                .First( y => y.GetAttribute( "name" ) == "name" ) );
+           .Cast< XmlElement >()
+           .Select( x => x.GetElementsByTagName( "string" )
+               .Cast< XmlElement >()
+               .First( y => y.GetAttribute( "name" ) == "name" ) );
 
         var i = 0;
         foreach( var boneName in boneNames ) {

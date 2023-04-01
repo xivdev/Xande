@@ -1,4 +1,4 @@
-﻿using Dalamud.Game.Command;
+using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Xande.TestPlugin.Windows;
@@ -22,7 +22,7 @@ public class Plugin : IDalamudPlugin {
         _windowSystem.AddWindow( _mainWindow );
 
         Service.CommandManager.AddHandler( "/xande", new CommandInfo( OnCommand ) {
-            HelpMessage = "Open the test menu"
+            HelpMessage = "Open the test menu",
         } );
 
         Service.PluginInterface.UiBuilder.Draw         += DrawUi;

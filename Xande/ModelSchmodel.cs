@@ -1,21 +1,16 @@
-﻿using System.Drawing;
-using System.Drawing.Drawing2D;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO.Compression;
 using System.Numerics;
-using Dalamud.Game;
 using Dalamud.Logging;
 using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
-using Lumina.Data.Parsing.Uld;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
-using SharpGLTF.Runtime;
 using SharpGLTF.Scenes;
-using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
 using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
@@ -25,7 +20,7 @@ namespace Xande;
 public class ModelSchmodel {
     public string THE_PATH = string.Empty;
 
-    string[] PerchPaths( string path, string extension ) {
+    private string[] PerchPaths( string path, string extension ) {
         var paths = new List< string >();
 
         using var fileStream   = File.OpenRead( path );
@@ -34,22 +29,20 @@ public class ModelSchmodel {
 
         while( !streamReader.EndOfStream ) {
             var s = streamReader.ReadLine();
-            if( s.EndsWith( extension ) ) {
-                paths.Add( s );
-            }
+            if( s.EndsWith( extension ) ) { paths.Add( s ); }
         }
 
         return paths.ToArray();
     }
 
-    GameData Lumina;
+    private GameData Lumina;
 
-    Model GetModel( string path ) {
+    private Model GetModel( string path ) {
         var mdlFile = Lumina.GetFile< MdlFile >( path );
         return new Model( mdlFile );
     }
 
-    Lumina.Models.Materials.Material GetMaterial( Lumina.Models.Materials.Material material ) {
+    private Lumina.Models.Materials.Material GetMaterial( Lumina.Models.Materials.Material material ) {
         var path = material.ResolvedPath ?? material.MaterialPath;
 
         var mtrlFile = Lumina.GetFile< MtrlFile >( path );
@@ -57,7 +50,7 @@ public class ModelSchmodel {
         return new Lumina.Models.Materials.Material( mtrlFile );
     }
 
-    string SaveTexture( Lumina.Models.Materials.Texture texture ) {
+    private string SaveTexture( Lumina.Models.Materials.Texture texture ) {
         var texfile = Lumina.GetFile< TexFile >( texture.TexturePath );
 
         var    texbuffer = texfile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
@@ -69,12 +62,12 @@ public class ModelSchmodel {
         }
 
         var convpath = texture.TexturePath.Substring( texture.TexturePath.LastIndexOf( "/" ) + 1 ) + ".png";
-        png.Save( THE_PATH + convpath );
+        png.Save( THE_PATH                                                                         + convpath );
 
         return convpath;
     }
 
-    Bitmap GetTextureBuffer( Lumina.Models.Materials.Texture texture ) {
+    private Bitmap GetTextureBuffer( Lumina.Models.Materials.Texture texture ) {
         var texfile = Lumina.GetFile< TexFile >( texture.TexturePath );
 
         var    texbuffer = texfile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
@@ -117,26 +110,21 @@ VertexPosition
 */
 
 
-    byte UInt16To8BitColour( UInt16 s ) {
-        return ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Floor( ( float )BitConverter.UInt16BitsToHalf( s ) * 256 ) ) );
-    }
+    private byte UInt16To8BitColour( ushort s ) => ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Floor( ( float )BitConverter.UInt16BitsToHalf( s ) * 256 ) ) );
 
-    Color ColourBlend( byte XR, byte XG, byte XB, byte YR, byte YG, byte YB, byte A, double XBlendScalar ) {
-        return Color.FromArgb(
+    private Color ColourBlend( byte XR, byte XG, byte XB, byte YR, byte YG, byte YB, byte A, double XBlendScalar )
+        => Color.FromArgb(
             A,
             ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YR * XBlendScalar + XR * ( 1 - XBlendScalar ) ) ) ),
             ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YG * XBlendScalar + XG * ( 1 - XBlendScalar ) ) ) ),
             ( byte )Math.Max( 0, Math.Min( 255, ( int )Math.Round( YB * XBlendScalar + XB * ( 1 - XBlendScalar ) ) ) )
         );
-    }
 
 
-    unsafe void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Models.Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
+    private unsafe void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
         var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
-        foreach( var xivTexture in xivMaterial.Textures ) {
-            xivTextureMap.Add( xivTexture.TextureUsageRaw, GetTextureBuffer( xivTexture ) );
-        }
+        foreach( var xivTexture in xivMaterial.Textures ) { xivTextureMap.Add( xivTexture.TextureUsageRaw, GetTextureBuffer( xivTexture ) ); }
 
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
@@ -150,10 +138,10 @@ VertexPosition
                         var normalPixel = normal.GetPixel( x, y );
 
                         //var b = (Math.Clamp(normalPixel.B, (byte)0, (byte)128) * 255) / 128;
-                        var colorSetIndex1 = ( normalPixel.A / 17 ) * 16;
-                        var colorSetBlend  = ( normalPixel.A % 17 ) / 17.0;
+                        var colorSetIndex1 = normalPixel.A / 17 * 16;
+                        var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
-                        var colorSetIndexT2 = ( normalPixel.A / 17 );
+                        var colorSetIndexT2 = normalPixel.A                                        / 17;
                         var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
@@ -204,8 +192,7 @@ VertexPosition
                 //glTFMaterial.WithChannelImage(KnownChannel.SpecularFactor, 1.0);
             }
 
-            if( xivTextureMap.TryGetValue( TextureUsage.SamplerMask, out var mask ) &&
-               xivTextureMap.TryGetValue( TextureUsage.SamplerSpecular, out var specularMap ) ) {
+            if( xivTextureMap.TryGetValue( TextureUsage.SamplerMask, out var mask ) && xivTextureMap.TryGetValue( TextureUsage.SamplerSpecular, out var specularMap ) ) {
                 var occlusion = ( Bitmap )mask.Clone();
 
                 for( var x = 0; x < mask.Width; x++ ) {
@@ -241,13 +228,13 @@ VertexPosition
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.BaseColor, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                              + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Normal, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
@@ -259,17 +246,17 @@ VertexPosition
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Occlusion, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Emissive, THE_PATH + texturePath );
                     break;
                 default:
                     PluginLog.Log( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
-                    PluginLog.Log( xivTexture.Value.ToString() );
+                    PluginLog.Log( xivTexture.Value.ToString() ?? string.Empty );
                     break;
             }
 
@@ -317,9 +304,7 @@ VertexPosition
             var affineTransform = new AffineTransform( scale, rotation, translation );
             bone.SetLocalTransform( affineTransform, false );
 
-            if( i == 0 ) {
-                boneRoot = bone;
-            }
+            if( i == 0 ) { boneRoot = bone; }
             else {
                 var boneRootID = parentIndicies[ i ];
                 var parent     = boneMap[ boneRootID ];
@@ -333,9 +318,7 @@ VertexPosition
 
         var glTFScene = new SceneBuilder( path );
         foreach( var xivMesh in xivModel.Meshes ) {
-            if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) {
-                continue;
-            }
+            if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) { continue; }
 
             xivMesh.Material.Update( Lumina );
             var xivMaterial  = GetMaterial( xivMesh.Material );
@@ -350,14 +333,14 @@ VertexPosition
             var glTFMesh = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), TvG, TvM, TvS ),
                 string.Empty );
             var glTFPrimitive = glTFMesh.UsePrimitive( glTFMaterial );
-            for( int i = 0; i < xivMesh.Indices.Length; i += 3 ) {
+            for( var i = 0; i < xivMesh.Indices.Length; i += 3 ) {
                 var triangle = new Vertex[] {
                     xivMesh.Vertices[ xivMesh.Indices[ i + 0 ] ],
                     xivMesh.Vertices[ xivMesh.Indices[ i + 1 ] ],
-                    xivMesh.Vertices[ xivMesh.Indices[ i + 2 ] ]
+                    xivMesh.Vertices[ xivMesh.Indices[ i + 2 ] ],
                 };
 
-                var vertexBuilderType = ( typeof( VertexBuilder< ,, > ) ).MakeGenericType( TvG, TvM, TvS );
+                var vertexBuilderType = typeof( VertexBuilder< ,, > ).MakeGenericType( TvG, TvM, TvS );
 
                 var vertexBuilderParams = new List< object >[3];
                 var vertexTvGParams     = new List< object >[3];
@@ -395,7 +378,7 @@ VertexPosition
                                 vertex.Tangent1.Value.Y,
                                 vertex.Tangent1.Value.Z,
                                 // Tangent W should be 1 or -1, but sometimes XIV has their -1 as 0?
-                                ( vertex.Tangent1.Value.W ) == 1 ? vertex.Tangent1.Value.W : -1
+                                vertex.Tangent1.Value.W == 1 ? vertex.Tangent1.Value.W : -1
                             )
                         );
                     }
@@ -451,27 +434,22 @@ VertexPosition
 
         var glTFModel = glTFScene.ToGltf2();
         //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
-        glTFModel.SaveGLB( THE_PATH + "mesh.glb" );
+        glTFModel.SaveGLB( THE_PATH  + "mesh.glb" );
         glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
     }
 
     public static class VertexUtil {
-        public static Type GetVertexGeometryType( Vertex[] vertex ) {
-            return ( vertex[ 0 ].Tangent1 != null ) ? typeof( VertexPositionNormalTangent ) :
-                ( vertex[ 0 ].Normal != null )      ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
-        }
+        public static Type GetVertexGeometryType( Vertex[] vertex )
+            => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
+                vertex[ 0 ].Normal  != null ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
         public static Type GetVertexMaterialType( Vertex[] vertex ) {
             var hasColor = vertex[ 0 ].Color != null;
-            var hasUV    = vertex[ 0 ].UV != null;
+            var hasUV    = vertex[ 0 ].UV    != null;
 
-            if( hasColor && hasUV ) {
-                return typeof( VertexColor1Texture1 );
-            }
+            if( hasColor && hasUV ) { return typeof( VertexColor1Texture1 ); }
 
-            if( !hasColor && hasUV ) {
-                return typeof( VertexTexture1 );
-            }
+            if( !hasColor && hasUV ) { return typeof( VertexTexture1 ); }
 
             return typeof( VertexColor1 );
         }

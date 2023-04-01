@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using FFXIVClientStructs.Havok;
 
 // ReSharper disable EnumUnderlyingTypeIsInt
@@ -14,17 +14,16 @@ internal enum hkSerializeUtil_SaveOptionBits :
     SAVE_TEXT_FORMAT               = 0x1,
     SAVE_SERIALIZE_IGNORED_MEMBERS = 0x2,
     SAVE_WRITE_ATTRIBUTES          = 0x4,
-    SAVE_CONCISE                   = 0x8
+    SAVE_CONCISE                   = 0x8,
 }
 
 internal enum hkSerializeUtil_LoadOptionBits : int {
     LOAD_DEFAULT            = 0,
     LOAD_FAIL_IF_VERSIONING = 1,
-    LOAD_FORCED             = 2
+    LOAD_FORCED             = 2,
 }
 
 internal struct hkTypeInfoRegistry { }
-
 internal struct hkClassNameRegistry { }
 
 [StructLayout( LayoutKind.Explicit, Size = 0x18 )]
