@@ -1,9 +1,14 @@
 using System.Drawing;
+using Lumina.Data.Parsing;
 
 namespace Xande;
 
 public static class ColorUtility {
-
+    public enum TextureType {
+        Diffuse  = 0,
+        Specular = 4,
+        Emissive = 8,
+    };
 
     /// <summary> Convert a half-width float given as ushort to a byte value. </summary>
     public static byte HalfToByte( ushort s ) => ( byte )Math.Clamp( Convert.ToInt32( ( float )BitConverter.UInt16BitsToHalf( s ) * 256 ), 0, byte.MaxValue );
@@ -18,5 +23,17 @@ public static class ColorUtility {
             Blend( r1, r2, blendScalar ),
             Blend( g1, g2, blendScalar ),
             Blend( b1, b2, blendScalar )
+        );
+
+    public static unsafe Color BlendColorSet( in ColorSetInfo info, int colorSetIndex1, int colorSetIndex2, byte alpha, double scalar, TextureType type )
+        => Blend(
+            HalfToByte( info.Data[ colorSetIndex1 + ( int )type ] ),
+            HalfToByte( info.Data[ colorSetIndex1 + ( int )type + 1 ] ),
+            HalfToByte( info.Data[ colorSetIndex1 + ( int )type + 2 ] ),
+            HalfToByte( info.Data[ colorSetIndex2 + ( int )type ] ),
+            HalfToByte( info.Data[ colorSetIndex2 + ( int )type + 1 ] ),
+            HalfToByte( info.Data[ colorSetIndex2 + ( int )type + 2 ] ),
+            alpha,
+            scalar
         );
 }

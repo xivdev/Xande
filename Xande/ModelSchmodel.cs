@@ -91,38 +91,12 @@ VertexPosition
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
 
-                        var diffuseBlendColour = ColorUtility.Blend(
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 0 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 1 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 2 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 0 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 1 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 2 ] ),
-                            normalPixel.B,
-                            colorSetBlend
-                        );
-
-                        var specularBlendColour = ColorUtility.Blend(
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 4 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 5 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 6 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 4 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 5 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 6 ] ),
-                            255,
-                            colorSetBlend
-                        );
-
-                        var emissionBlendColour = ColorUtility.Blend(
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 8 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 9 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex1 + 10 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 8 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 9 ] ),
-                            ColorUtility.HalfToByte( xivMaterial.File.ColorSetInfo.Data[ colorSetIndex2 + 10 ] ),
-                            255,
-                            colorSetBlend
-                        );
+                        var diffuseBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, normalPixel.B, colorSetBlend,
+                            ColorUtility.TextureType.Diffuse );
+                        var specularBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, 255, colorSetBlend,
+                            ColorUtility.TextureType.Specular );
+                        var emissionBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, 255, colorSetBlend,
+                            ColorUtility.TextureType.Emissive );
 
                         diffuse.SetPixel( x, y, diffuseBlendColour );
                         specular.SetPixel( x, y, specularBlendColour );
@@ -147,9 +121,9 @@ VertexPosition
 
                         specularMap.SetPixel( x, y, Color.FromArgb(
                             specularPixel.A,
-                            ( int )Math.Round( specularPixel.R * Math.Pow( maskPixel.G / 255.0, 2 ) ),
-                            ( int )Math.Round( specularPixel.G * Math.Pow( maskPixel.G / 255.0, 2 ) ),
-                            ( int )Math.Round( specularPixel.B * Math.Pow( maskPixel.G / 255.0, 2 ) )
+                            Convert.ToInt32( specularPixel.R * Math.Pow( maskPixel.G / 255.0, 2 ) ),
+                            Convert.ToInt32( specularPixel.G * Math.Pow( maskPixel.G / 255.0, 2 ) ),
+                            Convert.ToInt32( specularPixel.B * Math.Pow( maskPixel.G / 255.0, 2 ) )
                         ) );
 
                         var occlusionPixel = occlusion.GetPixel( x, y );
