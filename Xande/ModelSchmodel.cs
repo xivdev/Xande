@@ -287,8 +287,7 @@ VertexPosition
                 var vertexBuilderParams = new List< object >[3];
                 var vertexTvGParams     = new List< object >[3];
                 var vertexTvMParams     = new List< object >[3];
-                // (int JointIndex, float Weight)[] bindings)
-                var vertexTvSParams = new List< object >[3];
+                var vertexTvSParams     = new List< object >[3];
 
                 for( var j = 0; j < 3; j++ ) {
                     var vertex    = triangle[ j ];
@@ -356,14 +355,14 @@ VertexPosition
                         for( var k = 0; k < 4; k++ ) {
                             int boneIndex  = vertex.BlendIndices[ k ];
                             var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-
+                            PluginLog.Verbose( "BoneIndex: {boneIndex}, BoneWeight: {boneWeight}", boneIndex, boneWeight );
                             if( boneWeight > 0 ) { bindings.Add( ( boneIndex, boneWeight ) ); }
                         }
 
                         foreach( var binding in bindings ) { TvSParams.Add( binding ); }
                     }
 
-                    PluginLog.Log( "TvSParams: {TvSParams}", TvSParams );
+                    PluginLog.Verbose( "TvSParams: {TvSParams}", TvSParams );
 
                     var TvGVertex = ( IVertexGeometry )Activator.CreateInstance( TvG, TvGParams.ToArray() );
                     var TvMVertex = ( IVertexMaterial )Activator.CreateInstance( TvM, TvMParams.ToArray() );

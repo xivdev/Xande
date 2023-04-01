@@ -32,7 +32,7 @@ public class MainWindow : Window, IDisposable {
 
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
-            
+
             _modelSchmodel.THE_PATH = tempPath + "/";
             _modelSchmodel.Main( _converter );
         }
