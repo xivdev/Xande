@@ -1,11 +1,9 @@
 using System;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO.Compression;
 using System.Numerics;
 using Dalamud.Logging;
 using Lumina;
-using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
@@ -18,44 +16,13 @@ using Mesh = Lumina.Models.Models.Mesh;
 
 namespace Xande;
 
-public class LuminaManager {
-    public readonly GameData GameData;
-
-    public LuminaManager( GameData gameData ) => GameData = gameData;
-
-    public Model GetModel( string path ) {
-        var mdlFile = GameData.GetFile< MdlFile >( path );
-        return mdlFile != null
-            ? new Model( mdlFile )
-            : throw new Exception( $"Lumina was unable to fetch a .mdl file from {path}." );
-    }
-
-    public Lumina.Models.Materials.Material GetMaterial( Lumina.Models.Materials.Material material ) {
-        var path = material.ResolvedPath ?? material.MaterialPath;
-
-        var mtrlFile = GameData.GetFile< MtrlFile >( path );
-        return mtrlFile != null
-            ? new Lumina.Models.Materials.Material( mtrlFile )
-            : throw new Exception( $"Lumina was unable to fetch a .mtrl file from {path}." );
-    }
-
-    public unsafe Bitmap GetTextureBuffer( Lumina.Models.Materials.Texture texture ) {
-        var texFile = GameData.GetFile< TexFile >( texture.TexturePath );
-        if( texFile == null ) throw new Exception( $"Lumina was unable to fetch a .tex file from {texture.TexturePath}." );
-        var texBuffer = texFile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
-        fixed( byte* raw = texBuffer.RawData ) { return new Bitmap( texBuffer.Width, texBuffer.Height, texBuffer.Width * 4, PixelFormat.Format32bppArgb, ( nint )raw ); }
-    }
-
-    public string SaveTexture( string basePath, Lumina.Models.Materials.Texture texture ) {
-        var png      = GetTextureBuffer( texture );
-        var convPath = texture.TexturePath[ ( texture.TexturePath.LastIndexOf( '/' ) + 1 ).. ] + ".png";
-
-        png.Save( basePath + convPath );
-        return convPath;
-    }
-}
-
 public class ModelSchmodel {
+    private readonly LuminaManager _lumina;
+
+    public ModelSchmodel( LuminaManager lumina ) => _lumina = lumina;
+    public ModelSchmodel( GameData gameData ) => _lumina = new LuminaManager( gameData );
+
+
     public string THE_PATH = string.Empty;
 
     private string[] PerchPaths( string path, string extension ) {
@@ -72,9 +39,6 @@ public class ModelSchmodel {
 
         return paths.ToArray();
     }
-
-    private readonly LuminaManager _lumina;
-
 /*
 UV null and Color null => Not happening
 UV not null and Color null => VertexTextureN; N = 1 and 2
@@ -246,10 +210,6 @@ VertexPosition
         }
     }
 
-    public ModelSchmodel( LuminaManager lumina ) => _lumina = lumina;
-    public ModelSchmodel( GameData gameData ) => _lumina = new LuminaManager( gameData );
-
-
     public void Main( HavokConverter converter ) {
         var path       = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
         var skellyPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
@@ -309,8 +269,8 @@ VertexPosition
 
             ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
 
-            var TvG = VertexUtil.GetVertexGeometryType( xivMesh.Vertices );
-            var TvM = VertexUtil.GetVertexMaterialType( xivMesh.Vertices );
+            var TvG = VertexUtility.GetVertexGeometryType( xivMesh.Vertices );
+            var TvM = VertexUtility.GetVertexMaterialType( xivMesh.Vertices );
             var TvS = typeof( VertexEmpty );
 
             var glTFMesh = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), TvG, TvM, TvS ),
@@ -419,22 +379,5 @@ VertexPosition
         //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
         glTFModel.SaveGLB( THE_PATH  + "mesh.glb" );
         glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
-    }
-
-    public static class VertexUtil {
-        public static Type GetVertexGeometryType( Vertex[] vertex )
-            => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
-                vertex[ 0 ].Normal  != null ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
-
-        public static Type GetVertexMaterialType( Vertex[] vertex ) {
-            var hasColor = vertex[ 0 ].Color != null;
-            var hasUV    = vertex[ 0 ].UV    != null;
-
-            if( hasColor && hasUV ) return typeof( VertexColor1Texture1 );
-
-            if( !hasColor && hasUV ) return typeof( VertexTexture1 );
-
-            return typeof( VertexColor1 );
-        }
     }
 }
