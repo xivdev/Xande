@@ -226,11 +226,19 @@ VertexPosition
 
         var boneCount = boneNames.Length;
 
-        NodeBuilder                    boneRoot = null;
-        Dictionary< int, NodeBuilder > boneMap  = new();
+        var stringMap = xivModel.StringOffsetToStringMap
+            .Select( kvp => kvp.Value )
+            .ToArray();
+
+        NodeBuilder boneRoot = null;
+
+        Dictionary< int, NodeBuilder > boneMap      = new();
+        Dictionary< string, int >      nameToIdxMap = new();
 
         for( var i = 0; i < boneCount; i++ ) {
-            var bone       = new NodeBuilder( boneNames[ i ] );
+            var name = boneNames[ i ];
+
+            var bone       = new NodeBuilder( name );
             var refPosData = refPose[ i ];
 
             // Compared with packfile vs tagfile and xivModdingFramework code
@@ -251,15 +259,19 @@ VertexPosition
                 var boneRootID = parentIndicies[ i ];
                 var parent     = boneMap[ boneRootID ];
                 parent.AddNode( bone );
-                PluginLog.Verbose( $"parent: {boneRootID}" );
             }
 
-            boneMap[ i ] = bone;
+            boneMap[ i ]         = bone;
+            nameToIdxMap[ name ] = i;
+
             PluginLog.Verbose( "=====" );
         }
 
         var glTFScene = new SceneBuilder( path );
         foreach( var xivMesh in xivModel.Meshes ) {
+            var boneSet = xivMesh.BoneTable.Select( b => xivModel.StringOffsetToStringMap[ ( int )xivModel.File!.BoneNameOffsets[ b ] ] );
+            PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
+
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
 
             xivMesh.Material.Update( _lumina.GameData );
@@ -351,15 +363,18 @@ VertexPosition
                     }
 
                     if( TvS != typeof( VertexEmpty ) ) {
-                        var bindings = new List< object >();
+                        var bindings = new List< (int, float) >();
                         for( var k = 0; k < 4; k++ ) {
-                            int boneIndex  = vertex.BlendIndices[ k ];
+                            var boneIndex  = vertex.BlendIndices[ k ];
+                            var boneIndex2 = xivMesh.BoneTable[ boneIndex ];
                             var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                            PluginLog.Verbose( "BoneIndex: {boneIndex}, BoneWeight: {boneWeight}", boneIndex, boneWeight );
-                            if( boneWeight > 0 ) { bindings.Add( ( boneIndex, boneWeight ) ); }
+                            bindings.Add( ( boneIndex2, boneWeight ) );
                         }
 
-                        foreach( var binding in bindings ) { TvSParams.Add( binding ); }
+                        foreach( var binding in bindings ) {
+                            PluginLog.Verbose( "Binding: {binding}", binding );
+                            TvSParams.Add( binding );
+                        }
                     }
 
                     PluginLog.Verbose( "TvSParams: {TvSParams}", TvSParams );
@@ -384,8 +399,17 @@ VertexPosition
                 );
             }
 
-            var joints = boneMap.Values.ToArray();
-            glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints );
+            var joints    = new List< NodeBuilder >();
+            var seenBones = new List< string >();
+            foreach( var name in boneSet ) {
+                if( seenBones.Contains( name ) ) break;
+
+                var boneIdx = nameToIdxMap[ name ];
+                var bone    = boneMap[ boneIdx ];
+                joints.Add( bone );
+            }
+
+            glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints.ToArray() );
         }
 
 
