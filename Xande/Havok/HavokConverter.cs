@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using Dalamud.Game;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.Havok;
 
@@ -31,49 +30,38 @@ public unsafe class HavokConverter {
 
     private delegate void hkOstream_DtorDelegate( hkOStream* self );
 
-    private readonly hkSerializeUtil_LoadDelegate hkSerializeUtil_Load;
-    private readonly hkSerializeUtil_SaveDelegate hkSerializeUtil_Save;
-    private readonly hkOstream_CtorDelegate       hkOstream_Ctor;
-    private readonly hkOstream_DtorDelegate       hkOstream_Dtor;
+    [Signature(
+        "40 53 48 83 EC 60 41 0F 10 00 48 8B DA 48 8B D1 F2 41 0F 10 48 ?? 48 8D 4C 24 ?? 0F 29 44 24 ?? F2 0F 11 4C 24 ?? E8 ?? ?? ?? ?? 4C 8D 44 24 ?? 48 8B D3 48 8B 48 10 E8 ?? ?? ?? ?? 48 8D 4C 24 ?? 48 8B D8 E8 ?? ?? ?? ?? 48 8B C3 48 83 C4 60 5B C3 CC CC CC CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 ??" )]
+    private readonly hkSerializeUtil_LoadDelegate hkSerializeUtil_Load = null!;
 
-    private readonly hkClass*               hkRootLevelContainerClass;
+    [Signature( "40 53 48 83 EC 30 8B 44 24 60 48 8B D9 89 44 24 28" )]
+    private readonly hkSerializeUtil_SaveDelegate hkSerializeUtil_Save = null!;
+
+    [Signature(
+        "48 89 5C 24 ?? 57 48 83 EC 20 C7 41 ?? ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 48 89 01 48 8B F9 48 C7 41 ?? ?? ?? ?? ?? 4C 8B C2 48 8B 0D ?? ?? ?? ?? 48 8D 54 24 ?? 41 B9 ?? ?? ?? ?? 48 8B 01 FF 50 28",
+        ScanType = ScanType.Text )]
+    private readonly hkOstream_CtorDelegate hkOstream_Ctor = null!;
+
+    [Signature( "E8 ?? ?? ?? ?? 44 8B 44 24 ?? 4C 8B 7C 24 ??" )]
+    private readonly hkOstream_DtorDelegate hkOstream_Dtor = null!;
+
+    [Signature(
+        "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 83 C4 78 C3 CC CC CC 48 83 EC 78 33 C9 C7 44 24 ?? ?? ?? ?? ?? 89 4C 24 60 48 8D 05 ?? ?? ?? ?? 48 89 4C 24 ?? 48 8D 15 ?? ?? ?? ?? 48 89 4C 24 ?? 45 33 C0 C7 44 24 ?? ?? ?? ?? ?? 44 8D 49 18",
+        ScanType = ScanType.StaticAddress )]
+    private readonly hkClass* hkRootLevelContainerClass = null;
+
+    [Signature( "48 8B 0D ?? ?? ?? ?? 48 8B 01 FF 50 20 4C 8B 0F 48 8B D3 4C 8B C0 48 8B CF 48 8B 5C 24 ?? 48 83 C4 20 5F 49 FF 61 48", ScanType = ScanType.StaticAddress )]
+    private readonly hkBuiltinTypeRegistry** hkBuiltinTypeRegistrySingletonPtr = null;
+
     private readonly hkBuiltinTypeRegistry* hkBuiltinTypeRegistrySingleton;
-
-    private readonly SigScanner sigScanner;
-
-    private T GetDelegate< T >( string sig ) {
-        var addr = sigScanner.ScanText( sig );
-
-        return Marshal.GetDelegateForFunctionPointer< T >( addr );
-    }
 
     /// <summary>
     /// Constructs a new HavokConverter instance.
     /// </summary>
-    /// <param name="sigScanner">A SigScanner, usually initialized as a Dalamud plugin service.</param>
     /// <exception cref="KeyNotFoundException">Thrown if signatures fail to match. Signatures were last checked on game version 2023.02.28.0000.0000.</exception>
-    public HavokConverter( SigScanner sigScanner ) {
-        this.sigScanner = sigScanner;
-
-        hkSerializeUtil_Load = GetDelegate< hkSerializeUtil_LoadDelegate >(
-            "40 53 48 83 EC 60 41 0F 10 00 48 8B DA 48 8B D1 F2 41 0F 10 48 ?? 48 8D 4C 24 ?? 0F 29 44 24 ?? F2 0F 11 4C 24 ?? E8 ?? ?? ?? ?? 4C 8D 44 24 ?? 48 8B D3 48 8B 48 10 E8 ?? ?? ?? ?? 48 8D 4C 24 ?? 48 8B D8 E8 ?? ?? ?? ?? 48 8B C3 48 83 C4 60 5B C3 CC CC CC CC CC CC CC CC CC CC CC CC CC CC 48 89 5C 24 ??"
-        );
-        hkSerializeUtil_Save = GetDelegate< hkSerializeUtil_SaveDelegate >(
-            "40 53 48 83 EC 30 8B 44 24 60 48 8B D9 89 44 24 28"
-        );
-        hkOstream_Ctor = GetDelegate< hkOstream_CtorDelegate >(
-            "48 89 5C 24 ?? 57 48 83 EC 20 C7 41 ?? ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 48 89 01 48 8B F9 48 C7 41 ?? ?? ?? ?? ?? 4C 8B C2 48 8B 0D ?? ?? ?? ?? 48 8D 54 24 ?? 41 B9 ?? ?? ?? ?? 48 8B 01 FF 50 28"
-        );
-        hkOstream_Dtor = GetDelegate< hkOstream_DtorDelegate >(
-            "E8 ?? ?? ?? ?? 44 8B 44 24 ?? 4C 8B 7C 24 ??"
-        );
-
-        hkRootLevelContainerClass = ( hkClass* )this.sigScanner.GetStaticAddressFromSig(
-            "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 83 C4 78 C3 CC CC CC 48 83 EC 78 33 C9 C7 44 24 ?? ?? ?? ?? ?? 89 4C 24 60 48 8D 05 ?? ?? ?? ?? 48 89 4C 24 ?? 48 8D 15 ?? ?? ?? ?? 48 89 4C 24 ?? 45 33 C0 C7 44 24 ?? ?? ?? ?? ?? 44 8D 49 18"
-        );
-        hkBuiltinTypeRegistrySingleton = *( hkBuiltinTypeRegistry** )this.sigScanner.GetStaticAddressFromSig(
-            "48 8B 0D ?? ?? ?? ?? 48 8B 01 FF 50 20 4C 8B 0F 48 8B D3 4C 8B C0 48 8B CF 48 8B 5C 24 ?? 48 83 C4 20 5F 49 FF 61 48"
-        );
+    public HavokConverter() {
+        SignatureHelper.Initialise( this );
+        hkBuiltinTypeRegistrySingleton = *hkBuiltinTypeRegistrySingletonPtr;
     }
 
     /// <summary>
@@ -100,11 +88,11 @@ public unsafe class HavokConverter {
         var resource = Read( tempHkx );
         File.Delete( tempHkx );
 
-        if( resource == null ) { throw new Exceptions.HavokReadException(); }
+        if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-            | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
-            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+          | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
+          | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
@@ -129,10 +117,10 @@ public unsafe class HavokConverter {
         var resource = Read( tempXml );
         File.Delete( tempXml );
 
-        if( resource == null ) { throw new Exceptions.HavokReadException(); }
+        if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+          | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
@@ -196,12 +184,13 @@ public unsafe class HavokConverter {
                     resource, n, hkBuiltinTypeRegistrySingleton->vtbl->GetTypeInfoRegistry( hkBuiltinTypeRegistrySingleton ) );
             }
 
-            if( resourcePtr == null ) { throw new Exceptions.HavokWriteException(); }
+            if( resourcePtr == null ) throw new Exceptions.HavokWriteException();
 
             hkSerializeUtil_Save( result, resourcePtr, hkRootLevelContainerClass, oStream->m_writer.ptr, options );
-        } finally { hkOstream_Dtor( oStream ); }
+        }
+        finally { hkOstream_Dtor( oStream ); }
 
-        if( result->Result == hkResult.hkResultEnum.Failure ) { throw new Exceptions.HavokFailureException(); }
+        if( result->Result == hkResult.hkResultEnum.Failure ) throw new Exceptions.HavokFailureException();
 
         return new FileStream( tempFile, FileMode.Open );
     }

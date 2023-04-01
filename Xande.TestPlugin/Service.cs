@@ -18,7 +18,4 @@ public class Service {
 
     [PluginService]
     public static CommandManager CommandManager { get; private set; } = null!;
-
-    [PluginService]
-    public static SigScanner SigScanner { get; private set; } = null!;
 }

@@ -13,7 +13,7 @@ public class MainWindow : Window, IDisposable {
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
-        _converter         = new HavokConverter(Service.SigScanner);
+        _converter         = new HavokConverter();
 
         SizeConstraints = new WindowSizeConstraints {
             MinimumSize = new Vector2( 375, 350 ),
