@@ -86,7 +86,7 @@ VertexPosition
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
                         var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
-                        var colorSetIndexT2 = normalPixel.A                                        / 17;
+                        var colorSetIndexT2 = normalPixel.A / 17;
                         var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
@@ -173,13 +173,13 @@ VertexPosition
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.BaseColor, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                              + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Normal, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
@@ -191,12 +191,12 @@ VertexPosition
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Occlusion, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Emissive, THE_PATH + texturePath );
                     break;
                 default:
@@ -270,7 +270,7 @@ VertexPosition
 
             var TvG = VertexUtility.GetVertexGeometryType( xivMesh.Vertices );
             var TvM = VertexUtility.GetVertexMaterialType( xivMesh.Vertices );
-            var TvS = typeof( VertexEmpty );
+            var TvS = VertexUtility.GetVertexSkinningType( xivMesh.Vertices );
 
             var glTFMesh = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), TvG, TvM, TvS ),
                 string.Empty );
@@ -287,12 +287,15 @@ VertexPosition
                 var vertexBuilderParams = new List< object >[3];
                 var vertexTvGParams     = new List< object >[3];
                 var vertexTvMParams     = new List< object >[3];
+                // (int JointIndex, float Weight)[] bindings)
+                var vertexTvSParams = new List< object >[3];
 
                 for( var j = 0; j < 3; j++ ) {
                     var vertex    = triangle[ j ];
                     var vbParams  = vertexBuilderParams[ j ] = new List< object >();
                     var TvGParams = vertexTvGParams[ j ] = new List< object >();
                     var TvMParams = vertexTvMParams[ j ] = new List< object >();
+                    var TvSParams = vertexTvSParams[ j ] = new List< object >();
 
                     TvGParams.Add(
                         new Vector3(
@@ -348,12 +351,27 @@ VertexPosition
                         );
                     }
 
+                    if( TvS != typeof( VertexEmpty ) ) {
+                        var bindings = new List< object >();
+                        for( var k = 0; k < 4; k++ ) {
+                            int boneIndex  = vertex.BlendIndices[ k ];
+                            var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
+
+                            if( boneWeight > 0 ) { bindings.Add( ( boneIndex, boneWeight ) ); }
+                        }
+
+                        foreach( var binding in bindings ) { TvSParams.Add( binding ); }
+                    }
+
+                    PluginLog.Log( "TvSParams: {TvSParams}", TvSParams );
+
                     var TvGVertex = ( IVertexGeometry )Activator.CreateInstance( TvG, TvGParams.ToArray() );
                     var TvMVertex = ( IVertexMaterial )Activator.CreateInstance( TvM, TvMParams.ToArray() );
+                    var TvSVertex = ( IVertexSkinning )Activator.CreateInstance( TvS, TvSParams.ToArray() );
 
                     vbParams.Add( TvGVertex );
                     vbParams.Add( TvMVertex );
-                    vbParams.Add( new VertexEmpty() );
+                    vbParams.Add( TvSVertex );
                 }
 
                 var vertexBuilderA = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 0 ].ToArray() );
@@ -376,7 +394,7 @@ VertexPosition
 
         var glTFModel = glTFScene.ToGltf2();
         //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
-        glTFModel.SaveGLB( THE_PATH  + "mesh.glb" );
+        glTFModel.SaveGLB( THE_PATH + "mesh.glb" );
         glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
     }
 }

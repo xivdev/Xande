@@ -13,7 +13,7 @@ public class MainWindow : Window, IDisposable {
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
-        _converter         = new HavokConverter();
+        _converter         = new HavokConverter(Service.SigScanner);
 
         SizeConstraints = new WindowSizeConstraints {
             MinimumSize = new Vector2( 375, 350 ),
@@ -32,7 +32,7 @@ public class MainWindow : Window, IDisposable {
 
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
-
+            
             _modelSchmodel.THE_PATH = tempPath + "/";
             _modelSchmodel.Main( _converter );
         }
