@@ -1,6 +1,4 @@
 using System.Drawing;
-using System.IO.Compression;
-using System.Linq;
 using System.Numerics;
 using Dalamud.Logging;
 using Lumina;
@@ -10,6 +8,7 @@ using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
+using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
 using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
@@ -27,26 +26,22 @@ public static class ModelExtensions {
 public class ModelSchmodel {
     private readonly LuminaManager _lumina;
 
-    public ModelSchmodel( LuminaManager lumina ) => _lumina = lumina;
-    public ModelSchmodel( GameData gameData ) => _lumina = new LuminaManager( gameData );
+    private readonly HavokConverter _converter;
 
+    // TODO: no
+    private string _outputDir = string.Empty;
 
-    public string THE_PATH = string.Empty;
-
-    private string[] PerchPaths( string path, string extension ) {
-        var paths = new List< string >();
-
-        using var fileStream   = File.OpenRead( path );
-        using var gzipStream   = new GZipStream( fileStream, CompressionMode.Decompress );
-        using var streamReader = new StreamReader( gzipStream );
-
-        while( !streamReader.EndOfStream ) {
-            var s = streamReader.ReadLine();
-            if( s.EndsWith( extension ) ) paths.Add( s );
-        }
-
-        return paths.ToArray();
+    public ModelSchmodel( LuminaManager lumina, HavokConverter converter ) {
+        _lumina    = lumina;
+        _converter = converter;
     }
+
+    public ModelSchmodel( GameData gameData, HavokConverter converter ) {
+        _lumina    = new LuminaManager( gameData );
+        _converter = converter;
+    }
+
+
     /*
     UV null and Color null => Not happening
     UV not null and Color null => VertexTextureN; N = 1 and 2
@@ -156,31 +151,31 @@ public class ModelSchmodel {
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
-                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, THE_PATH + texturePath );
+                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, Path.Combine( _outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
-                    glTFMaterial.WithChannelImage( KnownChannel.Normal, THE_PATH + texturePath );
+                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Normal, Path.Combine( _outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
                 case TextureUsage.SamplerSpecular:
                     texturePath = $"specular_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
                     //glTFMaterial.WithChannelImage(KnownChannel.SpecularColor, texturePath);
-                    glTFMaterial.WithSpecularColor( THE_PATH + texturePath );
+                    glTFMaterial.WithSpecularColor( Path.Combine( _outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
-                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, THE_PATH + texturePath );
+                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, Path.Combine( _outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
-                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, THE_PATH + texturePath );
+                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, Path.Combine( _outputDir, texturePath ) );
                     break;
                 default:
                     PluginLog.Log( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
@@ -229,7 +224,9 @@ public class ModelSchmodel {
         return boneMap;
     }
 
-    public void Main( HavokConverter converter ) {
+    public void Main( string outputDirectory ) {
+        _outputDir = outputDirectory;
+
         var path       = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
         var skellyPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
         var xivModel   = _lumina.GetModel( path );
@@ -237,7 +234,7 @@ public class ModelSchmodel {
         var skellyData   = _lumina.GameData.GetFile( skellyPath ).Data;
         var skellyStream = new MemoryStream( skellyData );
         var skelly       = SklbFile.FromStream( skellyStream );
-        var xmlStr       = converter.HkxToXml( skelly.HkxData );
+        var xmlStr       = _converter.HkxToXml( skelly.HkxData );
         var xml          = new HavokXml( xmlStr );
 
         var boneMap = GetBoneMap( xml, out var boneRoot );
@@ -392,8 +389,8 @@ public class ModelSchmodel {
         glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
-        //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
-        glTFModel.SaveGLB( THE_PATH + "mesh.glb" );
-        glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
+        glTFModel.SaveAsWavefront( Path.Combine( _outputDir, "mesh.obj" ) );
+        glTFModel.SaveGLB( Path.Combine( _outputDir, "mesh.glb" ) );
+        glTFModel.SaveGLTF( Path.Combine( _outputDir, "mesh.gltf" ) );
     }
 }

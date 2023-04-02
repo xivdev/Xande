@@ -20,7 +20,7 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _modelSchmodel = new ModelSchmodel(Service.DataManager.GameData);
+        _modelSchmodel = new ModelSchmodel( Service.DataManager.GameData, _converter );
     }
 
     public override void Draw() {
@@ -33,8 +33,7 @@ public class MainWindow : Window, IDisposable {
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
 
-            _modelSchmodel.THE_PATH = tempPath + "/";
-            _modelSchmodel.Main( _converter );
+            _modelSchmodel.Main( tempPath );
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {
