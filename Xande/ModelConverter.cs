@@ -224,10 +224,10 @@ public class ModelConverter {
         return boneMap;
     }
 
-    public void Main( string outputDirectory ) {
+    public void ExportModel( string outputDirectory, string path ) {
         _outputDir = outputDirectory;
 
-        var path       = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
+        // TODO: unhardcode
         var skellyPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
         var xivModel   = _lumina.GetModel( path );
 

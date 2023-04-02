@@ -33,7 +33,8 @@ public class MainWindow : Window, IDisposable {
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
 
-            _modelConverter.Main( tempPath );
+            var mdlPath = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
+            _modelConverter.ExportModel(tempPath, mdlPath);
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {

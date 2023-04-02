@@ -1,6 +1,6 @@
 # Xande
 
-Xande is a (WIP) C# library meant to be used in Dalamud plugins for interacting with FINAL FANTASY XIV models. It is able to parse Havok files (`.hkx`, `.xml`) using functions in the client, and (soon:tm:) perform model imports/exports.
+Xande is a (WIP) C# library meant to be used in Dalamud plugins for interacting with FINAL FANTASY XIV models. It is able to parse Havok files (`.hkx`, `.xml`) using functions in the client, and perform model exports (imports WIP).
 
 Xande was made possible thanks to:
 
@@ -15,6 +15,7 @@ Xande was made possible thanks to:
   - Helping investigate Havok information in the client
 - [goatcorp](https://github.com/goatcorp)
   - Making [Dalamud](https://github.com/goatcorp/Dalamud)
+- Various mod makers in the [Penumbra Discord server](https://discord.gg/kVva7DHV4r) for examining model exports
 
 ## Installation & Usage
 
@@ -52,6 +53,17 @@ sklb.ReplaceHkxData(hkx);
 var writeStream = new MemoryStream();
 sklb.Write(writeStream);
 File.WriteAllBytes("skl_c0101b0001.sklb", writeStream.ToArray());
+```
+
+To export a model:
+
+```csharp
+var havokConverter = new HavokConverter();
+var modelConverter = new ModelConverter(DataManager.GameData, havokConverter);
+
+var outputDir = Path.Combine(Path.GetTempPath(), "XandeModelExport");
+var mdlPath = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
+modelConverter.ConvertModel(outputDir, mdlPath);
 ```
 
 ## Safety
