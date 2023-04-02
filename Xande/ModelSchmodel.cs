@@ -95,7 +95,7 @@ public class ModelSchmodel {
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
                         var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
-                        var colorSetIndexT2 = normalPixel.A                                        / 17;
+                        var colorSetIndexT2 = normalPixel.A / 17;
                         var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
@@ -156,13 +156,13 @@ public class ModelSchmodel {
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.BaseColor, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                              + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Normal, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
@@ -174,12 +174,12 @@ public class ModelSchmodel {
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Occlusion, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( THE_PATH                                + texturePath );
+                    xivTexture.Value.Save( THE_PATH + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Emissive, THE_PATH + texturePath );
                     break;
                 default:
@@ -201,29 +201,29 @@ public class ModelSchmodel {
         root = null;
 
         for( var i = 0; i < boneNames.Length; i++ ) {
-            var name = boneNames[i];
+            var name = boneNames[ i ];
 
             var bone       = new NodeBuilder( name );
-            var refPosData = refPose[i];
+            var refPosData = refPose[ i ];
 
             // Compared with packfile vs tagfile and xivModdingFramework code
-            var translation = new Vector3( refPosData[0], refPosData[1], refPosData[2] );
-            var rotation    = new Quaternion( refPosData[4], refPosData[5], refPosData[6], refPosData[7] );
-            var scale       = new Vector3( refPosData[8], refPosData[9], refPosData[10] );
+            var translation = new Vector3( refPosData[ 0 ], refPosData[ 1 ], refPosData[ 2 ] );
+            var rotation    = new Quaternion( refPosData[ 4 ], refPosData[ 5 ], refPosData[ 6 ], refPosData[ 7 ] );
+            var scale       = new Vector3( refPosData[ 8 ], refPosData[ 9 ], refPosData[ 10 ] );
 
             PluginLog.Verbose( $"{i}: {translation} - {rotation} - {scale}" );
 
             var affineTransform = new AffineTransform( scale, rotation, translation );
             bone.SetLocalTransform( affineTransform, false );
 
-            var boneRootId = parentIndicies[i];
+            var boneRootId = parentIndicies[ i ];
             if( boneRootId == -1 ) { root = bone; }
             else {
-                var parent = boneMap[boneNames[boneRootId]];
+                var parent = boneMap[ boneNames[ boneRootId ] ];
                 parent.Item1.AddNode( bone );
             }
 
-            boneMap[name] = (bone, i);
+            boneMap[ name ] = ( bone, i );
         }
 
         return boneMap;
@@ -243,13 +243,23 @@ public class ModelSchmodel {
         var boneMap = GetBoneMap( xml, out var boneRoot );
 
         var glTFScene = new SceneBuilder( path );
-        foreach( var xivMesh in xivModel.Meshes ) {
-            var boneSet = xivMesh.BoneTable();
-            PluginLog.Verbose( "Bone set: {boneSet}", string.Join( ", ", boneSet ) );
 
+        foreach( var xivMesh in xivModel.Meshes ) {
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
 
-            var joints = boneSet.Select( n => boneMap[n].Item1 ).ToArray();
+            var boneSet       = xivMesh.BoneTable();
+            var boneSetJoints = boneSet.Select( n => boneMap[ n ].Item1 ).ToArray();
+            var joints        = boneMap.Values.Select( x => x.Item1 ).ToArray();
+
+            var jointIDMapping = new Dictionary< int, int >();
+            for( var i = 0; i < boneSetJoints.Length; i++ ) {
+                var jointName = boneSetJoints[ i ].Name;
+                var jointID   = joints.Select( ( x, j ) => ( x, j ) ).First( x => x.x.Name == jointName ).j;
+                jointIDMapping[ i ] = jointID;
+            }
+
+            PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
+            PluginLog.Verbose( "Joints ({count}): {joints}", joints.Length, joints.Select( x => x.Name ) );
 
             xivMesh.Material.Update( _lumina.GameData );
             var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
@@ -342,9 +352,10 @@ public class ModelSchmodel {
                     if( TvS != typeof( VertexEmpty ) ) {
                         var bindings = new List< (int, float) >();
                         for( var k = 0; k < 4; k++ ) {
-                            var boneIndex  = vertex.BlendIndices[ k ];
-                            var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                            if( boneWeight != 0 ) { bindings.Add( ( boneIndex, boneWeight ) ); }
+                            var boneIndex       = vertex.BlendIndices[ k ];
+                            var mappedBoneIndex = jointIDMapping[ boneIndex ];
+                            var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
+                            bindings.Add( ( mappedBoneIndex, boneWeight ) );
                         }
 
                         foreach( var binding in bindings ) {
@@ -375,16 +386,14 @@ public class ModelSchmodel {
                 );
             }
 
-
             glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints );
         }
-
 
         glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
         //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
-        glTFModel.SaveGLB( THE_PATH  + "mesh.glb" );
+        glTFModel.SaveGLB( THE_PATH + "mesh.glb" );
         glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
     }
 }
