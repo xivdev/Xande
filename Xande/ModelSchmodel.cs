@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.IO.Compression;
+using System.Linq;
 using System.Numerics;
 using Dalamud.Logging;
 using Lumina;
@@ -14,6 +15,14 @@ using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
 
 namespace Xande;
+
+public static class ModelExtensions {
+    public static string[] BoneTable( this Mesh mesh ) {
+        var rawMesh  = mesh.Parent.File!.Meshes[ mesh.MeshIndex ];
+        var rawTable = mesh.Parent.File!.BoneTables[ rawMesh.BoneTableIndex ];
+        return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[ ( int )mesh.Parent.File!.BoneNameOffsets[ b ] ] ).ToArray();
+    }
+}
 
 public class ModelSchmodel {
     private readonly LuminaManager _lumina;
@@ -38,32 +47,32 @@ public class ModelSchmodel {
 
         return paths.ToArray();
     }
-/*
-UV null and Color null => Not happening
-UV not null and Color null => VertexTextureN; N = 1 and 2
-UV null and Color not null => VertexColor1
-UV not null and Color not null => VertexColor1TextureN; N = 1 and 2
+    /*
+    UV null and Color null => Not happening
+    UV not null and Color null => VertexTextureN; N = 1 and 2
+    UV null and Color not null => VertexColor1
+    UV not null and Color not null => VertexColor1TextureN; N = 1 and 2
 
 
-null blend indices? Y
-null blend weights? Y
+    null blend indices? Y
+    null blend weights? Y
 
-null normal? Y
-null position? N
-null tangent1? Y
-null tangent2? Y
+    null normal? Y
+    null position? N
+    null tangent1? Y
+    null tangent2? Y
 
-null colour? Y
-null uv? Y
+    null colour? Y
+    null uv? Y
 
-UV != null => Color != null
-UV == null => Color == null
+    UV != null => Color != null
+    UV == null => Color == null
 
 
-Normal != null => VertexPositionNormal
-Tangent != null => VertexPositionNormalTangent
-VertexPosition
-*/
+    Normal != null => VertexPositionNormal
+    Tangent != null => VertexPositionNormalTangent
+    VertexPosition
+    */
 
 
     private unsafe void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
@@ -86,7 +95,7 @@ VertexPosition
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
                         var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
-                        var colorSetIndexT2 = normalPixel.A / 17;
+                        var colorSetIndexT2 = normalPixel.A                                        / 17;
                         var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
@@ -147,13 +156,13 @@ VertexPosition
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.BaseColor, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                              + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Normal, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
@@ -165,12 +174,12 @@ VertexPosition
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                 + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Occlusion, THE_PATH + texturePath );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( THE_PATH + texturePath );
+                    xivTexture.Value.Save( THE_PATH                                + texturePath );
                     glTFMaterial.WithChannelImage( KnownChannel.Emissive, THE_PATH + texturePath );
                     break;
                 default:
@@ -181,6 +190,43 @@ VertexPosition
 
             num++;
         }
+    }
+
+    private Dictionary< string, (NodeBuilder, int) > GetBoneMap( HavokXml xml, out NodeBuilder? root ) {
+        var boneNames      = xml.GetBoneNames();
+        var refPose        = xml.GetReferencePose();
+        var parentIndicies = xml.GetParentIndicies();
+
+        Dictionary< string, (NodeBuilder, int) > boneMap = new();
+        root = null;
+
+        for( var i = 0; i < boneNames.Length; i++ ) {
+            var name = boneNames[i];
+
+            var bone       = new NodeBuilder( name );
+            var refPosData = refPose[i];
+
+            // Compared with packfile vs tagfile and xivModdingFramework code
+            var translation = new Vector3( refPosData[0], refPosData[1], refPosData[2] );
+            var rotation    = new Quaternion( refPosData[4], refPosData[5], refPosData[6], refPosData[7] );
+            var scale       = new Vector3( refPosData[8], refPosData[9], refPosData[10] );
+
+            PluginLog.Verbose( $"{i}: {translation} - {rotation} - {scale}" );
+
+            var affineTransform = new AffineTransform( scale, rotation, translation );
+            bone.SetLocalTransform( affineTransform, false );
+
+            var boneRootId = parentIndicies[i];
+            if( boneRootId == -1 ) { root = bone; }
+            else {
+                var parent = boneMap[boneNames[boneRootId]];
+                parent.Item1.AddNode( bone );
+            }
+
+            boneMap[name] = (bone, i);
+        }
+
+        return boneMap;
     }
 
     public void Main( HavokConverter converter ) {
@@ -194,70 +240,16 @@ VertexPosition
         var xmlStr       = converter.HkxToXml( skelly.HkxData );
         var xml          = new HavokXml( xmlStr );
 
-        var boneNames      = xml.GetBoneNames();
-        var parentIndicies = xml.GetParentIndicies();
-        var refPose        = xml.GetReferencePose();
-
-        NodeBuilder                    boneRoot     = null;
-        Dictionary< int, NodeBuilder > boneMap      = new();
-        Dictionary< string, int >      nameToIdxMap = new();
-
-        for( var i = 0; i < boneNames.Length; i++ ) {
-            var name = boneNames[ i ];
-
-            var bone       = new NodeBuilder( name );
-            var refPosData = refPose[ i ];
-
-            // Compared with packfile vs tagfile and xivModdingFramework code
-            var translation = new Vector3( refPosData[ 0 ], refPosData[ 1 ], refPosData[ 2 ] );
-            var rotation    = new Quaternion( refPosData[ 4 ], refPosData[ 5 ], refPosData[ 6 ], refPosData[ 7 ] );
-            var scale       = new Vector3( refPosData[ 8 ], refPosData[ 9 ], refPosData[ 10 ] );
-
-            PluginLog.Verbose( $"idx {i}" );
-            PluginLog.Verbose( $"translation: {translation}" );
-            PluginLog.Verbose( $"rotation: {rotation}" );
-            PluginLog.Verbose( $"scale: {scale}" );
-
-            var affineTransform = new AffineTransform( scale, rotation, translation );
-            bone.SetLocalTransform( affineTransform, false );
-
-            var boneRootID = parentIndicies[ i ];
-            if( boneRootID == -1 ) { boneRoot = bone; }
-            else {
-                var parent = boneMap[ boneRootID ];
-                parent.AddNode( bone );
-            }
-
-            boneMap[ i ]         = bone;
-            nameToIdxMap[ name ] = i;
-
-            PluginLog.Verbose( "=====" );
-        }
+        var boneMap = GetBoneMap( xml, out var boneRoot );
 
         var glTFScene = new SceneBuilder( path );
         foreach( var xivMesh in xivModel.Meshes ) {
-            var boneSet = xivMesh.BoneTable.Select( b => xivModel.StringOffsetToStringMap[ ( int )xivModel.File!.BoneNameOffsets[ b ] ] );
-            PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
-
-            var joints           = boneMap.Values.ToArray();
-            var incompleteJoints = new List< NodeBuilder >();
-            var fakeToRealMap    = new Dictionary< int, int >();
-            var seenBones        = new List< string >();
-
-            foreach( var name in boneSet ) {
-                if( seenBones.Contains( name ) ) break;
-
-                var boneIdx = nameToIdxMap[ name ];
-                var bone    = boneMap[ boneIdx ];
-                incompleteJoints.Add( bone );
-
-                var idx = incompleteJoints.Count - 1;
-                fakeToRealMap[ idx ] = boneIdx;
-
-                seenBones.Add( name );
-            }
+            var boneSet = xivMesh.BoneTable();
+            PluginLog.Verbose( "Bone set: {boneSet}", string.Join( ", ", boneSet ) );
 
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
+
+            var joints = boneSet.Select( n => boneMap[n].Item1 ).ToArray();
 
             xivMesh.Material.Update( _lumina.GameData );
             var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
@@ -351,11 +343,8 @@ VertexPosition
                         var bindings = new List< (int, float) >();
                         for( var k = 0; k < 4; k++ ) {
                             var boneIndex  = vertex.BlendIndices[ k ];
-                            var boneIndex2 = xivMesh.BoneTable[ boneIndex ];
-                            var boneIndex3 = fakeToRealMap[ boneIndex2 ];
-
                             var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                            bindings.Add( ( boneIndex3, boneWeight ) );
+                            if( boneWeight != 0 ) { bindings.Add( ( boneIndex, boneWeight ) ); }
                         }
 
                         foreach( var binding in bindings ) {
@@ -395,7 +384,7 @@ VertexPosition
 
         var glTFModel = glTFScene.ToGltf2();
         //glTFModel.SaveAsWavefront( THE_PATH + "mesh.obj" );
-        glTFModel.SaveGLB( THE_PATH + "mesh.glb" );
+        glTFModel.SaveGLB( THE_PATH  + "mesh.glb" );
         glTFModel.SaveGLTF( THE_PATH + "mesh.gltf" );
     }
 }
