@@ -70,7 +70,7 @@ public class ModelConverter {
     */
 
 
-    private unsafe void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
+    private void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
         var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
         foreach( var xivTexture in xivMaterial.Textures ) { xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) ); }
@@ -244,11 +244,19 @@ public class ModelConverter {
         foreach( var xivMesh in xivModel.Meshes ) {
             if( !xivMesh.Types.Contains( Mesh.MeshType.Main ) ) continue;
 
+            xivMesh.Material.Update( _lumina.GameData );
+            var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
+            var glTFMaterial = new MaterialBuilder();
+
+            ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
+
             var boneSet       = xivMesh.BoneTable();
             var boneSetJoints = boneSet.Select( n => boneMap[ n ].Item1 ).ToArray();
-            var joints        = boneMap.Values.Select( x => x.Item1 ).ToArray();
 
+            // TODO: why can't we just use boneSetJoints directly without it shattering
+            var joints         = boneMap.Values.Select( x => x.Item1 ).ToArray();
             var jointIDMapping = new Dictionary< int, int >();
+
             for( var i = 0; i < boneSetJoints.Length; i++ ) {
                 var jointName = boneSetJoints[ i ].Name;
                 var jointID   = joints.Select( ( x, j ) => ( x, j ) ).First( x => x.x.Name == jointName ).j;
@@ -256,134 +264,132 @@ public class ModelConverter {
             }
 
             PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
-            PluginLog.Verbose( "Joints ({count}): {joints}", joints.Length, joints.Select( x => x.Name ) );
-
-            xivMesh.Material.Update( _lumina.GameData );
-            var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
-            var glTFMaterial = new MaterialBuilder();
-
-            ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
+            PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
             var TvG = VertexUtility.GetVertexGeometryType( xivMesh.Vertices );
             var TvM = VertexUtility.GetVertexMaterialType( xivMesh.Vertices );
             var TvS = VertexUtility.GetVertexSkinningType( xivMesh.Vertices );
 
-            var glTFMesh = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), TvG, TvM, TvS ),
-                string.Empty );
-            var glTFPrimitive = glTFMesh.UsePrimitive( glTFMaterial );
-            for( var i = 0; i < xivMesh.Indices.Length; i += 3 ) {
-                var triangle = new Vertex[] {
-                    xivMesh.Vertices[ xivMesh.Indices[ i + 0 ] ],
-                    xivMesh.Vertices[ xivMesh.Indices[ i + 1 ] ],
-                    xivMesh.Vertices[ xivMesh.Indices[ i + 2 ] ],
-                };
+            foreach( var xivSubmesh in xivMesh.Submeshes ) {
+                var glTFMesh = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance(
+                    typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), TvG, TvM, TvS ),
+                    string.Empty );
+                var glTFPrimitive = glTFMesh.UsePrimitive( glTFMaterial );
 
-                var vertexBuilderType = typeof( VertexBuilder< ,, > ).MakeGenericType( TvG, TvM, TvS );
+                for( var i = 0; i < xivSubmesh.IndexNum; i += 3 ) {
+                    var triangle = new Vertex[] {
+                        xivMesh.Vertices[ xivMesh.Indices[ i + 0 + xivSubmesh.IndexOffset ] ],
+                        xivMesh.Vertices[ xivMesh.Indices[ i + 1 + xivSubmesh.IndexOffset ] ],
+                        xivMesh.Vertices[ xivMesh.Indices[ i + 2 + xivSubmesh.IndexOffset ] ],
+                    };
 
-                var vertexBuilderParams = new List< object >[3];
-                var vertexTvGParams     = new List< object >[3];
-                var vertexTvMParams     = new List< object >[3];
-                var vertexTvSParams     = new List< object >[3];
+                    var vertexBuilderType = typeof( VertexBuilder< ,, > ).MakeGenericType( TvG, TvM, TvS );
 
-                for( var j = 0; j < 3; j++ ) {
-                    var vertex    = triangle[ j ];
-                    var vbParams  = vertexBuilderParams[ j ] = new List< object >();
-                    var TvGParams = vertexTvGParams[ j ] = new List< object >();
-                    var TvMParams = vertexTvMParams[ j ] = new List< object >();
-                    var TvSParams = vertexTvSParams[ j ] = new List< object >();
+                    var vertexBuilderParams = new List< object >[3];
+                    var vertexTvGParams     = new List< object >[3];
+                    var vertexTvMParams     = new List< object >[3];
+                    var vertexTvSParams     = new List< object >[3];
 
-                    TvGParams.Add(
-                        new Vector3(
-                            vertex.Position.Value.X,
-                            vertex.Position.Value.Y,
-                            vertex.Position.Value.Z
-                        )
-                    );
+                    for( var j = 0; j < 3; j++ ) {
+                        var vertex    = triangle[ j ];
+                        var vbParams  = vertexBuilderParams[ j ] = new List< object >();
+                        var TvGParams = vertexTvGParams[ j ] = new List< object >();
+                        var TvMParams = vertexTvMParams[ j ] = new List< object >();
+                        var TvSParams = vertexTvSParams[ j ] = new List< object >();
 
-                    // Means it's either VertexPositionNormal or VertexPositionNormalTangent; both have Normal
-                    if( TvG != typeof( VertexPosition ) ) {
                         TvGParams.Add(
                             new Vector3(
-                                vertex.Normal.Value.X,
-                                vertex.Normal.Value.Y,
-                                vertex.Normal.Value.Z
+                                vertex.Position.Value.X,
+                                vertex.Position.Value.Y,
+                                vertex.Position.Value.Z
                             )
                         );
-                    }
 
-                    if( TvG == typeof( VertexPositionNormalTangent ) ) {
-                        TvGParams.Add(
-                            new Vector4(
-                                vertex.Tangent1.Value.X,
-                                vertex.Tangent1.Value.Y,
-                                vertex.Tangent1.Value.Z,
-                                // Tangent W should be 1 or -1, but sometimes XIV has their -1 as 0?
-                                vertex.Tangent1.Value.W == 1 ? vertex.Tangent1.Value.W : -1
-                            )
-                        );
-                    }
-
-
-                    // AKA: Has "TextureN" component
-                    if( TvM != typeof( VertexColor1 ) ) {
-                        TvMParams.Add(
-                            new Vector2(
-                                vertex.UV.Value.X,
-                                vertex.UV.Value.Y
-                            )
-                        );
-                    }
-
-                    // AKA: Has "Color1" component
-                    if( TvM != typeof( VertexTexture1 ) ) {
-                        TvMParams.Insert( 0,
-                            new Vector4(
-                                vertex.Color.Value.X,
-                                vertex.Color.Value.Y,
-                                vertex.Color.Value.Z,
-                                vertex.Color.Value.W
-                            )
-                        );
-                    }
-
-                    if( TvS != typeof( VertexEmpty ) ) {
-                        var bindings = new List< (int, float) >();
-                        for( var k = 0; k < 4; k++ ) {
-                            var boneIndex       = vertex.BlendIndices[ k ];
-                            var mappedBoneIndex = jointIDMapping[ boneIndex ];
-                            var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                            bindings.Add( ( mappedBoneIndex, boneWeight ) );
+                        // Means it's either VertexPositionNormal or VertexPositionNormalTangent; both have Normal
+                        if( TvG != typeof( VertexPosition ) ) {
+                            TvGParams.Add(
+                                new Vector3(
+                                    vertex.Normal.Value.X,
+                                    vertex.Normal.Value.Y,
+                                    vertex.Normal.Value.Z
+                                )
+                            );
                         }
 
-                        foreach( var binding in bindings ) {
-                            PluginLog.Verbose( "Binding: {binding}", binding );
-                            TvSParams.Add( binding );
+                        if( TvG == typeof( VertexPositionNormalTangent ) ) {
+                            TvGParams.Add(
+                                new Vector4(
+                                    vertex.Tangent1.Value.X,
+                                    vertex.Tangent1.Value.Y,
+                                    vertex.Tangent1.Value.Z,
+                                    // Tangent W should be 1 or -1, but sometimes XIV has their -1 as 0?
+                                    vertex.Tangent1.Value.W == 1 ? vertex.Tangent1.Value.W : -1
+                                )
+                            );
                         }
+
+
+                        // AKA: Has "TextureN" component
+                        if( TvM != typeof( VertexColor1 ) ) {
+                            TvMParams.Add(
+                                new Vector2(
+                                    vertex.UV.Value.X,
+                                    vertex.UV.Value.Y
+                                )
+                            );
+                        }
+
+                        // AKA: Has "Color1" component
+                        if( TvM != typeof( VertexTexture1 ) ) {
+                            TvMParams.Insert( 0,
+                                new Vector4(
+                                    vertex.Color.Value.X,
+                                    vertex.Color.Value.Y,
+                                    vertex.Color.Value.Z,
+                                    vertex.Color.Value.W
+                                )
+                            );
+                        }
+
+                        if( TvS != typeof( VertexEmpty ) ) {
+                            var bindings = new List< (int, float) >();
+                            for( var k = 0; k < 4; k++ ) {
+                                var boneIndex       = vertex.BlendIndices[ k ];
+                                var mappedBoneIndex = jointIDMapping[ boneIndex ];
+                                var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
+                                bindings.Add( ( mappedBoneIndex, boneWeight ) );
+                            }
+
+                            foreach( var binding in bindings ) {
+                                PluginLog.Verbose( "Binding: {binding}", binding );
+                                TvSParams.Add( binding );
+                            }
+                        }
+
+                        PluginLog.Verbose( "TvSParams: {TvSParams}", TvSParams );
+
+                        var TvGVertex = ( IVertexGeometry )Activator.CreateInstance( TvG, TvGParams.ToArray() );
+                        var TvMVertex = ( IVertexMaterial )Activator.CreateInstance( TvM, TvMParams.ToArray() );
+                        var TvSVertex = ( IVertexSkinning )Activator.CreateInstance( TvS, TvSParams.ToArray() );
+
+                        vbParams.Add( TvGVertex );
+                        vbParams.Add( TvMVertex );
+                        vbParams.Add( TvSVertex );
                     }
 
-                    PluginLog.Verbose( "TvSParams: {TvSParams}", TvSParams );
+                    var vertexBuilderA = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 0 ].ToArray() );
+                    var vertexBuilderB = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 1 ].ToArray() );
+                    var vertexBuilderC = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 2 ].ToArray() );
 
-                    var TvGVertex = ( IVertexGeometry )Activator.CreateInstance( TvG, TvGParams.ToArray() );
-                    var TvMVertex = ( IVertexMaterial )Activator.CreateInstance( TvM, TvMParams.ToArray() );
-                    var TvSVertex = ( IVertexSkinning )Activator.CreateInstance( TvS, TvSParams.ToArray() );
-
-                    vbParams.Add( TvGVertex );
-                    vbParams.Add( TvMVertex );
-                    vbParams.Add( TvSVertex );
+                    glTFPrimitive.AddTriangle(
+                        vertexBuilderA,
+                        vertexBuilderB,
+                        vertexBuilderC
+                    );
                 }
 
-                var vertexBuilderA = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 0 ].ToArray() );
-                var vertexBuilderB = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 1 ].ToArray() );
-                var vertexBuilderC = ( IVertexBuilder )Activator.CreateInstance( vertexBuilderType, vertexBuilderParams[ 2 ].ToArray() );
-
-                glTFPrimitive.AddTriangle(
-                    vertexBuilderA,
-                    vertexBuilderB,
-                    vertexBuilderC
-                );
+                glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints );
             }
-
-            glTFScene.AddSkinnedMesh( glTFMesh, Matrix4x4.Identity, joints );
         }
 
         glTFScene.AddNode( boneRoot );
