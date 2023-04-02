@@ -61,7 +61,10 @@ To export a model:
 var havokConverter = new HavokConverter();
 var modelConverter = new ModelConverter(DataManager.GameData, havokConverter);
 
+// outputDir can be any directory, temp paths are used for demonstration
 var outputDir = Path.Combine(Path.GetTempPath(), "XandeModelExport");
+Directory.CreateDirectory(outputDir);
+
 var mdlPath = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
 modelConverter.ExportModel(outputDir, mdlPath);
 ```
