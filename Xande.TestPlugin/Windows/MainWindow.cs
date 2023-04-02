@@ -9,7 +9,7 @@ namespace Xande.TestPlugin.Windows;
 public class MainWindow : Window, IDisposable {
     private readonly FileDialogManager _fileDialogManager;
     private readonly HavokConverter    _converter;
-    private readonly ModelSchmodel     _modelSchmodel;
+    private readonly ModelConverter     _modelConverter;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
@@ -20,7 +20,7 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _modelSchmodel = new ModelSchmodel( Service.DataManager.GameData, _converter );
+        _modelConverter = new ModelConverter( Service.DataManager.GameData, _converter );
     }
 
     public override void Draw() {
@@ -33,7 +33,7 @@ public class MainWindow : Window, IDisposable {
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
 
-            _modelSchmodel.Main( tempPath );
+            _modelConverter.Main( tempPath );
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {

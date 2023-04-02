@@ -23,7 +23,7 @@ public static class ModelExtensions {
     }
 }
 
-public class ModelSchmodel {
+public class ModelConverter {
     private readonly LuminaManager _lumina;
 
     private readonly HavokConverter _converter;
@@ -31,12 +31,12 @@ public class ModelSchmodel {
     // TODO: no
     private string _outputDir = string.Empty;
 
-    public ModelSchmodel( LuminaManager lumina, HavokConverter converter ) {
+    public ModelConverter( LuminaManager lumina, HavokConverter converter ) {
         _lumina    = lumina;
         _converter = converter;
     }
 
-    public ModelSchmodel( GameData gameData, HavokConverter converter ) {
+    public ModelConverter( GameData gameData, HavokConverter converter ) {
         _lumina    = new LuminaManager( gameData );
         _converter = converter;
     }
