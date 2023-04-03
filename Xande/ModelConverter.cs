@@ -228,7 +228,6 @@ public class ModelConverter {
                     }
                 }
 
-
                 boneMap[ name ] = ( bone, j + lastBoneIndex );
             }
 
@@ -254,6 +253,8 @@ public class ModelConverter {
         var joints  = boneMap.Values.Select( x => x.Item1 ).ToArray();
 
         var glTFScene = new SceneBuilder( models[ 0 ] );
+        glTFScene.AddNode( boneRoot );
+
         foreach( var path in models ) {
             var xivModel       = _lumina.GetModel( path );
             var lastMeshOffset = 0;
@@ -268,12 +269,12 @@ public class ModelConverter {
                 var boneSetJoints = boneSet.Select( n => boneMap[ n ] ).ToArray();
 
                 // TODO: why can't we just use boneSetJoints directly without it shattering
-                var jointIDMapping = new Dictionary< int, int >();
+                var jointIDMapping = new Dictionary< int, NodeBuilder >();
 
                 for( var i = 0; i < boneSetJoints.Length; i++ ) {
                     var joint = boneSetJoints[ i ];
                     var idx   = joints.ToList().IndexOf( joint.Item1 );
-                    jointIDMapping[ i ] = idx;
+                    jointIDMapping[ i ] = joints[ idx ];
                 }
 
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
@@ -287,13 +288,23 @@ public class ModelConverter {
                         setMeshOffset  = true;
                     }
 
-                    var subMesh = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
-                    glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
+                    var subMesh = meshBuilder.BuildSubmesh( glTFMaterial, xivSubmesh, lastMeshOffset, out var usedBones );
+
+                    PluginLog.Verbose( "Used bones: {u}", usedBones );
+                    var jointsUsed = new NodeBuilder[usedBones.Count + 1];
+                    jointsUsed[ 0 ] = boneRoot;
+                    for( var i = 0; i < usedBones.Count; i++ ) {
+                        var idx  = usedBones[ i ];
+                        var bone = jointIDMapping[ idx ];
+                        jointsUsed[ i + 1 ] = bone;
+                    }
+
+                    var instance = glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, jointsUsed );
+                    PluginLog.Log( "Armature root: {a}", instance.Content.GetArmatureRoot().Name );
                 }
             }
         }
 
-        glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
         glTFModel.SaveAsWavefront( Path.Combine( _outputDir, "mesh.obj" ) );

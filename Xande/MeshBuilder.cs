@@ -29,21 +29,23 @@ public class MeshBuilder {
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( IReadOnlyDictionary< int, int > jointMap, MaterialBuilder materialBuilder, Submesh submesh, int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( MaterialBuilder materialBuilder, Submesh submesh, int lastOffset, out List< int > usedBones ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( materialBuilder );
 
+        usedBones = new List< int >();
+
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
-            var triB = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
-            var triC = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
+            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset, ref usedBones );
+            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset, ref usedBones );
+            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset, ref usedBones );
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IVertexBuilder BuildVertex( IReadOnlyDictionary< int, int > jointMap, int vertexIdx ) {
+    public IVertexBuilder BuildVertex( int vertexIdx, ref List< int > usedBones ) {
         ClearCaches();
 
         var vertex = _mesh.VertexByIndex( vertexIdx );
@@ -64,10 +66,16 @@ public class MeshBuilder {
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
-                var boneIndex       = vertex.BlendIndices[ k ];
-                var mappedBoneIndex = jointMap[ boneIndex ];
-                var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                var binding         = ( mappedBoneIndex, boneWeight );
+                var boneIndex = ( int )vertex.BlendIndices[ k ];
+                int mappedIndex;
+                if( usedBones.Contains( boneIndex ) ) { mappedIndex = usedBones.IndexOf( boneIndex ); }
+                else {
+                    mappedIndex = usedBones.Count;
+                    usedBones.Add( boneIndex );
+                }
+
+                var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
+                var binding    = ( mappedIndex + 1, boneWeight );
                 _skinningParamCache.Add( binding );
             }
         }
