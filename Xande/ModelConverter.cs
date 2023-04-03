@@ -201,50 +201,33 @@ public class ModelConverter {
     }
 
     private Dictionary< string, (NodeBuilder, int) > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
-        var baseXml           = GetHavokXml( skellyPaths[ 0 ] );
-        var baseBoneNames     = baseXml.GetBoneNames();
-        var baseRefPose       = baseXml.GetReferencePose();
-        var baseParentIndices = baseXml.GetParentIndicies();
-
         Dictionary< string, (NodeBuilder, int) > boneMap = new();
         root = null;
 
-        for( var i = 0; i < baseBoneNames.Length; i++ ) {
-            var name = baseBoneNames[ i ];
-
-            var bone = new NodeBuilder( name );
-            bone.SetLocalTransform( CreateAffineTransform( baseRefPose[ i ] ), false );
-
-            var boneRootId = baseParentIndices[ i ];
-            if( boneRootId == -1 ) { root = bone; }
-            else {
-                var parent = boneMap[ baseBoneNames[ boneRootId ] ];
-                parent.Item1.AddNode( bone );
-            }
-
-            boneMap[ name ] = ( bone, i );
-        }
-
-        var lastBoneIndex = baseBoneNames.Length;
-        for( var i = 1; i < skellyPaths.Length; i++ ) {
-            var xml            = GetHavokXml( skellyPaths[ i ] );
-            var boneNames      = xml.GetBoneNames();
-            var refPose        = xml.GetReferencePose();
-            var parentIndicies = xml.GetParentIndicies();
+        var lastBoneIndex = 0;
+        for( var i = 0; i < skellyPaths.Length; i++ ) {
+            var xml           = GetHavokXml( skellyPaths[ i ] );
+            var boneNames     = xml.GetBoneNames();
+            var refPose       = xml.GetReferencePose();
+            var parentIndices = xml.GetParentIndicies();
 
             for( var j = 0; j < boneNames.Length; j++ ) {
                 var         name = boneNames[ j ];
                 NodeBuilder bone;
 
+                var boneRootId = parentIndices[ j ];
+
                 if( boneMap.ContainsKey( name ) ) { bone = boneMap[ name ].Item1; }
                 else {
                     bone = new NodeBuilder( name );
                     bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
-
-                    var boneRootId = parentIndicies[ j ];
-                    var parent     = boneMap[ boneNames[ boneRootId ] ];
-                    parent.Item1.AddNode( bone );
+                    if( boneRootId == -1 && root == null ) { root = bone; }
+                    else {
+                        var parent = boneMap[ boneNames[ boneRootId ] ];
+                        parent.Item1.AddNode( bone );
+                    }
                 }
+
 
                 boneMap[ name ] = ( bone, j + lastBoneIndex );
             }
@@ -268,6 +251,7 @@ public class ModelConverter {
         _outputDir = outputDirectory;
 
         var boneMap = GetBoneMap( skeletons, out var boneRoot );
+        var joints  = boneMap.Values.Select( x => x.Item1 ).ToArray();
 
         var glTFScene = new SceneBuilder( models[ 0 ] );
         foreach( var path in models ) {
@@ -281,16 +265,15 @@ public class ModelConverter {
                 ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
 
                 var boneSet       = xivMesh.BoneTable();
-                var boneSetJoints = boneSet.Select( n => boneMap[ n ].Item1 ).ToArray();
+                var boneSetJoints = boneSet.Select( n => boneMap[ n ] ).ToArray();
 
                 // TODO: why can't we just use boneSetJoints directly without it shattering
-                var joints         = boneMap.Values.Select( x => x.Item1 ).ToArray();
                 var jointIDMapping = new Dictionary< int, int >();
 
                 for( var i = 0; i < boneSetJoints.Length; i++ ) {
-                    var jointName = boneSetJoints[ i ].Name;
-                    var jointID   = joints.Select( ( x, j ) => ( x, j ) ).First( x => x.x.Name == jointName ).j;
-                    jointIDMapping[ i ] = jointID;
+                    var joint = boneSetJoints[ i ];
+                    var idx   = joints.ToList().IndexOf( joint.Item1 );
+                    jointIDMapping[ i ] = idx;
                 }
 
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
