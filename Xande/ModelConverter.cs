@@ -73,7 +73,10 @@ public class ModelConverter {
     private void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
         var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
-        foreach( var xivTexture in xivMaterial.Textures ) { xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) ); }
+        foreach( var xivTexture in xivMaterial.Textures ) {
+            if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
+            xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
+        }
 
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
@@ -108,9 +111,10 @@ public class ModelConverter {
                     }
                 }
 
-                xivTextureMap.Add( TextureUsage.SamplerDiffuse, diffuse );
-                xivTextureMap.Add( TextureUsage.SamplerSpecular, specular );
-                xivTextureMap.Add( TextureUsage.SamplerReflection, emission );
+                // I don't think this is safe to TryAdd but I saw errors in some models without it
+                xivTextureMap.TryAdd( TextureUsage.SamplerDiffuse, diffuse );
+                xivTextureMap.TryAdd( TextureUsage.SamplerSpecular, specular );
+                xivTextureMap.TryAdd( TextureUsage.SamplerReflection, emission );
 
                 //glTFMaterial.WithChannelImage(KnownChannel.SpecularFactor, 1.0);
             }
