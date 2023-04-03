@@ -291,12 +291,11 @@ public class ModelConverter {
                     var subMesh = meshBuilder.BuildSubmesh( glTFMaterial, xivSubmesh, lastMeshOffset, out var usedBones );
 
                     PluginLog.Verbose( "Used bones: {u}", usedBones );
-                    var jointsUsed = new NodeBuilder[usedBones.Count + 1];
-                    jointsUsed[ 0 ] = boneRoot;
+                    var jointsUsed = new NodeBuilder[usedBones.Count];
                     for( var i = 0; i < usedBones.Count; i++ ) {
                         var idx  = usedBones[ i ];
                         var bone = jointIDMapping[ idx ];
-                        jointsUsed[ i + 1 ] = bone;
+                        jointsUsed[ i ] = bone;
                     }
 
                     var instance = glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, jointsUsed );

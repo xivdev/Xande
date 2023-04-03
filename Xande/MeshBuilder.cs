@@ -75,7 +75,7 @@ public class MeshBuilder {
                 }
 
                 var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                var binding    = ( mappedIndex + 1, boneWeight );
+                var binding    = ( mappedIndex, boneWeight );
                 _skinningParamCache.Add( binding );
             }
         }
