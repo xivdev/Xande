@@ -1,4 +1,5 @@
 using System.Numerics;
+using Dalamud.Logging;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
@@ -29,23 +30,21 @@ public class MeshBuilder {
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( MaterialBuilder materialBuilder, Submesh submesh, int lastOffset, out List< int > usedBones ) {
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( MaterialBuilder materialBuilder, Submesh submesh, int lastOffset ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( materialBuilder );
 
-        usedBones = new List< int >();
-
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset, ref usedBones );
-            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset, ref usedBones );
-            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset, ref usedBones );
+            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
+            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
+            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IVertexBuilder BuildVertex( int vertexIdx, ref List< int > usedBones ) {
+    public IVertexBuilder BuildVertex( int vertexIdx ) {
         ClearCaches();
 
         var vertex = _mesh.VertexByIndex( vertexIdx );
@@ -66,16 +65,9 @@ public class MeshBuilder {
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
-                var boneIndex = ( int )vertex.BlendIndices[ k ];
-                int mappedIndex;
-                if( usedBones.Contains( boneIndex ) ) { mappedIndex = usedBones.IndexOf( boneIndex ); }
-                else {
-                    mappedIndex = usedBones.Count;
-                    usedBones.Add( boneIndex );
-                }
-
+                var boneIndex  = ( int )vertex.BlendIndices[ k ];
                 var boneWeight = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                var binding    = ( mappedIndex, boneWeight );
+                var binding    = ( boneIndex, boneWeight );
                 _skinningParamCache.Add( binding );
             }
         }

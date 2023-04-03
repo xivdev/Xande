@@ -267,18 +267,12 @@ public class ModelConverter {
 
                 var boneSet       = xivMesh.BoneTable();
                 var boneSetJoints = boneSet.Select( n => boneMap[ n ] ).ToArray();
-
-                // TODO: why can't we just use boneSetJoints directly without it shattering
-                var jointIDMapping = new Dictionary< int, NodeBuilder >();
-
-                for( var i = 0; i < boneSetJoints.Length; i++ ) {
-                    var joint = boneSetJoints[ i ];
-                    var idx   = joints.ToList().IndexOf( joint.Item1 );
-                    jointIDMapping[ i ] = joints[ idx ];
-                }
+                var jointsWithMatrix = boneSetJoints
+                    .Select( x => ( x.Item1, x.Item1.GetInverseBindMatrix() ) )
+                    .ToArray();
 
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
-                PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
+                PluginLog.Verbose( "localJoints: {l}", jointsWithMatrix.Select( x => x.Item1.Name ) );
 
                 var meshBuilder   = new MeshBuilder( xivMesh );
                 var setMeshOffset = false;
@@ -288,17 +282,8 @@ public class ModelConverter {
                         setMeshOffset  = true;
                     }
 
-                    var subMesh = meshBuilder.BuildSubmesh( glTFMaterial, xivSubmesh, lastMeshOffset, out var usedBones );
-
-                    PluginLog.Verbose( "Used bones: {u}", usedBones );
-                    var jointsUsed = new NodeBuilder[usedBones.Count];
-                    for( var i = 0; i < usedBones.Count; i++ ) {
-                        var idx  = usedBones[ i ];
-                        var bone = jointIDMapping[ idx ];
-                        jointsUsed[ i ] = bone;
-                    }
-
-                    var instance = glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, jointsUsed );
+                    var subMesh  = meshBuilder.BuildSubmesh( glTFMaterial, xivSubmesh, lastMeshOffset );
+                    var instance = glTFScene.AddSkinnedMesh( subMesh, jointsWithMatrix );
                     PluginLog.Log( "Armature root: {a}", instance.Content.GetArmatureRoot().Name );
                 }
             }
