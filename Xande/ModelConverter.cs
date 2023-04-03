@@ -75,6 +75,7 @@ public class ModelConverter {
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
+
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
         }
 
@@ -191,28 +192,64 @@ public class ModelConverter {
         }
     }
 
-    private Dictionary< string, (NodeBuilder, int) > GetBoneMap( HavokXml xml, out NodeBuilder? root ) {
-        var boneNames      = xml.GetBoneNames();
-        var refPose        = xml.GetReferencePose();
-        var parentIndicies = xml.GetParentIndicies();
+    private HavokXml GetHavokXml( string skellyPath ) {
+        var skellyData   = _lumina.GameData.GetFile( skellyPath ).Data;
+        var skellyStream = new MemoryStream( skellyData );
+        var skelly       = SklbFile.FromStream( skellyStream );
+        var xmlStr       = _converter.HkxToXml( skelly.HkxData );
+        return new HavokXml( xmlStr );
+    }
+
+    private Dictionary< string, (NodeBuilder, int) > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
+        var baseXml           = GetHavokXml( skellyPaths[ 0 ] );
+        var baseBoneNames     = baseXml.GetBoneNames();
+        var baseRefPose       = baseXml.GetReferencePose();
+        var baseParentIndices = baseXml.GetParentIndicies();
 
         Dictionary< string, (NodeBuilder, int) > boneMap = new();
         root = null;
 
-        for( var i = 0; i < boneNames.Length; i++ ) {
-            var name = boneNames[ i ];
+        for( var i = 0; i < baseBoneNames.Length; i++ ) {
+            var name = baseBoneNames[ i ];
 
             var bone = new NodeBuilder( name );
-            bone.SetLocalTransform( CreateAffineTransform( refPose[ i ] ), false );
+            bone.SetLocalTransform( CreateAffineTransform( baseRefPose[ i ] ), false );
 
-            var boneRootId = parentIndicies[ i ];
+            var boneRootId = baseParentIndices[ i ];
             if( boneRootId == -1 ) { root = bone; }
             else {
-                var parent = boneMap[ boneNames[ boneRootId ] ];
+                var parent = boneMap[ baseBoneNames[ boneRootId ] ];
                 parent.Item1.AddNode( bone );
             }
 
             boneMap[ name ] = ( bone, i );
+        }
+
+        var lastBoneIndex = baseBoneNames.Length;
+        for( var i = 1; i < skellyPaths.Length; i++ ) {
+            var xml            = GetHavokXml( skellyPaths[ i ] );
+            var boneNames      = xml.GetBoneNames();
+            var refPose        = xml.GetReferencePose();
+            var parentIndicies = xml.GetParentIndicies();
+
+            for( var j = 0; j < boneNames.Length; j++ ) {
+                var         name = boneNames[ j ];
+                NodeBuilder bone;
+
+                if( boneMap.ContainsKey( name ) ) { bone = boneMap[ name ].Item1; }
+                else {
+                    bone = new NodeBuilder( name );
+                    bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
+
+                    var boneRootId = parentIndicies[ j ];
+                    var parent     = boneMap[ boneNames[ boneRootId ] ];
+                    parent.Item1.AddNode( bone );
+                }
+
+                boneMap[ name ] = ( bone, j + lastBoneIndex );
+            }
+
+            lastBoneIndex += boneNames.Length;
         }
 
         return boneMap;
@@ -227,56 +264,49 @@ public class ModelConverter {
         return new AffineTransform( scale, rotation, translation );
     }
 
-    public void ExportModel( string outputDirectory, string path ) {
+    public void ExportModel( string outputDirectory, string[] models, string[] skeletons ) {
         _outputDir = outputDirectory;
 
-        // TODO: unhardcode
-        var skellyPath = "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb";
-        var xivModel   = _lumina.GetModel( path );
+        var boneMap = GetBoneMap( skeletons, out var boneRoot );
 
-        var skellyData   = _lumina.GameData.GetFile( skellyPath ).Data;
-        var skellyStream = new MemoryStream( skellyData );
-        var skelly       = SklbFile.FromStream( skellyStream );
-        var xmlStr       = _converter.HkxToXml( skelly.HkxData );
-        var xml          = new HavokXml( xmlStr );
+        var glTFScene = new SceneBuilder( models[ 0 ] );
+        foreach( var path in models ) {
+            var xivModel       = _lumina.GetModel( path );
+            var lastMeshOffset = 0;
+            foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
+                xivMesh.Material.Update( _lumina.GameData );
+                var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
+                var glTFMaterial = new MaterialBuilder();
 
-        var boneMap = GetBoneMap( xml, out var boneRoot );
+                ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
 
-        var glTFScene      = new SceneBuilder( path );
-        var lastMeshOffset = 0;
-        foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
-            xivMesh.Material.Update( _lumina.GameData );
-            var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
-            var glTFMaterial = new MaterialBuilder();
+                var boneSet       = xivMesh.BoneTable();
+                var boneSetJoints = boneSet.Select( n => boneMap[ n ].Item1 ).ToArray();
 
-            ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
+                // TODO: why can't we just use boneSetJoints directly without it shattering
+                var joints         = boneMap.Values.Select( x => x.Item1 ).ToArray();
+                var jointIDMapping = new Dictionary< int, int >();
 
-            var boneSet       = xivMesh.BoneTable();
-            var boneSetJoints = boneSet.Select( n => boneMap[ n ].Item1 ).ToArray();
-
-            // TODO: why can't we just use boneSetJoints directly without it shattering
-            var joints         = boneMap.Values.Select( x => x.Item1 ).ToArray();
-            var jointIDMapping = new Dictionary< int, int >();
-
-            for( var i = 0; i < boneSetJoints.Length; i++ ) {
-                var jointName = boneSetJoints[ i ].Name;
-                var jointID   = joints.Select( ( x, j ) => ( x, j ) ).First( x => x.x.Name == jointName ).j;
-                jointIDMapping[ i ] = jointID;
-            }
-
-            PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
-            PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
-
-            var meshBuilder   = new MeshBuilder( xivMesh );
-            var setMeshOffset = false;
-            foreach( var xivSubmesh in xivMesh.Submeshes ) {
-                if( !setMeshOffset ) {
-                    lastMeshOffset = ( int )xivSubmesh.IndexOffset;
-                    setMeshOffset  = true;
+                for( var i = 0; i < boneSetJoints.Length; i++ ) {
+                    var jointName = boneSetJoints[ i ].Name;
+                    var jointID   = joints.Select( ( x, j ) => ( x, j ) ).First( x => x.x.Name == jointName ).j;
+                    jointIDMapping[ i ] = jointID;
                 }
 
-                var subMesh = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
-                glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
+                PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
+                PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
+
+                var meshBuilder   = new MeshBuilder( xivMesh );
+                var setMeshOffset = false;
+                foreach( var xivSubmesh in xivMesh.Submeshes ) {
+                    if( !setMeshOffset ) {
+                        lastMeshOffset = ( int )xivSubmesh.IndexOffset;
+                        setMeshOffset  = true;
+                    }
+
+                    var subMesh = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
+                    glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
+                }
             }
         }
 
