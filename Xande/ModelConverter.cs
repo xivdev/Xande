@@ -90,7 +90,7 @@ public class ModelConverter {
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
                         var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
-                        var colorSetIndexT2 = normalPixel.A                                        / 17;
+                        var colorSetIndexT2 = normalPixel.A / 17;
                         var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
@@ -238,8 +238,8 @@ public class ModelConverter {
 
         var boneMap = GetBoneMap( xml, out var boneRoot );
 
-        var glTFScene = new SceneBuilder( path );
-
+        var glTFScene      = new SceneBuilder( path );
+        var lastMeshOffset = 0;
         foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
             xivMesh.Material.Update( _lumina.GameData );
             var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
@@ -263,9 +263,15 @@ public class ModelConverter {
             PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
             PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
-            var meshBuilder = new MeshBuilder( xivMesh );
+            var meshBuilder   = new MeshBuilder( xivMesh );
+            var setMeshOffset = false;
             foreach( var xivSubmesh in xivMesh.Submeshes ) {
-                var subMesh  = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh );
+                if( !setMeshOffset ) {
+                    lastMeshOffset = ( int )xivSubmesh.IndexOffset;
+                    setMeshOffset  = true;
+                }
+
+                var subMesh = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
                 glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
             }
         }

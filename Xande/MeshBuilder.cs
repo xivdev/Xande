@@ -29,14 +29,14 @@ public class MeshBuilder {
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( IReadOnlyDictionary< int, int > jointMap, MaterialBuilder materialBuilder, Submesh submesh ) {
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( IReadOnlyDictionary< int, int > jointMap, MaterialBuilder materialBuilder, Submesh submesh, int lastOffset ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 0 );
-            var triB = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 1 );
-            var triC = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 2 );
+            var triA = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
+            var triB = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
+            var triC = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
             primitive.AddTriangle( triA, triB, triC );
         }
 
