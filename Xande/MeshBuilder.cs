@@ -59,7 +59,8 @@ public class MeshBuilder {
         if( _materialT != typeof( VertexColor1 ) ) _materialParamCache.Add( ToVec2( vertex.UV!.Value ) );
 
         // AKA: Has "Color1" component
-        if( _materialT != typeof( VertexTexture1 ) ) _materialParamCache.Insert( 0, vertex.Color!.Value );
+        //if( _materialT != typeof( VertexTexture1 ) ) _materialParamCache.Insert( 0, vertex.Color!.Value );
+        if( _materialT != typeof( VertexTexture1 ) ) _materialParamCache.Insert( 0, new Vector4( 255, 255, 255, 255 ) );
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
@@ -87,12 +88,12 @@ public class MeshBuilder {
     /// <summary> Obtain the correct geometry type for a given set of vertices. </summary>
     private static Type GetVertexGeometryType( Vertex[] vertex )
         => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
-            vertex[ 0 ].Normal  != null ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
+            vertex[ 0 ].Normal != null  ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
     /// <summary> Obtain the correct material type for a set of vertices. </summary>
     private static Type GetVertexMaterialType( Vertex[] vertex ) {
         var hasColor = vertex[ 0 ].Color != null;
-        var hasUv    = vertex[ 0 ].UV    != null;
+        var hasUv    = vertex[ 0 ].UV != null;
 
         return hasColor switch {
             true when hasUv  => typeof( VertexColor1Texture1 ),
