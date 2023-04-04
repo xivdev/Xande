@@ -26,25 +26,53 @@ public class MainWindow : Window, IDisposable {
     public override void Draw() {
         _fileDialogManager.Draw();
 
-        if( ImGui.Button( "model" ) ) {
+        void DoTheThingWithTheModels( string[] models, string[] skeletons ) {
             var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
             Directory.CreateDirectory( tempDir );
 
             var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
             Directory.CreateDirectory( tempPath );
 
-            var models = new[] {
-                "chara/human/c0101/obj/face/f0002/model/c0101f0002_fac.mdl",
-                "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl",
-                "chara/human/c0101/obj/body/b0001/model/c0101b0001_glv.mdl",
-                "chara/human/c0101/obj/body/b0001/model/c0101b0001_dwn.mdl",
-                "chara/human/c0101/obj/body/b0001/model/c0101b0001_sho.mdl"
-            };
-            var skeletons = new[] {
-                "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb",
-                "chara/human/c0101/skeleton/face/f0002/skl_c0101f0002.sklb"
-            };
             _modelConverter.ExportModel( tempPath, models, skeletons );
+        }
+
+        if( ImGui.Button( "model (full body)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "chara/human/c0101/obj/face/f0002/model/c0101f0002_fac.mdl",
+                    "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl",
+                    "chara/human/c0101/obj/body/b0001/model/c0101b0001_glv.mdl",
+                    "chara/human/c0101/obj/body/b0001/model/c0101b0001_dwn.mdl",
+                    "chara/human/c0101/obj/body/b0001/model/c0101b0001_sho.mdl"
+                },
+                new[] {
+                    "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb",
+                    "chara/human/c0101/skeleton/face/f0002/skl_c0101f0002.sklb"
+                }
+            );
+        }
+
+        ImGui.SameLine();
+
+        if( ImGui.Button( "model (chair)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "bg/ffxiv/sea_s1/twn/s1ta/bgparts/s1ta_ga_char1.mdl"
+                },
+                new string[] { }
+            );
+        }
+
+        ImGui.SameLine();
+
+        if( ImGui.Button( "model (grebuloff)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl"
+                },
+                new[] {
+                    "chara/monster/m0405/skeleton/base/b0001/skl_m0405b0001.sklb"
+                } );
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {
