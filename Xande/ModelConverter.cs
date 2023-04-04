@@ -14,8 +14,10 @@ using Mesh = Lumina.Models.Models.Mesh;
 namespace Xande;
 
 public static class ModelExtensions {
-    public static string[] BoneTable( this Mesh mesh ) {
-        var rawMesh  = mesh.Parent.File!.Meshes[ mesh.MeshIndex ];
+    public static string[]? BoneTable( this Mesh mesh ) {
+        var rawMesh = mesh.Parent.File!.Meshes[ mesh.MeshIndex ];
+        if( rawMesh.BoneTableIndex == 255 ) { return null; }
+
         var rawTable = mesh.Parent.File!.BoneTables[ rawMesh.BoneTableIndex ];
         return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[ ( int )mesh.Parent.File!.BoneNameOffsets[ b ] ] ).ToArray();
     }
@@ -258,12 +260,11 @@ public class ModelConverter {
                 ComposeTextures( glTFMaterial, xivMaterial, outputDir );
 
                 var boneSet       = xivMesh.BoneTable();
-                var boneSetJoints = boneSet.Select( n => boneMap[ n ] ).ToArray();
+                var boneSetJoints = boneSet?.Select( n => boneMap[ n ] ).ToArray();
+                var useSkinning   = boneSet != null;
 
-                // TODO: why can't we just use boneSetJoints directly without it shattering
-                var jointIDMapping = new Dictionary< int, int >();
-
-                for( var i = 0; i < boneSetJoints.Length; i++ ) {
+                Dictionary< int, int > jointIDMapping = new();
+                for( var i = 0; i < boneSetJoints?.Length; i++ ) {
                     var joint = boneSetJoints[ i ];
                     var idx   = joints.ToList().IndexOf( joint );
                     jointIDMapping[ i ] = idx;
@@ -272,22 +273,31 @@ public class ModelConverter {
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
                 PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
-                var meshBuilder = new MeshBuilder( xivMesh );
+                var meshBuilder = new MeshBuilder( xivMesh, useSkinning );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // annoying hack to work around how IndexOffset works in multiple mesh models
                     lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
-                }
 
-                for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
-                    var xivSubmesh = xivMesh.Submeshes[ i ];
-                    var subMesh    = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
-                    subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-                    glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
+                    for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
+                        var xivSubmesh = xivMesh.Submeshes[ i ];
+                        var subMesh    = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
+                        subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
+
+                        if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
+                        else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
+                    }
+                }
+                else {
+                    var mesh = meshBuilder.BuildMesh( jointIDMapping, glTFMaterial, lastMeshOffset );
+                    mesh.Name = $"{name}_{xivMesh.MeshIndex}";
+
+                    if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
+                    else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
             }
         }
 
-        glTFScene.AddNode( boneRoot );
+        if( boneRoot != null ) glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
         glTFModel.SaveAsWavefront( Path.Combine( outputDir, "mesh.obj" ) );

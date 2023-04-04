@@ -19,12 +19,12 @@ public class MeshBuilder {
     private readonly Type _vertexBuilderT;
     private readonly Type _meshBuilderT;
 
-    public MeshBuilder( Mesh mesh ) {
+    public MeshBuilder( Mesh mesh, bool useSkinning ) {
         _mesh = mesh;
 
         _geometryT      = GetVertexGeometryType( _mesh.Vertices );
         _materialT      = GetVertexMaterialType( _mesh.Vertices );
-        _skinningT      = GetVertexSkinningType( _mesh.Vertices );
+        _skinningT      = useSkinning ? typeof( VertexJoints4 ) : typeof( VertexEmpty );
         _vertexBuilderT = typeof( VertexBuilder< ,, > ).MakeGenericType( _geometryT, _materialT, _skinningT );
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
     }
@@ -37,6 +37,20 @@ public class MeshBuilder {
             var triA = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
             var triB = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
             var triC = BuildVertex( jointMap, triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
+            primitive.AddTriangle( triA, triB, triC );
+        }
+
+        return ret;
+    }
+
+    public IMeshBuilder< MaterialBuilder > BuildMesh( IReadOnlyDictionary< int, int > jointMap, MaterialBuilder materialBuilder, int lastOffset ) {
+        var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
+        var primitive = ret.UsePrimitive( materialBuilder );
+
+        for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
+            var triA = BuildVertex( jointMap, triIdx + 0 - lastOffset );
+            var triB = BuildVertex( jointMap, triIdx + 1 - lastOffset );
+            var triC = BuildVertex( jointMap, triIdx + 2 - lastOffset );
             primitive.AddTriangle( triA, triB, triC );
         }
 
@@ -102,11 +116,11 @@ public class MeshBuilder {
         };
     }
 
-    private static Type GetVertexSkinningType( Vertex[] vertex ) {
+    /*private static Type GetVertexSkinningType( Vertex[] vertex ) {
         var hasBoneWeights = vertex[ 0 ].BlendWeights != null;
         //return hasBoneWeights ? typeof( VertexJoints8 ) : typeof( VertexJoints4 );
         return typeof( VertexJoints4 );
-    }
+    }*/
 
     private static Vector3 ToVec3( Vector4 v ) => new(v.X, v.Y, v.Z);
     private static Vector2 ToVec2( Vector4 v ) => new(v.X, v.Y);
