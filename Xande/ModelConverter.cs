@@ -210,22 +210,18 @@ public class ModelConverter {
             var parentIndices = xml.GetParentIndicies();
 
             for( var j = 0; j < boneNames.Length; j++ ) {
-                var         name = boneNames[ j ];
-                NodeBuilder bone;
+                var name = boneNames[ j ];
+                if( boneMap.ContainsKey( name ) ) continue;
+
+                var bone = new NodeBuilder( name );
+                bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
 
                 var boneRootId = parentIndices[ j ];
-
-                if( boneMap.ContainsKey( name ) ) { bone = boneMap[ name ]; }
+                if( boneRootId == -1 && root == null ) { root = bone; }
                 else {
-                    bone = new NodeBuilder( name );
-                    bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
-                    if( boneRootId == -1 && root == null ) { root = bone; }
-                    else {
-                        var parent = boneMap[ boneNames[ boneRootId ] ];
-                        parent.AddNode( bone );
-                    }
+                    var parent = boneMap[ boneNames[ boneRootId ] ];
+                    parent.AddNode( bone );
                 }
-
 
                 boneMap[ name ] = bone;
             }
