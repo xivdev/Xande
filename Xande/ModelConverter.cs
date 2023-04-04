@@ -197,11 +197,10 @@ public class ModelConverter {
         return new HavokXml( xmlStr );
     }
 
-    private Dictionary< string, (NodeBuilder, int) > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
-        Dictionary< string, (NodeBuilder, int) > boneMap = new();
+    private Dictionary< string, NodeBuilder > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
+        Dictionary< string, NodeBuilder > boneMap = new();
         root = null;
 
-        var lastBoneIndex = 0;
         for( var i = 0; i < skellyPaths.Length; i++ ) {
             var xml           = GetHavokXml( skellyPaths[ i ] );
             var boneNames     = xml.GetBoneNames();
@@ -214,22 +213,20 @@ public class ModelConverter {
 
                 var boneRootId = parentIndices[ j ];
 
-                if( boneMap.ContainsKey( name ) ) { bone = boneMap[ name ].Item1; }
+                if( boneMap.ContainsKey( name ) ) { bone = boneMap[ name ]; }
                 else {
                     bone = new NodeBuilder( name );
                     bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
                     if( boneRootId == -1 && root == null ) { root = bone; }
                     else {
                         var parent = boneMap[ boneNames[ boneRootId ] ];
-                        parent.Item1.AddNode( bone );
+                        parent.AddNode( bone );
                     }
                 }
 
 
-                boneMap[ name ] = ( bone, j + lastBoneIndex );
+                boneMap[ name ] = bone;
             }
-
-            lastBoneIndex += boneNames.Length;
         }
 
         return boneMap;
@@ -246,7 +243,7 @@ public class ModelConverter {
 
     public void ExportModel( string outputDir, string[] models, string[] skeletons ) {
         var boneMap = GetBoneMap( skeletons, out var boneRoot );
-        var joints  = boneMap.Values.Select( x => x.Item1 ).ToArray();
+        var joints  = boneMap.Values.ToArray();
 
         var glTFScene = new SceneBuilder( models[ 0 ] );
         foreach( var path in models ) {
@@ -267,7 +264,7 @@ public class ModelConverter {
 
                 for( var i = 0; i < boneSetJoints.Length; i++ ) {
                     var joint = boneSetJoints[ i ];
-                    var idx   = joints.ToList().IndexOf( joint.Item1 );
+                    var idx   = joints.ToList().IndexOf( joint );
                     jointIDMapping[ i ] = idx;
                 }
 
