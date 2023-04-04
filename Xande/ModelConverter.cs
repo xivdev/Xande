@@ -248,6 +248,7 @@ public class ModelConverter {
         var glTFScene = new SceneBuilder( models[ 0 ] );
         foreach( var path in models ) {
             var xivModel       = _lumina.GetModel( path );
+            var name           = Path.GetFileNameWithoutExtension( path );
             var lastMeshOffset = 0;
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
@@ -271,15 +272,16 @@ public class ModelConverter {
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
                 PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
-                var meshBuilder   = new MeshBuilder( xivMesh );
-                var setMeshOffset = false;
-                foreach( var xivSubmesh in xivMesh.Submeshes ) {
-                    if( !setMeshOffset ) {
-                        lastMeshOffset = ( int )xivSubmesh.IndexOffset;
-                        setMeshOffset  = true;
-                    }
+                var meshBuilder = new MeshBuilder( xivMesh );
+                if( xivMesh.Submeshes.Length > 0 ) {
+                    // annoying hack to work around how IndexOffset works in multiple mesh models
+                    lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
+                }
 
-                    var subMesh = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
+                for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
+                    var xivSubmesh = xivMesh.Submeshes[ i ];
+                    var subMesh    = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
+                    subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                     glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
                 }
             }
