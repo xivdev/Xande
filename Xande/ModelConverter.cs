@@ -248,6 +248,7 @@ public class ModelConverter {
             var xivModel       = _lumina.GetModel( path );
             var name           = Path.GetFileNameWithoutExtension( path );
             var lastMeshOffset = 0;
+
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
                 var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
@@ -269,6 +270,7 @@ public class ModelConverter {
                 PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
                 PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
+                // Handle submeshes and the main mesh
                 var meshBuilder = new MeshBuilder( xivMesh, useSkinning );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // annoying hack to work around how IndexOffset works in multiple mesh models
@@ -290,6 +292,13 @@ public class ModelConverter {
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
+            }
+
+            // shapes
+            foreach( var shape in xivModel.File.Shapes ) {
+                // read string from byte[]
+                var shapeName = xivModel.StringOffsetToStringMap[ ( int )shape.StringOffset ];
+                PluginLog.Verbose( "shapeName {s}", shapeName );
             }
         }
 

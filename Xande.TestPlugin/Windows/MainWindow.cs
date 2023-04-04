@@ -72,7 +72,22 @@ public class MainWindow : Window, IDisposable {
                 },
                 new[] {
                     "chara/monster/m0405/skeleton/base/b0001/skl_m0405b0001.sklb"
-                } );
+                }
+            );
+        }
+
+        ImGui.SameLine();
+
+        if( ImGui.Button( "model (miqote face)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "chara/human/c0801/obj/face/f0102/model/c0801f0102_fac.mdl"
+                },
+                new[] {
+                    "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb",
+                    "chara/human/c0801/skeleton/face/f0002/skl_c0801f0002.sklb"
+                }
+            );
         }
 
         if( ImGui.Button( "SKLB->HKX" ) ) {
