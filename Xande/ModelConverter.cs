@@ -28,9 +28,6 @@ public class ModelConverter {
 
     private readonly HavokConverter _converter;
 
-    // TODO: no
-    private string _outputDir = string.Empty;
-
     public ModelConverter( LuminaManager lumina, HavokConverter converter ) {
         _lumina    = lumina;
         _converter = converter;
@@ -70,7 +67,7 @@ public class ModelConverter {
     */
 
 
-    private void ComposeTextures( MaterialBuilder glTFMaterial, Mesh xivMesh, Lumina.Models.Materials.Material xivMaterial ) {
+    private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir ) {
         var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
         foreach( var xivTexture in xivMaterial.Textures ) {
@@ -156,31 +153,31 @@ public class ModelConverter {
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
                     texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, Path.Combine( _outputDir, texturePath ) );
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, Path.Combine( outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
                     texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Normal, Path.Combine( _outputDir, texturePath ) );
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Normal, Path.Combine( outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerSpecularMap0:
                 case TextureUsage.SamplerSpecular:
                     texturePath = $"specular_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
                     //glTFMaterial.WithChannelImage(KnownChannel.SpecularColor, texturePath);
-                    glTFMaterial.WithSpecularColor( Path.Combine( _outputDir, texturePath ) );
+                    glTFMaterial.WithSpecularColor( Path.Combine( outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerWaveMap:
                     texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, Path.Combine( _outputDir, texturePath ) );
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, Path.Combine( outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerReflection:
                     texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( _outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, Path.Combine( _outputDir, texturePath ) );
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, Path.Combine( outputDir, texturePath ) );
                     break;
                 default:
                     PluginLog.Log( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
@@ -247,9 +244,7 @@ public class ModelConverter {
         return new AffineTransform( scale, rotation, translation );
     }
 
-    public void ExportModel( string outputDirectory, string[] models, string[] skeletons ) {
-        _outputDir = outputDirectory;
-
+    public void ExportModel( string outputDir, string[] models, string[] skeletons ) {
         var boneMap = GetBoneMap( skeletons, out var boneRoot );
         var joints  = boneMap.Values.Select( x => x.Item1 ).ToArray();
 
@@ -262,7 +257,7 @@ public class ModelConverter {
                 var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
                 var glTFMaterial = new MaterialBuilder();
 
-                ComposeTextures( glTFMaterial, xivMesh, xivMaterial );
+                ComposeTextures( glTFMaterial, xivMaterial, outputDir );
 
                 var boneSet       = xivMesh.BoneTable();
                 var boneSetJoints = boneSet.Select( n => boneMap[ n ] ).ToArray();
@@ -296,8 +291,8 @@ public class ModelConverter {
         glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
-        glTFModel.SaveAsWavefront( Path.Combine( _outputDir, "mesh.obj" ) );
-        glTFModel.SaveGLB( Path.Combine( _outputDir, "mesh.glb" ) );
-        glTFModel.SaveGLTF( Path.Combine( _outputDir, "mesh.gltf" ) );
+        glTFModel.SaveAsWavefront( Path.Combine( outputDir, "mesh.obj" ) );
+        glTFModel.SaveGLB( Path.Combine( outputDir, "mesh.glb" ) );
+        glTFModel.SaveGLTF( Path.Combine( outputDir, "mesh.gltf" ) );
     }
 }
