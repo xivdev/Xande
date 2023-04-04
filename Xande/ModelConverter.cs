@@ -271,14 +271,14 @@ public class ModelConverter {
                 PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
                 // Handle submeshes and the main mesh
-                var meshBuilder = new MeshBuilder( xivMesh, useSkinning );
+                var meshBuilder = new MeshBuilder( xivMesh, useSkinning, jointIDMapping, glTFMaterial );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // annoying hack to work around how IndexOffset works in multiple mesh models
                     lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
 
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
-                        var subMesh    = meshBuilder.BuildSubmesh( jointIDMapping, glTFMaterial, xivSubmesh, lastMeshOffset );
+                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
 
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
@@ -286,19 +286,12 @@ public class ModelConverter {
                     }
                 }
                 else {
-                    var mesh = meshBuilder.BuildMesh( jointIDMapping, glTFMaterial, lastMeshOffset );
+                    var mesh = meshBuilder.BuildMesh( lastMeshOffset );
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
 
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
-            }
-
-            // shapes
-            foreach( var shape in xivModel.File.Shapes ) {
-                // read string from byte[]
-                var shapeName = xivModel.StringOffsetToStringMap[ ( int )shape.StringOffset ];
-                PluginLog.Verbose( "shapeName {s}", shapeName );
             }
         }
 
