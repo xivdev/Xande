@@ -194,6 +194,9 @@ public class ModelConverter {
 
             num++;
         }
+
+        // I hate you
+        glTFMaterial.WithMetallicRoughness( 0 );
     }
 
     /// <summary>
