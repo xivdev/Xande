@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
@@ -12,6 +12,7 @@ public class MainWindow : Window, IDisposable {
     private readonly FileDialogManager _fileDialogManager;
     private readonly HavokConverter    _converter;
     private readonly ModelConverter    _modelConverter;
+    private readonly SklbResolver      _sklbResolver;
 
     private const string SklbFilter = "FFXIV Skeleton{.sklb}";
     private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
@@ -28,6 +29,7 @@ public class MainWindow : Window, IDisposable {
         };
 
         _modelConverter = new ModelConverter( Service.DataManager.GameData, _converter );
+        _sklbResolver   = new SklbResolver();
     }
 
     public void Dispose() { }
@@ -50,6 +52,13 @@ public class MainWindow : Window, IDisposable {
         Directory.CreateDirectory( tempPath );
 
         _modelConverter.ExportModel( tempPath, models, skeletons );
+    }
+
+    private void DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
+        var skeletons = _sklbResolver.ResolveAll( models );
+        if( baseModel != null )
+            skeletons = skeletons.Prepend( baseModel ).ToArray();
+        DoTheThingWithTheModels( models, skeletons );
     }
 
     private void OpenFileDialog( string title, string filters, Action< string > callback ) {
@@ -76,10 +85,7 @@ public class MainWindow : Window, IDisposable {
                     "chara/human/c0101/obj/body/b0001/model/c0101b0001_dwn.mdl",
                     "chara/human/c0101/obj/body/b0001/model/c0101b0001_sho.mdl"
                 },
-                new[] {
-                    "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb",
-                    "chara/human/c0101/skeleton/face/f0002/skl_c0101f0002.sklb"
-                }
+                _sklbResolver.ResolveHumanBase( 1 )
             );
         }
 
@@ -100,9 +106,6 @@ public class MainWindow : Window, IDisposable {
             DoTheThingWithTheModels(
                 new[] {
                     "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl"
-                },
-                new[] {
-                    "chara/monster/m0405/skeleton/base/b0001/skl_m0405b0001.sklb"
                 }
             );
         }
@@ -112,12 +115,9 @@ public class MainWindow : Window, IDisposable {
         if( ImGui.Button( "Model (miqote face)" ) ) {
             DoTheThingWithTheModels(
                 new[] {
-                    "chara/human/c0801/obj/face/f0102/model/c0801f0102_fac.mdl"
+                    "chara/human/c1801/obj/face/f0004/model/c1801f0004_fac.mdl"
                 },
-                new[] {
-                    "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb",
-                    "chara/human/c0801/skeleton/face/f0002/skl_c0801f0002.sklb"
-                }
+                _sklbResolver.ResolveHumanBase( 8, 1 )
             );
         }
     }
