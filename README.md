@@ -65,8 +65,9 @@ var modelConverter = new ModelConverter(DataManager.GameData, havokConverter);
 var outputDir = Path.Combine(Path.GetTempPath(), "XandeModelExport");
 Directory.CreateDirectory(outputDir);
 
-var mdlPath = "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl";
-modelConverter.ExportModel(outputDir, mdlPath);
+var mdlPaths = new string[] { "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl" };
+var sklbPaths = new string[] { };
+modelConverter.ExportModel(outputDir, mdlPaths, sklbPaths);
 ```
 
 ## Safety
