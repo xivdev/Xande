@@ -224,9 +224,10 @@ public class ModelConverter {
 
         foreach( var skellyPath in skellyPaths ) {
             var xml           = GetHavokXml( skellyPath );
-            var boneNames     = xml.GetBoneNames();
-            var refPose       = xml.GetReferencePose();
-            var parentIndices = xml.GetParentIndices();
+            var skeleton      = xml.GetMainSkeleton();
+            var boneNames     = skeleton.BoneNames;
+            var refPose       = skeleton.ReferencePose;
+            var parentIndices = skeleton.ParentIndices;
 
             for( var j = 0; j < boneNames.Length; j++ ) {
                 var name = boneNames[ j ];

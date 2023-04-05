@@ -1,103 +1,53 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Xml;
+using Dalamud.Logging;
+
+// ReSharper disable NotAccessedField.Global
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace Xande.Havok;
 
+/// <summary>
+/// Parses a Havok XML file.
+/// </summary>
 public class HavokXml {
-    private readonly XmlElement _skeleton;
+    public readonly XmlSkeleton[] Skeletons;
+    public readonly XmlMapping[]  Mappings;
+    public readonly int           MainSkeleton;
 
+    /// <summary>
+    /// Constructs a new HavokXml object from the given XML string.
+    /// </summary>
+    /// <param name="xml">The XML data.</param>
     public HavokXml( string xml ) {
         var document = new XmlDocument();
         document.LoadXml( xml );
 
-        _skeleton = document.GetElementsByTagName( "object" )
+        Skeletons = document.SelectNodes( "/hktagfile/object[@type='hkaSkeleton']" )!
             .Cast< XmlElement >()
-            .First( x => x.GetAttribute( "type" ) == "hkaSkeleton" );
+            .Select( x => new XmlSkeleton( x ) ).ToArray();
 
-        if( _skeleton == null ) {
-            // TODO custom exception
-            throw new Exception( "Could not find skeleton" );
-        }
+        Mappings = document.SelectNodes( "/hktagfile/object[@type='hkaSkeletonMapper']" )!
+            .Cast< XmlElement >()
+            .Select( x => new XmlMapping( x ) ).ToArray();
+
+        var animationContainer = document.SelectSingleNode( "/hktagfile/object[@type='hkaAnimationContainer']" )!;
+        PluginLog.Verbose( "Animation container: {a}", animationContainer );
+        var animationSkeletons = animationContainer
+            .SelectNodes( "array[@name='skeletons']" )!
+            .Cast< XmlElement >()
+            .First();
+
+        // A recurring theme in Havok XML is that IDs start with a hash
+        // If you see a string[1..], that's probably what it is
+        var mainSkeleton = animationSkeletons.ChildNodes[ 0 ]!.InnerText;
+        MainSkeleton = int.Parse( mainSkeleton[ 1.. ] );
     }
 
-    public float[][] GetReferencePose() {
-        var referencePose = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "referencePose" )
-            .ToArray()[ 0 ];
-
-        var size = int.Parse( referencePose.GetAttribute( "size" ) );
-
-        var referencePoseArr = new float[size][];
-
-        var i = 0;
-        foreach( var node in referencePose.ChildNodes.Cast< XmlElement >() ) {
-            var str = node.InnerText;
-            // x00000000 <!-- 0.0 --> x00000000 <!-- 0.0 --> x00000000 <!-- 0.0 --> x3f800000 <!-- 1.0 --> x00000000 <!-- 0.0 --> x00000000 <!-- 0.0 --> x00000000 <!-- 0.0 --> x3f7fffff <!-- 1.0 --> x3f800000 <!-- 1.0 --> x3f800000 <!-- 1.0 --> x3f800000 <!-- 1.0 --> x3f800000 <!-- 1.0 -->
-
-            // FIXME hack
-            var commentRegex = new Regex( "<!--.*?-->" );
-            str = commentRegex.Replace( str, "" );
-
-            var floats = str.Split( " " )
-                .Select( x => x.Trim() )
-                .Where( x => !string.IsNullOrWhiteSpace( x ) )
-                .Select( x => x[ 1.. ] )
-                .Select( x => BitConverter.ToSingle( BitConverter.GetBytes( int.Parse( x, NumberStyles.HexNumber ) ) ) );
-
-            referencePoseArr[ i ] = floats.ToArray();
-
-            i += 1;
-        }
-
-        return referencePoseArr;
+    public XmlSkeleton GetMainSkeleton() {
+        return GetSkeletonById( MainSkeleton );
     }
 
-    public int[] GetParentIndices() {
-        var parentIndices = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "parentIndices" )
-            .ToArray()[ 0 ];
-
-        var parentIndicesArr = new int[int.Parse( parentIndices.GetAttribute( "size" ) )];
-
-        var parentIndicesStr = parentIndices.InnerText.Split( "\n" )
-            .Select( x => x.Trim() )
-            .Where( x => !string.IsNullOrWhiteSpace( x ) )
-            .ToArray();
-
-        var i = 0;
-        foreach( var str2 in parentIndicesStr ) {
-            foreach( var str3 in str2.Split( " " ) ) {
-                parentIndicesArr[ i ] = int.Parse( str3 );
-                i++;
-            }
-        }
-
-        return parentIndicesArr;
-    }
-
-    public string[] GetBoneNames() {
-        var bonesObj = _skeleton.GetElementsByTagName( "array" )
-            .Cast< XmlElement >()
-            .Where( x => x.GetAttribute( "name" ) == "bones" )
-            .ToArray()[ 0 ];
-
-        var bones = new string[int.Parse( bonesObj.GetAttribute( "size" ) )];
-
-        var boneNames = bonesObj.GetElementsByTagName( "struct" )
-            .Cast< XmlElement >()
-            .Select( x => x.GetElementsByTagName( "string" )
-                .Cast< XmlElement >()
-                .First( y => y.GetAttribute( "name" ) == "name" ) );
-
-        var i = 0;
-        foreach( var boneName in boneNames ) {
-            bones[ i ] = boneName.InnerText;
-            i++;
-        }
-
-        return bones;
+    public XmlSkeleton GetSkeletonById( int id ) {
+        return Skeletons.First( x => x.Id == id );
     }
 }

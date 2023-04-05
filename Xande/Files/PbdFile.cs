@@ -92,4 +92,10 @@ public class PbdFile : FileResource {
             };
         }
     }
+
+    public Deformer GetDeformerFromRaceCode( ushort raceCode ) {
+        var header = Headers.First( h => h.Id == raceCode );
+
+        return Deformers[ 0 ];
+    }
 }
