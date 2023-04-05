@@ -1,19 +1,17 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml;
-using Dalamud.Logging;
 
 namespace Xande.Havok;
 
 public class HavokXml {
-    private XmlDocument _document;
-    private XmlElement  _skeleton;
+    private readonly XmlElement _skeleton;
 
     public HavokXml( string xml ) {
-        _document = new XmlDocument();
-        _document.LoadXml( xml );
+        var document = new XmlDocument();
+        document.LoadXml( xml );
 
-        _skeleton = _document.GetElementsByTagName( "object" )
+        _skeleton = document.GetElementsByTagName( "object" )
             .Cast< XmlElement >()
             .First( x => x.GetAttribute( "type" ) == "hkaSkeleton" );
 
@@ -56,29 +54,28 @@ public class HavokXml {
         return referencePoseArr;
     }
 
-    public int[] GetParentIndicies() {
-        var parentIndicies = _skeleton.GetElementsByTagName( "array" )
+    public int[] GetParentIndices() {
+        var parentIndices = _skeleton.GetElementsByTagName( "array" )
             .Cast< XmlElement >()
             .Where( x => x.GetAttribute( "name" ) == "parentIndices" )
             .ToArray()[ 0 ];
 
-        var parentIndiciesArr = new int[int.Parse( parentIndicies.GetAttribute( "size" ) )];
+        var parentIndicesArr = new int[int.Parse( parentIndices.GetAttribute( "size" ) )];
 
-        var parentIndiciesStr = parentIndicies.InnerText.Split( "\n" )
+        var parentIndicesStr = parentIndices.InnerText.Split( "\n" )
             .Select( x => x.Trim() )
             .Where( x => !string.IsNullOrWhiteSpace( x ) )
             .ToArray();
 
         var i = 0;
-        for( var j = 0; j < parentIndiciesStr.Length; j++ ) {
-            var str2 = parentIndiciesStr[ j ];
+        foreach( var str2 in parentIndicesStr ) {
             foreach( var str3 in str2.Split( " " ) ) {
-                parentIndiciesArr[ i ] = int.Parse( str3 );
+                parentIndicesArr[ i ] = int.Parse( str3 );
                 i++;
             }
         }
 
-        return parentIndiciesArr;
+        return parentIndicesArr;
     }
 
     public string[] GetBoneNames() {

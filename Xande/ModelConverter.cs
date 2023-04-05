@@ -222,11 +222,11 @@ public class ModelConverter {
         Dictionary< string, NodeBuilder > boneMap = new();
         root = null;
 
-        for( var i = 0; i < skellyPaths.Length; i++ ) {
-            var xml           = GetHavokXml( skellyPaths[ i ] );
+        foreach( var skellyPath in skellyPaths ) {
+            var xml           = GetHavokXml( skellyPath );
             var boneNames     = xml.GetBoneNames();
             var refPose       = xml.GetReferencePose();
-            var parentIndices = xml.GetParentIndicies();
+            var parentIndices = xml.GetParentIndices();
 
             for( var j = 0; j < boneNames.Length; j++ ) {
                 var name = boneNames[ j ];

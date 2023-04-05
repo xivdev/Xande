@@ -13,8 +13,8 @@ public class MeshBuilder {
     private readonly List< object > _skinningParamCache  = new();
     private readonly object[]       _vertexBuilderParams = new object[3];
 
-    private readonly IReadOnlyDictionary< int, int >           _jointMap;
-    private readonly MaterialBuilder                           _materialBuilder;
+    private readonly IReadOnlyDictionary< int, int > _jointMap;
+    private readonly MaterialBuilder                 _materialBuilder;
 
     private readonly Type _geometryT;
     private readonly Type _materialT;
@@ -77,7 +77,10 @@ public class MeshBuilder {
         if( _geometryT != typeof( VertexPosition ) ) _geometryParamCache.Add( vertex.Normal!.Value );
 
         // Tangent W should be 1 or -1, but sometimes XIV has their -1 as 0?
-        if( _geometryT == typeof( VertexPositionNormalTangent ) ) _geometryParamCache.Add( vertex.Tangent1!.Value with { W = vertex.Tangent1.Value.W == 1 ? 1 : -1 } );
+        if( _geometryT == typeof( VertexPositionNormalTangent ) ) {
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            _geometryParamCache.Add( vertex.Tangent1!.Value with { W = vertex.Tangent1.Value.W == 1 ? 1 : -1 } );
+        }
 
         // AKA: Has "TextureN" component
         if( _materialT != typeof( VertexColor1 ) ) _materialParamCache.Add( ToVec2( vertex.UV!.Value ) );

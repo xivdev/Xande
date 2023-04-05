@@ -24,6 +24,7 @@ internal enum hkSerializeUtil_LoadOptionBits : int {
 }
 
 internal struct hkTypeInfoRegistry { }
+
 internal struct hkClassNameRegistry { }
 
 [StructLayout( LayoutKind.Explicit, Size = 0x18 )]
@@ -62,7 +63,7 @@ internal unsafe struct hkResourceVtbl {
 [StructLayout( LayoutKind.Explicit, Size = 0x8 )] // probably larger
 internal unsafe struct hkBuiltinTypeRegistry {
     [FieldOffset( 0x0 )]
-    internal hkBuiltinTypeRegistryVtbl* vtbl;
+    internal readonly hkBuiltinTypeRegistryVtbl* vtbl;
 }
 
 [StructLayout( LayoutKind.Explicit, Size = 0x48 )]

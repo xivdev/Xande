@@ -1,6 +1,8 @@
 using System.Drawing;
 using Lumina.Data.Parsing;
 
+// ReSharper disable MemberCanBePrivate.Global
+
 namespace Xande;
 
 public static class ColorUtility {

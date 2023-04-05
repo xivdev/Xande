@@ -5,6 +5,8 @@ using Lumina.Data.Files;
 using Lumina.Models.Materials;
 using Lumina.Models.Models;
 
+// ReSharper disable MemberCanBePrivate.Global
+
 namespace Xande;
 
 public class LuminaManager {

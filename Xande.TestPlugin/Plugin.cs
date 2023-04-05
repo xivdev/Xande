@@ -8,9 +8,9 @@ namespace Xande.TestPlugin;
 public class Plugin : IDalamudPlugin {
     public string Name => "Xande.TestPlugin";
 
-    public static Configuration Configuration { get; private set; } = null!;
-    private static   WindowSystem _windowSystem = new("Xande.TestPlugin");
-    private readonly MainWindow   _mainWindow;
+    private static Configuration Configuration { get; set; } = null!;
+    private static readonly WindowSystem WindowSystem = new("Xande.TestPlugin");
+    private readonly        MainWindow   _mainWindow;
 
     public Plugin( DalamudPluginInterface pluginInterface ) {
         pluginInterface.Create< Service >();
@@ -19,7 +19,7 @@ public class Plugin : IDalamudPlugin {
         Configuration.Save();
 
         _mainWindow = new MainWindow();
-        _windowSystem.AddWindow( _mainWindow );
+        WindowSystem.AddWindow( _mainWindow );
 
         Service.CommandManager.AddHandler( "/xande", new CommandInfo( OnCommand ) {
             HelpMessage = "Open the test menu",
@@ -31,7 +31,7 @@ public class Plugin : IDalamudPlugin {
 
     public void Dispose() {
         _mainWindow.Dispose();
-        _windowSystem.RemoveAllWindows();
+        WindowSystem.RemoveAllWindows();
 
         Service.CommandManager.RemoveHandler( "/xande" );
 
@@ -48,6 +48,6 @@ public class Plugin : IDalamudPlugin {
     }
 
     private void DrawUi() {
-        _windowSystem.Draw();
+        WindowSystem.Draw();
     }
 }
