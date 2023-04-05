@@ -80,7 +80,6 @@ public class ModelConverter {
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
         }
 
-
         if( xivMaterial.ShaderPack == "character.shpk" ) {
             if( xivTextureMap.TryGetValue( TextureUsage.SamplerNormal, out var normal ) ) {
                 var diffuse  = ( Bitmap )normal.Clone();
@@ -117,8 +116,6 @@ public class ModelConverter {
                 xivTextureMap.TryAdd( TextureUsage.SamplerDiffuse, diffuse );
                 xivTextureMap.TryAdd( TextureUsage.SamplerSpecular, specular );
                 xivTextureMap.TryAdd( TextureUsage.SamplerReflection, emission );
-
-                //glTFMaterial.WithChannelImage(KnownChannel.SpecularFactor, 1.0);
             }
 
             if( xivTextureMap.TryGetValue( TextureUsage.SamplerMask, out var mask ) && xivTextureMap.TryGetValue( TextureUsage.SamplerSpecular, out var specularMap ) ) {
@@ -170,7 +167,7 @@ public class ModelConverter {
                 case TextureUsage.SamplerSpecular:
                     texturePath = $"specular_{num}.png";
                     xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
-                    //glTFMaterial.WithChannelImage(KnownChannel.SpecularColor, texturePath);
+                    //glTFMaterial.WithChannelImage( KnownChannel.SpecularColor, Path.GetFullPath( Path.Combine( outputDir, texturePath ) ) );
                     glTFMaterial.WithSpecularColor( Path.Combine( outputDir, texturePath ) );
                     break;
                 case TextureUsage.SamplerWaveMap:
@@ -182,6 +179,12 @@ public class ModelConverter {
                     texturePath = $"emissive_{num}.png";
                     xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
                     glTFMaterial.WithChannelImage( KnownChannel.Emissive, Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithEmissive( Path.Combine( outputDir, texturePath ), new Vector3( 255, 255, 255 ) );
+                    break;
+                case TextureUsage.SamplerMask:
+                    texturePath = $"mask_{num}.png";
+                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    // ...what do I do with this?
                     break;
                 default:
                     PluginLog.Log( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
