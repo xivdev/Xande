@@ -11,6 +11,8 @@ using SharpGLTF.Transforms;
 using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
 
+// ReSharper disable InconsistentNaming
+
 namespace Xande;
 
 public static class ModelExtensions {
@@ -191,14 +193,25 @@ public class ModelConverter {
         }
     }
 
+    /// <summary>
+    /// Fetches a HavokXml from a .sklb path.
+    /// </summary>
+    /// <param name="skellyPath">Path to a .sklb.</param>
+    /// <returns>A newly created HavokXml instance.</returns>
     private HavokXml GetHavokXml( string skellyPath ) {
-        var skellyData   = _lumina.GameData.GetFile( skellyPath ).Data;
+        var skellyData   = _lumina.GameData.GetFile( skellyPath )!.Data;
         var skellyStream = new MemoryStream( skellyData );
         var skelly       = SklbFile.FromStream( skellyStream );
         var xmlStr       = _converter.HkxToXml( skelly.HkxData );
         return new HavokXml( xmlStr );
     }
 
+    /// <summary>
+    /// Builds a skeleton tree from a list of .sklb paths.
+    /// </summary>
+    /// <param name="skellyPaths">A list of .sklb paths.</param>
+    /// <param name="root">The root bone on the skeleton.</param>
+    /// <returns>A mapping of bone name to node in the scene.</returns>
     private Dictionary< string, NodeBuilder > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
         Dictionary< string, NodeBuilder > boneMap = new();
         root = null;
@@ -230,6 +243,12 @@ public class ModelConverter {
         return boneMap;
     }
 
+    /// <summary>
+    /// Creates an affine transform for a bone from the reference pose in the Havok XML file.
+    /// </summary>
+    /// <param name="refPos">The reference pose from HavokXml.GetReferencePose.</param>
+    /// <returns>The affine transform.</returns>
+    /// <exception cref="Exception">Thrown if the reference pose is invalid.</exception>
     private static AffineTransform CreateAffineTransform( ReadOnlySpan< float > refPos ) {
         // Compared with packfile vs tagfile and xivModdingFramework code
         if( refPos.Length < 11 ) throw new Exception( "RefPos does not contain enough values for affine transformation." );
@@ -239,6 +258,12 @@ public class ModelConverter {
         return new AffineTransform( scale, rotation, translation );
     }
 
+    /// <summary>
+    /// Exports a model(s) to glTF.
+    /// </summary>
+    /// <param name="outputDir">A directory to write files and textures to.</param>
+    /// <param name="models">A list of .mdl paths.</param>
+    /// <param name="skeletons">A list of .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     public void ExportModel( string outputDir, string[] models, string[] skeletons ) {
         var boneMap = GetBoneMap( skeletons, out var boneRoot );
         var joints  = boneMap.Values.ToArray();
@@ -260,6 +285,7 @@ public class ModelConverter {
                 var boneSetJoints = boneSet?.Select( n => boneMap[ n ] ).ToArray();
                 var useSkinning   = boneSet != null;
 
+                // Mapping between ID referenced in the mesh and in Havok
                 Dictionary< int, int > jointIDMapping = new();
                 for( var i = 0; i < boneSetJoints?.Length; i++ ) {
                     var joint = boneSetJoints[ i ];
@@ -267,13 +293,13 @@ public class ModelConverter {
                     jointIDMapping[ i ] = idx;
                 }
 
-                PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
-                PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
+                //PluginLog.Verbose( "Bone set: {boneSet}", boneSet );
+                //PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
                 // Handle submeshes and the main mesh
                 var meshBuilder = new MeshBuilder( xivMesh, useSkinning, jointIDMapping, glTFMaterial );
                 if( xivMesh.Submeshes.Length > 0 ) {
-                    // annoying hack to work around how IndexOffset works in multiple mesh models
+                    // Annoying hack to work around how IndexOffset works in multiple mesh models
                     lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
 
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
