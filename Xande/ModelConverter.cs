@@ -8,6 +8,7 @@ using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
 using SharpGLTF.Transforms;
+using Xande.Files;
 using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
 
@@ -188,7 +189,6 @@ public class ModelConverter {
                     break;
                 default:
                     PluginLog.Warning( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
-                    PluginLog.Warning( xivTexture.Value.ToString() ?? string.Empty );
                     break;
             }
 

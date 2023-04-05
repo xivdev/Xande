@@ -1,21 +1,21 @@
-namespace Xande.Havok;
+using Lumina.Extensions;
+
+// ReSharper disable NotAccessedField.Global
+// ReSharper disable MemberCanBePrivate.Global
+#pragma warning disable CS8618
+
+namespace Xande.Files;
 
 /// <summary>
 /// Class for parsing .hkx data from a .sklb file.
 /// </summary>
 public sealed class SklbFile {
-    public readonly byte[] Header;
-    public byte[] HkxData { get; private set; }
+    public short VersionOne;
+    public short VersionTwo;
+    public int   HavokOffset;
 
-    /// <summary>
-    /// Constructs a new SklbFile instance from two byte arrays.
-    /// </summary>
-    /// <param name="header">All content before the Havok data.</param>
-    /// <param name="hkxData">The Havok data.</param>
-    private SklbFile( byte[] header, byte[] hkxData ) {
-        Header  = header;
-        HkxData = hkxData;
-    }
+    public byte[] RawHeader;
+    public byte[] HkxData;
 
     /// <summary>
     /// Constructs a new SklbFile instance from a stream.
@@ -28,34 +28,52 @@ public sealed class SklbFile {
         var magic = reader.ReadInt32();
         if( magic != 0x736B6C62 ) { throw new InvalidDataException( "Invalid .sklb magic" ); }
 
-        var version = reader.ReadInt32();
+        var versionOne = reader.ReadInt16();
+        var versionTwo = reader.ReadInt16();
 
-        int hkxOffset;
-        if( version != 0x31333030 ) {
+        var isOldHeader = versionTwo switch {
+            0x3132 => true,
+            0x3133 => false,
+            _      => false
+        };
+
+        int havokOffset;
+        if( isOldHeader ) {
             // Version one
             reader.ReadInt16(); // Skip unkOffset
-            hkxOffset = reader.ReadInt16();
+            havokOffset = reader.ReadInt16();
         }
         else {
             // Version two
             reader.ReadInt32(); // Skip unkOffset
-            hkxOffset = reader.ReadInt32();
+            havokOffset = reader.ReadInt32();
         }
 
-        reader.BaseStream.Seek( 0, SeekOrigin.Begin );
-        var header = reader.ReadBytes( hkxOffset );
-        reader.BaseStream.Seek( hkxOffset, SeekOrigin.Begin );
-        var hkxData = reader.ReadBytes( ( int )( reader.BaseStream.Length - hkxOffset ) );
+        reader.Seek( 0 );
+        var rawHeader = reader.ReadBytes( havokOffset );
+        reader.Seek( havokOffset );
+        var hkxData = reader.ReadBytes( ( int )( reader.BaseStream.Length - havokOffset ) );
 
-        return new SklbFile( header, hkxData );
+        return new SklbFile {
+            VersionOne  = versionOne,
+            VersionTwo  = versionTwo,
+            HavokOffset = havokOffset,
+
+            RawHeader = rawHeader,
+            HkxData   = hkxData
+        };
     }
 
+    /// <summary>
+    /// Splices the given .hkx file into the .sklb.
+    /// </summary>
+    /// <param name="hkxData">A byte array representing an .hkx file.</param>
     public void ReplaceHkxData( byte[] hkxData ) {
         HkxData = hkxData;
     }
 
     public void Write( Stream stream ) {
-        stream.Write( Header );
+        stream.Write( RawHeader );
         stream.Write( HkxData );
     }
 }

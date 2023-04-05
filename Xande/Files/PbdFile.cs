@@ -1,47 +1,38 @@
-﻿using Lumina.Extensions;
+﻿using Lumina.Data;
+using Lumina.Extensions;
 
-namespace Xande;
+// ReSharper disable UnassignedField.Global
+#pragma warning disable CS8618
+
+namespace Xande.Files;
 
 /// <summary>
 /// Parses a human.pbd file to deform models. This file is located at <c>chara/xls/boneDeformer/human.pbd</c> in the game's data files.
 /// </summary>
-public class PbdFile {
-    public readonly Header[]   Headers;
-    public readonly Deformer[] Deformers;
+public class PbdFile : FileResource {
+    public Header[]   Headers;
+    public Deformer[] Deformers;
 
-    private PbdFile( Header[] headers, Deformer[] deformers ) {
-        Headers   = headers;
-        Deformers = deformers;
-    }
+    public override void LoadFile() {
+        var entryCount = Reader.ReadInt32();
 
-    /// <summary>
-    /// Constructs a new PbdFile instance from a stream.
-    /// </summary>
-    /// <param name="stream">A stream to a human.pbd file.</param>
-    public static PbdFile FromStream( Stream stream ) {
-        using var reader = new BinaryReader( stream );
+        Headers   = new Header[entryCount];
+        Deformers = new Deformer[entryCount - 1];
 
-        var entryCount = reader.ReadInt32();
-
-        var headers   = new Header[entryCount];
-        var deformers = new Deformer[entryCount - 1];
-
-        for( var i = 0; i < entryCount; i++ ) { headers[ i ] = reader.ReadStructure< Header >(); }
+        for( var i = 0; i < entryCount; i++ ) { Headers[ i ] = Reader.ReadStructure< Header >(); }
 
         // No idea what this is
         var unkSize = entryCount * 8;
-        reader.Seek( reader.BaseStream.Position + unkSize );
+        Reader.Seek( Reader.BaseStream.Position + unkSize );
 
         // First deformer (101) seems... strange, just gonna skip it for now
         for( var i = 1; i < entryCount; i++ ) {
-            var header = headers[ i ];
+            var header = Headers[ i ];
             var offset = header.Offset;
-            reader.Seek( offset );
+            Reader.Seek( offset );
 
-            deformers[ i - 1 ] = Deformer.Read( reader );
+            Deformers[ i - 1 ] = Deformer.Read( Reader );
         }
-
-        return new PbdFile( headers, deformers );
     }
 
     public struct Header {

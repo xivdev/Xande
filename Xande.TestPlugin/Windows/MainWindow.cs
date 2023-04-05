@@ -3,6 +3,7 @@ using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using ImGuiNET;
+using Xande.Files;
 using Xande.Havok;
 
 namespace Xande.TestPlugin.Windows;
@@ -126,17 +127,16 @@ public class MainWindow : Window, IDisposable {
             var file = Service.DataManager.GetFile( "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb" )!;
             var sklb = SklbFile.FromStream( file.Reader.BaseStream );
 
-            var headerHex = BitConverter.ToString( sklb.Header ).Replace( "-", " " );
+            var headerHex = BitConverter.ToString( sklb.RawHeader ).Replace( "-", " " );
             var hkxHex    = BitConverter.ToString( sklb.HkxData ).Replace( "-", " " );
-            PluginLog.Debug( "Header (len {0}): {1}", sklb.Header.Length, headerHex );
+            PluginLog.Debug( "Header (len {0}): {1}", sklb.RawHeader.Length, headerHex );
             PluginLog.Debug( "HKX data (len {0}): {1}", sklb.HkxData.Length, hkxHex );
         }
 
         ImGui.SameLine();
 
         if( ImGui.Button( "Parse .pbd" ) ) {
-            var file = Service.DataManager.GetFile( "chara/xls/boneDeformer/human.pbd" )!;
-            var pbd  = PbdFile.FromStream( file.Reader.BaseStream );
+            var pbd = Service.DataManager.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
 
             PluginLog.Debug( "Header count: {0}", pbd.Headers.Length );
             for( var i = 0; i < pbd.Headers.Length; i++ ) {
