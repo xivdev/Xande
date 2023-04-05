@@ -1,8 +1,11 @@
 using System.Numerics;
+using Dalamud.Logging;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
+using Xande.Files;
+using Xande.Havok;
 
 namespace Xande;
 
@@ -15,6 +18,8 @@ public class MeshBuilder {
 
     private readonly IReadOnlyDictionary< int, int > _jointMap;
     private readonly MaterialBuilder                 _materialBuilder;
+    private readonly PbdFile                         _pbd;
+    private readonly string[]                        _allBones;
 
     private readonly Type _geometryT;
     private readonly Type _materialT;
@@ -26,11 +31,15 @@ public class MeshBuilder {
         Mesh mesh,
         bool useSkinning,
         IReadOnlyDictionary< int, int > jointMap,
-        MaterialBuilder materialBuilder
+        MaterialBuilder materialBuilder,
+        PbdFile pbdFile,
+        string[] allBones
     ) {
         _mesh            = mesh;
         _jointMap        = jointMap;
         _materialBuilder = materialBuilder;
+        _pbd             = pbdFile;
+        _allBones        = allBones;
 
         _geometryT      = GetVertexGeometryType( _mesh.Vertices );
         _materialT      = GetVertexMaterialType( _mesh.Vertices );
@@ -39,39 +48,70 @@ public class MeshBuilder {
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh, int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh, int lastOffset, int? deform = null ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
+            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset, deform );
+            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset, deform );
+            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset, deform );
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildMesh( int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildMesh( int lastOffset, int? deform = null ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + 2 - lastOffset );
+            var triA = BuildVertex( triIdx + 0 - lastOffset, deform );
+            var triB = BuildVertex( triIdx + 1 - lastOffset, deform );
+            var triC = BuildVertex( triIdx + 2 - lastOffset, deform );
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IVertexBuilder BuildVertex( int vertexIdx ) {
+    public IVertexBuilder BuildVertex( int vertexIdx, int? deform = null ) {
         ClearCaches();
 
-        var vertex = _mesh.VertexByIndex( vertexIdx );
-        _geometryParamCache.Add( ToVec3( vertex.Position!.Value ) );
+        var      vertex      = _mesh.VertexByIndex( vertexIdx );
+        Vector3  pos         = ToVec3( vertex.Position!.Value );
+        Vector3? deformedPos = null;
+
+        if( _skinningT != typeof( VertexEmpty ) ) {
+            for( var k = 0; k < 4; k++ ) {
+                var boneIndex       = vertex.BlendIndices[ k ];
+                var mappedBoneIndex = _jointMap[ boneIndex ];
+                var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
+
+                if( deform != null ) {
+                    var headerIndex = Array.FindIndex( _pbd.Headers, x => x.Id == deform );
+                    var deformer    = _pbd.Deformers[ headerIndex - 1 ];
+
+                    var boneIdx = Array.FindIndex( deformer.BoneNames, x => x == _allBones[ mappedBoneIndex ] );
+                    if( boneIdx != -1 && boneWeight > 0 ) {
+                        var matrix            = deformer.DeformMatrices[ boneIdx ]!;
+                        var transformedMatrix = MatrixTransform( pos, matrix );
+
+                        if( deformedPos == null ) deformedPos = new Vector3( 0, 0, 0 );
+                        deformedPos += transformedMatrix * boneWeight;
+                    }
+                }
+
+                var binding = ( mappedBoneIndex, boneWeight );
+                _skinningParamCache.Add( binding );
+            }
+        }
+
+        var useDeformedPos = deformedPos != null && deformedPos != new Vector3( 0, 0, 0 );
+        var diff           = useDeformedPos ? deformedPos.Value - pos : new Vector3( 0, 0, 0 );
+
+        _geometryParamCache.Add( useDeformedPos ? deformedPos : pos );
 
         // Means it's either VertexPositionNormal or VertexPositionNormalTangent; both have Normal
         if( _geometryT != typeof( VertexPosition ) ) _geometryParamCache.Add( vertex.Normal!.Value );
@@ -89,15 +129,6 @@ public class MeshBuilder {
         //if( _materialT != typeof( VertexTexture1 ) ) _materialParamCache.Insert( 0, vertex.Color!.Value );
         if( _materialT != typeof( VertexTexture1 ) ) _materialParamCache.Insert( 0, new Vector4( 255, 255, 255, 255 ) );
 
-        if( _skinningT != typeof( VertexEmpty ) ) {
-            for( var k = 0; k < 4; k++ ) {
-                var boneIndex       = vertex.BlendIndices[ k ];
-                var mappedBoneIndex = _jointMap[ boneIndex ];
-                var boneWeight      = vertex.BlendWeights != null ? vertex.BlendWeights.Value[ k ] : 0;
-                var binding         = ( mappedBoneIndex, boneWeight );
-                _skinningParamCache.Add( binding );
-            }
-        }
 
         _vertexBuilderParams[ 0 ] = Activator.CreateInstance( _geometryT, _geometryParamCache.ToArray() )!;
         _vertexBuilderParams[ 1 ] = Activator.CreateInstance( _materialT, _materialParamCache.ToArray() )!;
@@ -137,4 +168,11 @@ public class MeshBuilder {
 
     private static Vector3 ToVec3( Vector4 v ) => new(v.X, v.Y, v.Z);
     private static Vector2 ToVec2( Vector4 v ) => new(v.X, v.Y);
+
+    // Literally ripped directly from xivModdingFramework because I am lazy
+    private static Vector3 MatrixTransform( Vector3 vector, float[] transform ) => new(
+        vector.X * transform[ 0 ] + vector.Y * transform[ 1 ] + vector.Z * transform[ 2 ] + 1.0f * transform[ 3 ],
+        vector.X * transform[ 4 ] + vector.Y * transform[ 5 ] + vector.Z * transform[ 6 ] + 1.0f * transform[ 7 ],
+        vector.X * transform[ 8 ] + vector.Y * transform[ 9 ] + vector.Z * transform[ 10 ] + 1.0f * transform[ 11 ]
+    );
 }

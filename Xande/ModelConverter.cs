@@ -7,7 +7,6 @@ using Lumina.Models.Models;
 using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
-using SharpGLTF.Transforms;
 using Xande.Files;
 using Xande.Havok;
 using Mesh = Lumina.Models.Models.Mesh;
@@ -29,18 +28,20 @@ public static class ModelExtensions {
 }
 
 public class ModelConverter {
-    private readonly LuminaManager _lumina;
-
+    private readonly LuminaManager  _lumina;
     private readonly HavokConverter _converter;
+    private readonly PbdFile        _pbd;
 
     public ModelConverter( LuminaManager lumina, HavokConverter converter ) {
         _lumina    = lumina;
         _converter = converter;
+        _pbd       = lumina.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
     }
 
     public ModelConverter( GameData gameData, HavokConverter converter ) {
         _lumina    = new LuminaManager( gameData );
         _converter = converter;
+        _pbd       = _lumina.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
     }
 
 
@@ -234,7 +235,7 @@ public class ModelConverter {
                 if( boneMap.ContainsKey( name ) ) continue;
 
                 var bone = new NodeBuilder( name );
-                bone.SetLocalTransform( CreateAffineTransform( refPose[ j ] ), false );
+                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[ j ] ), false );
 
                 var boneRootId = parentIndices[ j ];
                 if( boneRootId == -1 && root == null ) { root = bone; }
@@ -251,28 +252,14 @@ public class ModelConverter {
     }
 
     /// <summary>
-    /// Creates an affine transform for a bone from the reference pose in the Havok XML file.
-    /// </summary>
-    /// <param name="refPos">The reference pose from HavokXml.GetReferencePose.</param>
-    /// <returns>The affine transform.</returns>
-    /// <exception cref="Exception">Thrown if the reference pose is invalid.</exception>
-    private static AffineTransform CreateAffineTransform( ReadOnlySpan< float > refPos ) {
-        // Compared with packfile vs tagfile and xivModdingFramework code
-        if( refPos.Length < 11 ) throw new Exception( "RefPos does not contain enough values for affine transformation." );
-        var translation = new Vector3( refPos[ 0 ], refPos[ 1 ], refPos[ 2 ] );
-        var rotation    = new Quaternion( refPos[ 4 ], refPos[ 5 ], refPos[ 6 ], refPos[ 7 ] );
-        var scale       = new Vector3( refPos[ 8 ], refPos[ 9 ], refPos[ 10 ] );
-        return new AffineTransform( scale, rotation, translation );
-    }
-
-    /// <summary>
     /// Exports a model(s) to glTF.
     /// </summary>
     /// <param name="outputDir">A directory to write files and textures to.</param>
     /// <param name="models">A list of .mdl paths.</param>
     /// <param name="skeletons">A list of .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
-    public void ExportModel( string outputDir, string[] models, string[] skeletons ) {
-        var boneMap = GetBoneMap( skeletons, out var boneRoot );
+    /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
+    public void ExportModel( string outputDir, string[] models, string[] skeletons, int? deform = null ) {
+        var boneMap = GetBoneMap( skeletons, out _ );
         var joints  = boneMap.Values.ToArray();
 
         var glTFScene = new SceneBuilder( models[ 0 ] );
@@ -280,6 +267,9 @@ public class ModelConverter {
             var xivModel       = _lumina.GetModel( path );
             var name           = Path.GetFileNameWithoutExtension( path );
             var lastMeshOffset = 0;
+
+            // LMAO
+            var deformThisModel = path.Contains( $"c{deform:D4}" ) ? null : deform;
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
@@ -304,14 +294,22 @@ public class ModelConverter {
                 //PluginLog.Verbose( "Joint ID mapping: {jointIDMapping}", jointIDMapping );
 
                 // Handle submeshes and the main mesh
-                var meshBuilder = new MeshBuilder( xivMesh, useSkinning, jointIDMapping, glTFMaterial );
+                var meshBuilder = new MeshBuilder(
+                    xivMesh,
+                    useSkinning,
+                    jointIDMapping,
+                    glTFMaterial,
+                    _pbd,
+                    boneMap.Keys.ToArray()
+                );
+
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // Annoying hack to work around how IndexOffset works in multiple mesh models
                     lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
 
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
-                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
+                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset, deformThisModel );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
 
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
@@ -319,7 +317,7 @@ public class ModelConverter {
                     }
                 }
                 else {
-                    var mesh = meshBuilder.BuildMesh( lastMeshOffset );
+                    var mesh = meshBuilder.BuildMesh( lastMeshOffset, deformThisModel );
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
 
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
@@ -327,8 +325,6 @@ public class ModelConverter {
                 }
             }
         }
-
-        if( boneRoot != null ) glTFScene.AddNode( boneRoot );
 
         var glTFModel = glTFScene.ToGltf2();
         glTFModel.SaveAsWavefront( Path.Combine( outputDir, "mesh.obj" ) );

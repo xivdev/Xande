@@ -43,9 +43,9 @@ public class PbdFile : FileResource {
     }
 
     public struct Deformer {
-        public int       BoneCount;
-        public string[]  BoneNames;
-        public float[][] DeformMatrices;
+        public int        BoneCount;
+        public string[]   BoneNames;
+        public float[]?[] DeformMatrices;
 
         public static Deformer Read( BinaryReader reader ) {
             var boneCount      = reader.ReadInt32();
