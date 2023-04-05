@@ -187,8 +187,8 @@ public class ModelConverter {
                     // ...what do I do with this?
                     break;
                 default:
-                    PluginLog.Log( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
-                    PluginLog.Log( xivTexture.Value.ToString() ?? string.Empty );
+                    PluginLog.Warning( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
+                    PluginLog.Warning( xivTexture.Value.ToString() ?? string.Empty );
                     break;
             }
 

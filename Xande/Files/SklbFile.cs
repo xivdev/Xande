@@ -4,8 +4,7 @@ namespace Xande.Havok;
 /// Class for parsing .hkx data from a .sklb file.
 /// </summary>
 public sealed class SklbFile {
-    public readonly  int    HkxOffset;
-    private readonly byte[] _header;
+    public readonly byte[] Header;
     public byte[] HkxData { get; private set; }
 
     /// <summary>
@@ -13,11 +12,9 @@ public sealed class SklbFile {
     /// </summary>
     /// <param name="header">All content before the Havok data.</param>
     /// <param name="hkxData">The Havok data.</param>
-    /// <param name="hkxOffset">The offset in the file at which the Havok data starts.</param>
-    private SklbFile( byte[] header, byte[] hkxData, int hkxOffset ) {
-        _header   = header;
-        HkxData   = hkxData;
-        HkxOffset = hkxOffset;
+    private SklbFile( byte[] header, byte[] hkxData ) {
+        Header  = header;
+        HkxData = hkxData;
     }
 
     /// <summary>
@@ -50,16 +47,15 @@ public sealed class SklbFile {
         reader.BaseStream.Seek( hkxOffset, SeekOrigin.Begin );
         var hkxData = reader.ReadBytes( ( int )( reader.BaseStream.Length - hkxOffset ) );
 
-        return new SklbFile( header, hkxData, hkxOffset );
+        return new SklbFile( header, hkxData );
     }
-
 
     public void ReplaceHkxData( byte[] hkxData ) {
         HkxData = hkxData;
     }
 
     public void Write( Stream stream ) {
-        stream.Write( _header );
+        stream.Write( Header );
         stream.Write( HkxData );
     }
 }
