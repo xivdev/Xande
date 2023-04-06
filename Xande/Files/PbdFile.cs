@@ -1,5 +1,4 @@
-﻿using Dalamud.Logging;
-using Lumina.Data;
+﻿using Lumina.Data;
 using Lumina.Extensions;
 
 // ReSharper disable UnassignedField.Global

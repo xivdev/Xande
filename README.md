@@ -59,9 +59,10 @@ To export a model:
 
 ```csharp
 var havokConverter = new HavokConverter();
-var modelConverter = new ModelConverter(DataManager.GameData, havokConverter);
+var luminaManager = new LuminaManager(DataManager.GameData);
+var modelConverter = new ModelConverter(luminaManager, havokConverter);
 
-// outputDir can be any directory, temp paths are used for demonstration
+// outputDir can be any directory that exists and is writable, temp paths are used for demonstration
 var outputDir = Path.Combine(Path.GetTempPath(), "XandeModelExport");
 Directory.CreateDirectory(outputDir);
 
@@ -70,10 +71,14 @@ var sklbPaths = new string[] { };
 modelConverter.ExportModel(outputDir, mdlPaths, sklbPaths);
 ```
 
+Multiple models can be supplied to export them into one scene. When exporting a full body character, pass the `deform` parameter representing the race code of the character.
+
+Skeleton paths can be automatically resolved with the `SklbResolver` class. Note that the skeleton array order is important (base skeletons must come first, and skeletons that depend on other skeletons must come after the dependencies).
+
 ## Safety
 
 Xande tries to do its best to wrap Havok for you, but at its core, it is a library in another game's address space calling random functions.
 
-When contributing, please make sure to check for null pointers and failed `hkResult`s.
+When contributing Havok code, please make sure to check for null pointers and failed `hkResult`s.
 
-HavokConverter is not thread-safe, so you should use it on the Framework thread (see `Framework.RunOnFrameworkThread`).
+Havok is not thread-safe, and most things in Xande access Havok data, so you should use Xande on the Framework thread (see `Framework.RunOnFrameworkThread` and `Framework.RunOnTick`).
