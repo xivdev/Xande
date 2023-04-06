@@ -1,9 +1,11 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using Lumina;
+using Lumina.Data;
 using Lumina.Data.Files;
 using Lumina.Models.Materials;
 using Lumina.Models.Models;
+using Xande.Files;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -13,27 +15,47 @@ public class LuminaManager {
     /// <summary> Provided by Lumina. </summary>
     public readonly GameData GameData;
 
+    public Func< string, string? >? FileResolver = null;
+
     /// <summary> Construct a LuminaManager instance. </summary>
     public LuminaManager( GameData gameData ) => GameData = gameData;
 
+    public T? GetFile< T >( string path ) where T : FileResource {
+        var actualPath = FileResolver?.Invoke( path ) ?? path;
+        return Path.IsPathRooted( actualPath )
+            ? GameData.GetFileFromDisk< T >( actualPath )
+            : GameData.GetFile< T >( actualPath );
+    }
+
     /// <summary> Obtain and parse a model structure from a given path. </summary>
     public Model GetModel( string path ) {
-        var mdlFile = GameData.GetFile< MdlFile >( path );
+        var mdlFile = GetFile< MdlFile >( path );
         return mdlFile != null
             ? new Model( mdlFile )
-            : throw new Exception( $"Lumina was unable to fetch a .mdl file from {path}." );
+            : throw new FileNotFoundException();
     }
 
     /// <summary> Obtain and parse a material structure. </summary>
     public Material GetMaterial( string path ) {
-        var mtrlFile = GameData.GetFile< MtrlFile >( path );
+        var mtrlFile = GetFile< MtrlFile >( path );
         return mtrlFile != null
             ? new Material( mtrlFile )
-            : throw new Exception( $"Lumina was unable to fetch a .mtrl file from {path}." );
+            : throw new FileNotFoundException();
     }
 
     /// <inheritdoc cref="GetMaterial(string)"/>
     public Material GetMaterial( Material mtrl ) => GetMaterial( mtrl.ResolvedPath ?? mtrl.MaterialPath );
+
+    public SklbFile GetSkeleton( string path ) {
+        var sklbFile = GetFile< FileResource >( path );
+        return sklbFile != null
+            ? SklbFile.FromStream( sklbFile.Reader.BaseStream )
+            : throw new FileNotFoundException();
+    }
+
+    public PbdFile GetPbdFile() {
+        return GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
+    }
 
     /// <summary> Obtain and parse a texture to a Bitmap.  </summary>
     public unsafe Bitmap GetTextureBuffer( string path ) {

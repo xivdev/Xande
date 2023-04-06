@@ -8,7 +8,7 @@ namespace Xande.TestPlugin;
 public class Plugin : IDalamudPlugin {
     public string Name => "Xande.TestPlugin";
 
-    private static Configuration Configuration { get; set; } = null!;
+    public static Configuration Configuration { get; set; } = null!;
     private static readonly WindowSystem WindowSystem = new("Xande.TestPlugin");
     private readonly        MainWindow   _mainWindow;
 

@@ -11,6 +11,7 @@ namespace Xande.TestPlugin.Windows;
 public class MainWindow : Window, IDisposable {
     private readonly FileDialogManager _fileDialogManager;
     private readonly HavokConverter    _converter;
+    private readonly LuminaManager     _luminaManager;
     private readonly ModelConverter    _modelConverter;
     private readonly SklbResolver      _sklbResolver;
 
@@ -28,7 +29,10 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _modelConverter = new ModelConverter( Service.DataManager.GameData, _converter );
+        _luminaManager = new LuminaManager( Service.DataManager.GameData ) {
+            FileResolver = origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null
+        };
+        _modelConverter = new ModelConverter( _luminaManager, _converter );
         _sklbResolver   = new SklbResolver();
     }
 

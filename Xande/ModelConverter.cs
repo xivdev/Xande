@@ -35,13 +35,13 @@ public class ModelConverter {
     public ModelConverter( LuminaManager lumina, HavokConverter converter ) {
         _lumina    = lumina;
         _converter = converter;
-        _pbd       = lumina.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
+        _pbd       = lumina.GetPbdFile();
     }
 
     public ModelConverter( GameData gameData, HavokConverter converter ) {
         _lumina    = new LuminaManager( gameData );
         _converter = converter;
-        _pbd       = _lumina.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
+        _pbd       = _lumina.GetPbdFile();
     }
 
 
@@ -206,10 +206,8 @@ public class ModelConverter {
     /// <param name="skellyPath">Path to a .sklb.</param>
     /// <returns>A newly created HavokXml instance.</returns>
     private HavokXml GetHavokXml( string skellyPath ) {
-        var skellyData   = _lumina.GameData.GetFile( skellyPath )!.Data;
-        var skellyStream = new MemoryStream( skellyData );
-        var skelly       = SklbFile.FromStream( skellyStream );
-        var xmlStr       = _converter.HkxToXml( skelly.HkxData );
+        var skelly = _lumina.GetSkeleton( skellyPath );
+        var xmlStr = _converter.HkxToXml( skelly.HkxData );
         return new HavokXml( xmlStr );
     }
 

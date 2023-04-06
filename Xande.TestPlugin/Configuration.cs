@@ -6,6 +6,10 @@ namespace Xande.TestPlugin;
 public class Configuration : IPluginConfiguration {
     public int Version { get; set; } = 0;
 
+    public Dictionary< string, string > ResolverOverrides = new() {
+        { "this_path_will_never_appear", "this_path_will_never_appear" }
+    };
+
     public void Save() {
         Service.PluginInterface.SavePluginConfig( this );
     }
