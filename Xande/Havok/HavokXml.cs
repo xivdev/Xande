@@ -31,7 +31,6 @@ public class HavokXml {
             .Select( x => new XmlMapping( x ) ).ToArray();
 
         var animationContainer = document.SelectSingleNode( "/hktagfile/object[@type='hkaAnimationContainer']" )!;
-        PluginLog.Verbose( "Animation container: {a}", animationContainer );
         var animationSkeletons = animationContainer
             .SelectNodes( "array[@name='skeletons']" )!
             .Cast< XmlElement >()

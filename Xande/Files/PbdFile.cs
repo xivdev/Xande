@@ -1,4 +1,5 @@
-﻿using Lumina.Data;
+﻿using Dalamud.Logging;
+using Lumina.Data;
 using Lumina.Extensions;
 
 // ReSharper disable UnassignedField.Global
@@ -10,14 +11,14 @@ namespace Xande.Files;
 /// Parses a human.pbd file to deform models. This file is located at <c>chara/xls/boneDeformer/human.pbd</c> in the game's data files.
 /// </summary>
 public class PbdFile : FileResource {
-    public Header[]   Headers;
-    public Deformer[] Deformers;
+    public Header[]          Headers;
+    public (int, Deformer)[] Deformers;
 
     public override void LoadFile() {
         var entryCount = Reader.ReadInt32();
 
         Headers   = new Header[entryCount];
-        Deformers = new Deformer[entryCount - 1];
+        Deformers = new (int, Deformer)[entryCount];
 
         for( var i = 0; i < entryCount; i++ ) { Headers[ i ] = Reader.ReadStructure< Header >(); }
 
@@ -31,21 +32,21 @@ public class PbdFile : FileResource {
             var offset = header.Offset;
             Reader.Seek( offset );
 
-            Deformers[ i - 1 ] = Deformer.Read( Reader );
+            Deformers[ i ] = ( offset, Deformer.Read( Reader ) );
         }
     }
 
     public struct Header {
         public ushort Id;
-        public ushort Unk1;
+        public ushort DeformerId;
         public int    Offset;
         public float  Unk2;
     }
 
     public struct Deformer {
-        public int       BoneCount;
-        public string[]  BoneNames;
-        public float[][] DeformMatrices;
+        public int        BoneCount;
+        public string[]   BoneNames;
+        public float[]?[] DeformMatrices;
 
         public static Deformer Read( BinaryReader reader ) {
             var boneCount      = reader.ReadInt32();
@@ -95,7 +96,6 @@ public class PbdFile : FileResource {
 
     public Deformer GetDeformerFromRaceCode( ushort raceCode ) {
         var header = Headers.First( h => h.Id == raceCode );
-
-        return Deformers[ 0 ];
+        return Deformers.First( d => d.Item1 == header.Offset ).Item2;
     }
 }

@@ -44,14 +44,14 @@ public class MainWindow : Window, IDisposable {
         DrawConvert();
     }
 
-    private void DoTheThingWithTheModels( string[] models, string[] skeletons ) {
+    private void DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null ) {
         var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
         Directory.CreateDirectory( tempDir );
 
         var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
         Directory.CreateDirectory( tempPath );
 
-        _modelConverter.ExportModel( tempPath, models, skeletons );
+        _modelConverter.ExportModel( tempPath, models, skeletons, deform );
     }
 
     private void DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
@@ -120,6 +120,27 @@ public class MainWindow : Window, IDisposable {
                 _sklbResolver.ResolveHumanBase( 8, 1 )
             );
         }
+
+        if( ImGui.Button( "Model (jules)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "chara/human/c0801/obj/face/f0102/model/c0801f0102_fac.mdl",
+                    "chara/human/c0801/obj/hair/h0008/model/c0801h0008_hir.mdl",
+                    "chara/human/c0801/obj/tail/t0002/model/c0801t0002_til.mdl",
+                    "chara/equipment/e0287/model/c0201e0287_top.mdl",
+                    "chara/equipment/e6024/model/c0201e6024_dwn.mdl",
+                    "chara/equipment/e6090/model/c0201e6090_sho.mdl",
+                    "chara/equipment/e0227/model/c0101e0227_glv.mdl"
+                },
+                new[] {
+                    "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb",
+                    "chara/human/c0801/skeleton/face/f0002/skl_c0801f0002.sklb",
+                    "chara/human/c0801/skeleton/hair/h0009/skl_c0801h0009.sklb",
+                    "chara/human/c0801/skeleton/hair/h0008/skl_c0801h0008.sklb"
+                },
+                deform: 801
+            );
+        }
     }
 
     private void DrawParseExport() {
@@ -146,8 +167,8 @@ public class MainWindow : Window, IDisposable {
 
             PluginLog.Debug( "Deformer count: {0}", pbd.Deformers.Length );
             for( var i = 0; i < pbd.Deformers.Length; i++ ) {
-                var deformer = pbd.Deformers[ i ];
-                PluginLog.Debug( "\tDeformer {0} - bone count: {1}", i, deformer.BoneCount );
+                var (offset, deformer) = pbd.Deformers[ i ];
+                PluginLog.Debug( "\tDeformer {0} (offset {1}) - bone count: {2}", i, offset, deformer.BoneCount );
                 for( var j = 0; j < deformer.BoneCount; j++ ) {
                     PluginLog.Debug( "\t\tBone {0} - name: {1}, deform matrix: {2}", j, deformer.BoneNames[ j ], deformer.DeformMatrices[ j ] );
                 }
