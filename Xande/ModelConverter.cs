@@ -215,9 +215,11 @@ public class ModelConverter {
     /// Builds a skeleton tree from a list of .sklb paths.
     /// </summary>
     /// <param name="skellyPaths">A list of .sklb paths.</param>
+    /// <param name="root">The root bone node.</param>
     /// <returns>A mapping of bone name to node in the scene.</returns>
-    private Dictionary< string, NodeBuilder > GetBoneMap( string[] skellyPaths ) {
+    private Dictionary< string, NodeBuilder > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
         Dictionary< string, NodeBuilder > boneMap = new();
+        root = null;
 
         foreach( var skellyPath in skellyPaths ) {
             var xml           = GetHavokXml( skellyPath );
@@ -238,6 +240,7 @@ public class ModelConverter {
                     var parent = boneMap[ boneNames[ boneRootId ] ];
                     parent.AddNode( bone );
                 }
+                else { root = bone; }
 
                 boneMap[ name ] = bone;
             }
@@ -254,10 +257,11 @@ public class ModelConverter {
     /// <param name="skeletons">A list of .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
     public void ExportModel( string outputDir, string[] models, string[] skeletons, ushort? deform = null ) {
-        var boneMap      = GetBoneMap( skeletons );
+        var boneMap      = GetBoneMap( skeletons, out var root );
         var joints       = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
-        var glTFScene    = new SceneBuilder( models[ 0 ] );
+        var glTFScene    = new SceneBuilder( models.Length > 0 ? models[ 0 ] : "scene" );
+        if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
             var xivModel       = _lumina.GetModel( path );
