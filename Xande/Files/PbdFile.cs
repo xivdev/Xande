@@ -1,4 +1,5 @@
-﻿using Lumina.Data;
+﻿using Dalamud.Logging;
+using Lumina.Data;
 using Lumina.Extensions;
 
 // ReSharper disable UnassignedField.Global
@@ -17,7 +18,7 @@ public class PbdFile : FileResource {
         var entryCount = Reader.ReadInt32();
 
         Headers   = new Header[entryCount];
-        Deformers = new Deformer[entryCount - 1];
+        Deformers = new Deformer[entryCount];
 
         for( var i = 0; i < entryCount; i++ ) { Headers[ i ] = Reader.ReadStructure< Header >(); }
 
@@ -31,13 +32,13 @@ public class PbdFile : FileResource {
             var offset = header.Offset;
             Reader.Seek( offset );
 
-            Deformers[ i - 1 ] = Deformer.Read( Reader );
+            Deformers[ i ] = Deformer.Read( Reader );
         }
     }
 
     public struct Header {
         public ushort Id;
-        public ushort Unk1;
+        public ushort DeformerId;
         public int    Offset;
         public float  Unk2;
     }
@@ -95,7 +96,6 @@ public class PbdFile : FileResource {
 
     public Deformer GetDeformerFromRaceCode( ushort raceCode ) {
         var header = Headers.First( h => h.Id == raceCode );
-
-        return Deformers[ 0 ];
+        return Deformers[ header.DeformerId ];
     }
 }

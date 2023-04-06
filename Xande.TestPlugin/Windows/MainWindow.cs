@@ -42,7 +42,7 @@ public class MainWindow : Window, IDisposable {
         DrawConvert();
     }
 
-    private void DoTheThingWithTheModels( string[] models, string[] skeletons, int? deform = null ) {
+    private void DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null ) {
         var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
         Directory.CreateDirectory( tempDir );
 
