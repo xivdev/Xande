@@ -145,6 +145,19 @@ public class MainWindow : Window, IDisposable {
                 deform: 801
             );
         }
+
+        ImGui.SameLine();
+
+        if( ImGui.Button( "Model (Xande)" ) ) {
+            DoTheThingWithTheModels(
+                new[] {
+                    "chara/monster/m0127/obj/body/b0001/model/m0127b0001.mdl",
+                    "chara/monster/m0127/obj/body/b0001/model/m0127b0001_top.mdl"
+                },
+                new[] {
+                    "chara/monster/m0127/skeleton/base/b0001/skl_m0127b0001.sklb"
+                } );
+        }
     }
 
     private void DrawParseExport() {
