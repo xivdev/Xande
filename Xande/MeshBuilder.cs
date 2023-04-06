@@ -25,7 +25,7 @@ public class MeshBuilder {
     private readonly Type _vertexBuilderT;
     private readonly Type _meshBuilderT;
 
-    private List< PbdFile.Deformer > _deformers;
+    private List< PbdFile.Deformer > _deformers = new();
 
     public MeshBuilder(
         Mesh mesh,
@@ -48,10 +48,7 @@ public class MeshBuilder {
 
     public void SetupDeformSteps( ushort from, ushort to ) {
         // Nothing to do
-        if( from == to ) {
-            _deformers = new List< PbdFile.Deformer >();
-            return;
-        }
+        if( from == to ) { return; }
 
         var     deformSteps = new List< ushort >();
         ushort? current     = to;
@@ -124,17 +121,19 @@ public class MeshBuilder {
         Vector3 origPos    = ToVec3( vertex.Position!.Value );
         Vector3 currentPos = origPos;
 
-        foreach( var deformer in _deformers ) {
-            Vector3 deformedPos = Vector3.Zero;
+        if( _deformers.Count > 0 ) {
+            foreach( var deformer in _deformers ) {
+                Vector3 deformedPos = Vector3.Zero;
 
-            foreach( var (idx, weight) in _skinningParamCache ) {
-                if( weight == 0 ) continue;
+                foreach( var (idx, weight) in _skinningParamCache ) {
+                    if( weight == 0 ) continue;
 
-                var deformPos = _raceDeformer.DeformVertex( deformer, idx, currentPos );
-                if( deformPos != null ) { deformedPos += ( deformPos.Value * weight ); }
+                    var deformPos = _raceDeformer.DeformVertex( deformer, idx, currentPos );
+                    if( deformPos != null ) { deformedPos += ( deformPos.Value * weight ); }
+                }
+
+                currentPos = deformedPos;
             }
-
-            currentPos = deformedPos;
         }
 
         _geometryParamCache.Add( currentPos );
