@@ -296,7 +296,7 @@ public class ModelConverter {
                 );
 
                 // Deform for full bodies
-                if( raceCode != null && deform != null && raceCode != deform ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
+                if( raceCode != null && deform != null ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
 
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // Annoying hack to work around how IndexOffset works in multiple mesh models

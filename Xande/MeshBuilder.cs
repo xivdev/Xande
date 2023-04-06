@@ -25,7 +25,7 @@ public class MeshBuilder {
     private readonly Type _vertexBuilderT;
     private readonly Type _meshBuilderT;
 
-    private List< PbdFile.Deformer > _deformers = new();
+    private List< PbdFile.Deformer > _deformers;
 
     public MeshBuilder(
         Mesh mesh,
@@ -47,26 +47,23 @@ public class MeshBuilder {
     }
 
     public void SetupDeformSteps( ushort from, ushort to ) {
+        // Nothing to do
+        if( from == to ) {
+            _deformers = new List< PbdFile.Deformer >();
+            return;
+        }
+
         var     deformSteps = new List< ushort >();
         ushort? current     = to;
 
         while( current != null ) {
             deformSteps.Add( current.Value );
             current = _raceDeformer.GetParent( current.Value );
+            if( current == from ) break;
         }
 
-        // Slice to only the steps we need
-        var fromIdx = deformSteps.IndexOf( from );
-        if( fromIdx == -1 ) {
-            // TODO: better exception
-            throw new ArgumentException( $"Can't find a path from {from:D4} to {to:D4}" );
-        }
-
-        deformSteps = deformSteps.GetRange( 0, fromIdx + 1 );
-
-        // Reverse it & cut off the point we're already at
+        // Reverse it to the right order
         deformSteps.Reverse();
-        deformSteps = deformSteps.GetRange( 1, deformSteps.Count - 1 );
 
         // Turn these into deformers
         var pbd       = _raceDeformer.PbdFile;
@@ -111,9 +108,7 @@ public class MeshBuilder {
     public IVertexBuilder BuildVertex( int vertexIdx ) {
         ClearCaches();
 
-        var     vertex      = _mesh.VertexByIndex( vertexIdx );
-        Vector3 origPos     = ToVec3( vertex.Position!.Value );
-        Vector3 deformedPos = Vector3.Zero;
+        var vertex = _mesh.VertexByIndex( vertexIdx );
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
@@ -126,19 +121,23 @@ public class MeshBuilder {
             }
         }
 
+        Vector3 origPos    = ToVec3( vertex.Position!.Value );
+        Vector3 currentPos = origPos;
+
         foreach( var deformer in _deformers ) {
+            Vector3 deformedPos = Vector3.Zero;
+
             foreach( var (idx, weight) in _skinningParamCache ) {
                 if( weight == 0 ) continue;
 
-                var deformPos = _raceDeformer.DeformVertex( deformer, idx, origPos );
-                if( deformPos != null ) { deformedPos += deformPos.Value * weight; }
+                var deformPos = _raceDeformer.DeformVertex( deformer, idx, currentPos );
+                if( deformPos != null ) { deformedPos += ( deformPos.Value * weight ); }
             }
 
-            origPos     = deformedPos;
-            deformedPos = Vector3.Zero;
+            currentPos = deformedPos;
         }
 
-        _geometryParamCache.Add( origPos );
+        _geometryParamCache.Add( currentPos );
 
         // Means it's either VertexPositionNormal or VertexPositionNormalTangent; both have Normal
         if( _geometryT != typeof( VertexPosition ) ) _geometryParamCache.Add( vertex.Normal!.Value );

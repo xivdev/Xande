@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Dalamud.Logging;
 using SharpGLTF.Scenes;
 using Xande.Files;
 
@@ -57,11 +58,13 @@ public class RaceDeformer {
         var boneNames = _boneMap.Keys.ToArray();
         var boneName  = boneNames[ nameIndex ];
         var matrix    = ResolveDeformation( deformer, boneName );
-        return matrix != null ? MatrixTransform( origPos, matrix ) : null;
+        if( matrix != null ) { return MatrixTransform( origPos, matrix ); }
+
+        return null;
     }
 
-    // Yoinked from TexTools deform code
-    private Vector3 MatrixTransform( Vector3 vector, float[] transform ) => new(
+    // Literally ripped directly from xivModdingFramework because I am lazy
+    private static Vector3 MatrixTransform( Vector3 vector, float[] transform ) => new(
         vector.X * transform[ 0 ] + vector.Y * transform[ 1 ] + vector.Z * transform[ 2 ] + 1.0f * transform[ 3 ],
         vector.X * transform[ 4 ] + vector.Y * transform[ 5 ] + vector.Z * transform[ 6 ] + 1.0f * transform[ 7 ],
         vector.X * transform[ 8 ] + vector.Y * transform[ 9 ] + vector.Z * transform[ 10 ] + 1.0f * transform[ 11 ]

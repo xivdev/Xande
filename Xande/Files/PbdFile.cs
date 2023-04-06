@@ -11,14 +11,14 @@ namespace Xande.Files;
 /// Parses a human.pbd file to deform models. This file is located at <c>chara/xls/boneDeformer/human.pbd</c> in the game's data files.
 /// </summary>
 public class PbdFile : FileResource {
-    public Header[]   Headers;
-    public Deformer[] Deformers;
+    public Header[]          Headers;
+    public (int, Deformer)[] Deformers;
 
     public override void LoadFile() {
         var entryCount = Reader.ReadInt32();
 
         Headers   = new Header[entryCount];
-        Deformers = new Deformer[entryCount];
+        Deformers = new (int, Deformer)[entryCount];
 
         for( var i = 0; i < entryCount; i++ ) { Headers[ i ] = Reader.ReadStructure< Header >(); }
 
@@ -32,7 +32,7 @@ public class PbdFile : FileResource {
             var offset = header.Offset;
             Reader.Seek( offset );
 
-            Deformers[ i ] = Deformer.Read( Reader );
+            Deformers[ i ] = ( offset, Deformer.Read( Reader ) );
         }
     }
 
@@ -96,6 +96,6 @@ public class PbdFile : FileResource {
 
     public Deformer GetDeformerFromRaceCode( ushort raceCode ) {
         var header = Headers.First( h => h.Id == raceCode );
-        return Deformers[ header.DeformerId ];
+        return Deformers.First( d => d.Item1 == header.Offset ).Item2;
     }
 }

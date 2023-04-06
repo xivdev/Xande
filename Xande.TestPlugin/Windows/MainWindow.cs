@@ -121,7 +121,7 @@ public class MainWindow : Window, IDisposable {
             );
         }
 
-        if( ImGui.Button( "model (jules)" ) ) {
+        if( ImGui.Button( "Model (jules)" ) ) {
             DoTheThingWithTheModels(
                 new[] {
                     "chara/human/c0801/obj/face/f0102/model/c0801f0102_fac.mdl",
@@ -130,7 +130,7 @@ public class MainWindow : Window, IDisposable {
                     "chara/equipment/e0287/model/c0201e0287_top.mdl",
                     "chara/equipment/e6024/model/c0201e6024_dwn.mdl",
                     "chara/equipment/e6090/model/c0201e6090_sho.mdl",
-                    "chara/equipment/e0227/model/c0101e0227_glv.mdl",
+                    "chara/equipment/e0227/model/c0101e0227_glv.mdl"
                 },
                 new[] {
                     "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb",
@@ -167,8 +167,8 @@ public class MainWindow : Window, IDisposable {
 
             PluginLog.Debug( "Deformer count: {0}", pbd.Deformers.Length );
             for( var i = 0; i < pbd.Deformers.Length; i++ ) {
-                var deformer = pbd.Deformers[ i ];
-                PluginLog.Debug( "\tDeformer {0} - bone count: {1}", i, deformer.BoneCount );
+                var (offset, deformer) = pbd.Deformers[ i ];
+                PluginLog.Debug( "\tDeformer {0} (offset {1}) - bone count: {2}", i, offset, deformer.BoneCount );
                 for( var j = 0; j < deformer.BoneCount; j++ ) {
                     PluginLog.Debug( "\t\tBone {0} - name: {1}, deform matrix: {2}", j, deformer.BoneNames[ j ], deformer.DeformMatrices[ j ] );
                 }
