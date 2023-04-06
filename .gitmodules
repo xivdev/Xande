@@ -1,0 +1,4 @@
+[submodule "Lumina"]
+	path = Lumina
+	url = git@github.com:Ottermandias/Lumina
+	branch = master

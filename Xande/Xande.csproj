@@ -27,15 +27,15 @@
             <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="Lumina">
-            <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0028" />
       <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0-alpha0028" />
       <PackageReference Include="System.Drawing.Common" Version="8.0.0-preview.2.23128.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Lumina\src\Lumina\Lumina.csproj" />
     </ItemGroup>
 </Project>

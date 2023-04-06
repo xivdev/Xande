@@ -38,13 +38,6 @@ public class ModelConverter {
         _pbd       = lumina.GetPbdFile();
     }
 
-    public ModelConverter( GameData gameData, HavokConverter converter ) {
-        _lumina    = new LuminaManager( gameData );
-        _converter = converter;
-        _pbd       = _lumina.GetPbdFile();
-    }
-
-
     /*
     UV null and Color null => Not happening
     UV not null and Color null => VertexTextureN; N = 1 and 2

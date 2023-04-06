@@ -30,6 +30,9 @@
         "type": "Transitive",
         "resolved": "8.0.0-preview.2.23128.3",
         "contentHash": "2ugSY6UuqJfYhvVUaf4ueuUiMjIyN9dU03wpbKfRDsn13XvZ91yOlw7NLhYvB1Xc8gCAZpND20Tgbe3uBVytKA=="
+      },
+      "lumina": {
+        "type": "Project"
       }
     }
   }

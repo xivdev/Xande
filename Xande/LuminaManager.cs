@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using Lumina;
@@ -18,7 +19,28 @@ public class LuminaManager {
     public Func< string, string? >? FileResolver = null;
 
     /// <summary> Construct a LuminaManager instance. </summary>
-    public LuminaManager( GameData gameData ) => GameData = gameData;
+    public LuminaManager() {
+        var luminaOptions = new LuminaOptions {
+            LoadMultithreaded  = true,
+            CacheFileResources = true,
+#if NEVER // Lumina bug
+            PanicOnSheetChecksumMismatch = true,
+#else
+            PanicOnSheetChecksumMismatch = false,
+#endif
+            DefaultExcelLanguage = Language.English,
+        };
+
+        var processModule = Process.GetCurrentProcess().MainModule;
+        if( processModule != null ) {
+            GameData = new GameData( Path.Combine( Path.GetDirectoryName( processModule.FileName )!, "sqpack" ), luminaOptions );
+        }
+        else {
+            throw new Exception( "Could not find process data to create lumina." );
+        }
+    }
+
+    public LuminaManager( Func< string, string? > fileResolver ) : this() => FileResolver = fileResolver;
 
     public T? GetFile< T >( string path ) where T : FileResource {
         var actualPath = FileResolver?.Invoke( path ) ?? path;
