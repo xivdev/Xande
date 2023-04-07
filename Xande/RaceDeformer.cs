@@ -19,11 +19,11 @@ public class RaceDeformer {
         // Annoying special cases
         if( raceCode == 1201 ) return 1101; // Lalafell F -> Lalafell M
         if( raceCode == 0201 ) return 0101; // Midlander F -> Midlander M
+        if( raceCode == 1001 ) return 0901; // Roegadyn F -> Roegadyn M
         if( raceCode == 0101 ) return null; // Midlander M has no parent
 
         // First two digits being odd or even can tell us gender
-        var raceCodeStr = raceCode.ToString( "D4" );
-        var isMale      = int.Parse( raceCodeStr[ ..2 ] ) % 2 == 1;
+        var isMale = raceCode / 100 % 2 == 1;
 
         // Midlander M / Midlander F
         return ( ushort )( isMale ? 0101 : 0201 );
