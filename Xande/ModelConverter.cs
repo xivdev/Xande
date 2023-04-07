@@ -304,6 +304,7 @@ public class ModelConverter {
 
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
+                        var _ = new ShapeBuilder( xivModel.Shapes.Values.ToArray(), subMesh );
                     }
                 }
                 else {
@@ -312,7 +313,10 @@ public class ModelConverter {
 
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
+
+                    var _ = new ShapeBuilder( xivModel.Shapes.Values.ToArray(), mesh );
                 }
+                
             }
         }
 
