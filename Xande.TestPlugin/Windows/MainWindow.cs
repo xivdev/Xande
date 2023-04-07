@@ -1,10 +1,10 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using ImGuiNET;
- using Xande.Files;
- using Xande.Havok;
+using Xande.Files;
+using Xande.Havok;
 
 namespace Xande.TestPlugin.Windows;
 
@@ -29,9 +29,10 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
+        _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
         _modelConverter = new ModelConverter( _luminaManager, _converter );
         _sklbResolver   = new SklbResolver();
+        IsOpen          = Plugin.Configuration.AutoOpen;
     }
 
     public void Dispose() { }
@@ -265,6 +266,12 @@ public class MainWindow : Window, IDisposable {
                     } );
                 } );
             } );
+        }
+
+        var autoOpen = Plugin.Configuration.AutoOpen;
+        if( ImGui.Checkbox( "Auto Open Window", ref autoOpen ) ) {
+            Plugin.Configuration.AutoOpen = autoOpen;
+            Plugin.Configuration.Save();
         }
     }
 }
