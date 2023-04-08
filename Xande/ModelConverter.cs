@@ -256,7 +256,7 @@ public class ModelConverter {
         if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
-            var xivModel = _lumina.GetModel( path );
+            var xivModel       = _lumina.GetModel( path );
             //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
             var name           = Path.GetFileNameWithoutExtension( path );
             var lastMeshOffset = 0;
@@ -292,7 +292,6 @@ public class ModelConverter {
 
                 // Deform for full bodies
                 if( raceCode != null && deform != null ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
-
                 meshBuilder.BuildVertices();
 
                 if( xivMesh.Submeshes.Length > 0 ) {
@@ -302,10 +301,8 @@ public class ModelConverter {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
                         var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
-
-                        var startIndex = ( int )xivSubmesh.IndexOffset;
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset - lastMeshOffset, startIndex );
+                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, (int) xivSubmesh.IndexOffset - lastMeshOffset);
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
@@ -313,12 +310,11 @@ public class ModelConverter {
                 else {
                     var mesh = meshBuilder.BuildMesh( lastMeshOffset );
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
-
-                    var startIndex = ( int )xivModel.File.Meshes[ xivMesh.MeshIndex ].StartIndex;
-                    meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, lastMeshOffset, startIndex );
+                    meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, lastMeshOffset );
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
+
             }
         }
 

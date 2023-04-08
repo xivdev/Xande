@@ -110,7 +110,7 @@ public class MeshBuilder {
         return ret;
     }
 
-    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int offset, int startIndex ) {
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int offset ) {
         var primitive  = builder.Primitives.First();
         var triangles  = primitive.Triangles;
         var vertices   = primitive.Vertices;
@@ -119,14 +119,11 @@ public class MeshBuilder {
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
             vertexList.Clear();
-
-            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == startIndex ) ) {
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == _mesh.Parent.File!.Meshes[ _mesh.MeshIndex ].StartIndex ) ) {
                 foreach( var (baseTri, otherTri) in shapeMesh.Values ) {
-                    if( baseTri == otherTri ) continue;
                     var triIdx    = baseTri - offset;
                     var vertexIdx = triIdx % 3;
                     triIdx /= 3;
-
                     if( triIdx < 0 || triIdx >= triangles.Count ) continue; // different submesh?
 
                     var triA = triangles[ triIdx ];
