@@ -302,7 +302,7 @@ public class ModelConverter {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
                         var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, lastMeshOffset + (int) xivSubmesh.IndexOffset );
+                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, (int) xivSubmesh.IndexOffset - lastMeshOffset);
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
@@ -314,7 +314,7 @@ public class ModelConverter {
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
-                
+
             }
         }
 

@@ -1,4 +1,5 @@
 using System.Numerics;
+using Dalamud.Logging;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
@@ -118,12 +119,12 @@ public class MeshBuilder {
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
             vertexList.Clear();
-            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == _mesh.Parent.File!.Meshes[_mesh.MeshIndex].StartIndex ) ) {
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == _mesh.Parent.File!.Meshes[ _mesh.MeshIndex ].StartIndex ) ) {
                 foreach( var (baseTri, otherTri) in shapeMesh.Values ) {
                     var triIdx    = baseTri - offset;
                     var vertexIdx = triIdx % 3;
                     triIdx /= 3;
-                    if( triIdx < 0 || triIdx >= triangles.Count ) continue; // different submesh.
+                    if( triIdx < 0 || triIdx >= triangles.Count ) continue; // different submesh?
 
                     var triA = triangles[ triIdx ];
                     var vertexA = vertices[ vertexIdx switch {
@@ -216,12 +217,12 @@ public class MeshBuilder {
     /// <summary> Obtain the correct geometry type for a given set of vertices. </summary>
     private static Type GetVertexGeometryType( Vertex[] vertex )
         => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
-            vertex[ 0 ].Normal  != null ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
+            vertex[ 0 ].Normal != null  ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
     /// <summary> Obtain the correct material type for a set of vertices. </summary>
     private static Type GetVertexMaterialType( Vertex[] vertex ) {
         var hasColor = vertex[ 0 ].Color != null;
-        var hasUv    = vertex[ 0 ].UV    != null;
+        var hasUv    = vertex[ 0 ].UV != null;
 
         return hasColor switch {
             true when hasUv  => typeof( VertexColor1Texture1 ),
