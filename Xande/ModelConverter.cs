@@ -1,5 +1,7 @@
 using System.Drawing;
 using System.Numerics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dalamud.Logging;
 using Lumina;
 using Lumina.Data.Parsing;
@@ -258,6 +260,7 @@ public class ModelConverter {
 
         foreach( var path in models ) {
             var xivModel       = _lumina.GetModel( path );
+            //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
             var name           = Path.GetFileNameWithoutExtension( path );
             var lastMeshOffset = 0;
             var raceCode       = raceDeformer.RaceCodeFromPath( path );
@@ -301,20 +304,17 @@ public class ModelConverter {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
                         var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-
+                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, lastMeshOffset + (int) xivSubmesh.IndexOffset );
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
-                        var _ = new ShapeBuilder( xivModel.Shapes.Values.ToArray(), subMesh );
                     }
                 }
                 else {
                     var mesh = meshBuilder.BuildMesh( lastMeshOffset );
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
-
+                    meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, lastMeshOffset );
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
-
-                    var _ = new ShapeBuilder( xivModel.Shapes.Values.ToArray(), mesh );
                 }
                 
             }

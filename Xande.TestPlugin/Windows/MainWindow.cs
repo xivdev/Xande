@@ -157,6 +157,11 @@ public class MainWindow : Window, IDisposable {
                     "chara/monster/m0127/skeleton/base/b0001/skl_m0127b0001.sklb"
                 } );
         }
+
+        ImGui.SameLine();
+        if( ImGui.Button( "Model (Gloves)" ) ) {
+            DoTheThingWithTheModels( new[]{ "chara/equipment/e0180/model/c0201e0180_glv.mdl" }, new string[] { "chara/human/c0201/skeleton/base/b0001/skl_c0201b0001.sklb" } );
+        }
     }
 
     private void DrawParseExport() {

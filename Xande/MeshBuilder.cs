@@ -1,5 +1,4 @@
 using System.Numerics;
-using Dalamud.Logging;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
@@ -27,6 +26,8 @@ public class MeshBuilder {
 
     private List< PbdFile.Deformer > _deformers = new();
 
+    private readonly List< IVertexBuilder > _vertices;
+
     public MeshBuilder(
         Mesh mesh,
         bool useSkinning,
@@ -44,11 +45,12 @@ public class MeshBuilder {
         _skinningT      = useSkinning ? typeof( VertexJoints4 ) : typeof( VertexEmpty );
         _vertexBuilderT = typeof( VertexBuilder< ,, > ).MakeGenericType( _geometryT, _materialT, _skinningT );
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
+        _vertices       = _mesh.Vertices.Select( BuildVertex ).ToList();
     }
 
     public void SetupDeformSteps( ushort from, ushort to ) {
         // Nothing to do
-        if( from == to ) { return; }
+        if( from == to ) return;
 
         var     deformSteps = new List< ushort >();
         ushort? current     = to;
@@ -79,9 +81,9 @@ public class MeshBuilder {
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
+            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0 - lastOffset ] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1 - lastOffset ] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2 - lastOffset ] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
@@ -93,19 +95,48 @@ public class MeshBuilder {
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + 2 - lastOffset );
+            var triA = _vertices[ _mesh.Indices[ triIdx + 0 - lastOffset ] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + 1 - lastOffset ] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + 2 - lastOffset ] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IVertexBuilder BuildVertex( int vertexIdx ) {
-        ClearCaches();
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int offset ) {
+        var primitive = builder.Primitives.First();
+        var triangles = primitive.Triangles;
+        var vertices  = primitive.Vertices;
+        for( var i = 0; i < shapes.Count; ++i ) {
+            var shape = shapes[ i ];
+            var morph = builder.UseMorphTarget( i );
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndex == _mesh.MeshIndex ) ) {
+                foreach( var (baseTri, otherTri) in shapeMesh.Values ) {
+                    var triIdx    = baseTri - offset;
+                    var vertexIdx = triIdx % 3;
+                    triIdx /= 3;
+                    if( triIdx < 0 || triIdx >= triangles.Count ) continue; // different submesh.
 
-        var vertex = _mesh.VertexByIndex( vertexIdx );
+                    var triA = triangles[ triIdx ];
+                    var vertexA = vertices[ vertexIdx switch {
+                        0 => triA.A,
+                        1 => triA.B,
+                        _ => triA.C,
+                    } ];
+
+                    morph.SetVertex( vertexA.GetGeometry(), _vertices[ otherTri ].GetGeometry() );
+                }
+            }
+        }
+
+        var data = new ExtraDataManager();
+        data.AddShapeNames( shapes );
+        builder.Extras = data.Serialize();
+    }
+
+    private IVertexBuilder BuildVertex( Vertex vertex ) {
+        ClearCaches();
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
@@ -118,18 +149,18 @@ public class MeshBuilder {
             }
         }
 
-        Vector3 origPos    = ToVec3( vertex.Position!.Value );
-        Vector3 currentPos = origPos;
+        var origPos    = ToVec3( vertex.Position!.Value );
+        var currentPos = origPos;
 
         if( _deformers.Count > 0 ) {
             foreach( var deformer in _deformers ) {
-                Vector3 deformedPos = Vector3.Zero;
+                var deformedPos = Vector3.Zero;
 
                 foreach( var (idx, weight) in _skinningParamCache ) {
                     if( weight == 0 ) continue;
 
-                    var deformPos = _raceDeformer.DeformVertex( deformer, idx, currentPos );
-                    if( deformPos != null ) { deformedPos += ( deformPos.Value * weight ); }
+                    var deformPos                       = _raceDeformer.DeformVertex( deformer, idx, currentPos );
+                    if( deformPos != null ) deformedPos += deformPos.Value * weight;
                 }
 
                 currentPos = deformedPos;
@@ -171,12 +202,12 @@ public class MeshBuilder {
     /// <summary> Obtain the correct geometry type for a given set of vertices. </summary>
     private static Type GetVertexGeometryType( Vertex[] vertex )
         => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
-            vertex[ 0 ].Normal != null  ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
+            vertex[ 0 ].Normal  != null ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
     /// <summary> Obtain the correct material type for a set of vertices. </summary>
     private static Type GetVertexMaterialType( Vertex[] vertex ) {
         var hasColor = vertex[ 0 ].Color != null;
-        var hasUv    = vertex[ 0 ].UV != null;
+        var hasUv    = vertex[ 0 ].UV    != null;
 
         return hasColor switch {
             true when hasUv  => typeof( VertexColor1Texture1 ),
@@ -190,7 +221,6 @@ public class MeshBuilder {
     //return hasBoneWeights ? typeof( VertexJoints8 ) : typeof( VertexJoints4 );
     return typeof( VertexJoints4 );
 }*/
-
     private static Vector3 ToVec3( Vector4 v ) => new(v.X, v.Y, v.Z);
     private static Vector2 ToVec2( Vector4 v ) => new(v.X, v.Y);
 }
