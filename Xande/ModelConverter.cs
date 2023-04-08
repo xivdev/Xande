@@ -1,9 +1,6 @@
 using System.Drawing;
 using System.Numerics;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Dalamud.Logging;
-using Lumina;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
 using SharpGLTF.Materials;
@@ -295,6 +292,7 @@ public class ModelConverter {
 
                 // Deform for full bodies
                 if( raceCode != null && deform != null ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
+                meshBuilder.BuildVertices();
 
                 if( xivMesh.Submeshes.Length > 0 ) {
                     // Annoying hack to work around how IndexOffset works in multiple mesh models

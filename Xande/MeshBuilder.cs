@@ -45,7 +45,7 @@ public class MeshBuilder {
         _skinningT      = useSkinning ? typeof( VertexJoints4 ) : typeof( VertexEmpty );
         _vertexBuilderT = typeof( VertexBuilder< ,, > ).MakeGenericType( _geometryT, _materialT, _skinningT );
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
-        _vertices       = _mesh.Vertices.Select( BuildVertex ).ToList();
+        _vertices       = new List< IVertexBuilder >( _mesh.Vertices.Length );
     }
 
     public void SetupDeformSteps( ushort from, ushort to ) {
@@ -74,6 +74,11 @@ public class MeshBuilder {
         }
 
         _deformers = deformers.ToList();
+    }
+
+    public void BuildVertices() {
+        _vertices.Clear();
+        _vertices.AddRange( _mesh.Vertices.Select( BuildVertex ) );
     }
 
     public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh, int lastOffset ) {
@@ -105,13 +110,15 @@ public class MeshBuilder {
     }
 
     public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int offset ) {
-        var primitive = builder.Primitives.First();
-        var triangles = primitive.Triangles;
-        var vertices  = primitive.Vertices;
+        var primitive  = builder.Primitives.First();
+        var triangles  = primitive.Triangles;
+        var vertices   = primitive.Vertices;
+        var vertexList = new List< (IVertexGeometry, IVertexGeometry) >();
+        var nameList   = new List< Shape >();
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
-            var morph = builder.UseMorphTarget( i );
-            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndex == _mesh.MeshIndex ) ) {
+            vertexList.Clear();
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == _mesh.Parent.File!.Meshes[_mesh.MeshIndex].StartIndex ) ) {
                 foreach( var (baseTri, otherTri) in shapeMesh.Values ) {
                     var triIdx    = baseTri - offset;
                     var vertexIdx = triIdx % 3;
@@ -125,13 +132,20 @@ public class MeshBuilder {
                         _ => triA.C,
                     } ];
 
-                    morph.SetVertex( vertexA.GetGeometry(), _vertices[ otherTri ].GetGeometry() );
+                    vertexList.Add( ( vertexA.GetGeometry(), _vertices[ otherTri ].GetGeometry() ) );
                 }
             }
+
+            if( vertexList.Count == 0 ) continue;
+
+            var morph = builder.UseMorphTarget( nameList.Count );
+            foreach( var (a, b) in vertexList ) { morph.SetVertex( a, b ); }
+
+            nameList.Add( shape );
         }
 
         var data = new ExtraDataManager();
-        data.AddShapeNames( shapes );
+        data.AddShapeNames( nameList );
         builder.Extras = data.Serialize();
     }
 
