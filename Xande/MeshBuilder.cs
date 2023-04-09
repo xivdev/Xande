@@ -27,6 +27,8 @@ public class MeshBuilder {
 
     private List< PbdFile.Deformer > _deformers = new();
 
+    private readonly List< IVertexBuilder > _vertices;
+
     public MeshBuilder(
         Mesh mesh,
         bool useSkinning,
@@ -44,11 +46,12 @@ public class MeshBuilder {
         _skinningT      = useSkinning ? typeof( VertexJoints4 ) : typeof( VertexEmpty );
         _vertexBuilderT = typeof( VertexBuilder< ,, > ).MakeGenericType( _geometryT, _materialT, _skinningT );
         _meshBuilderT   = typeof( MeshBuilder< ,,, > ).MakeGenericType( typeof( MaterialBuilder ), _geometryT, _materialT, _skinningT );
+        _vertices       = new List< IVertexBuilder >( _mesh.Vertices.Length );
     }
 
     public void SetupDeformSteps( ushort from, ushort to ) {
         // Nothing to do
-        if( from == to ) { return; }
+        if( from == to ) return;
 
         var     deformSteps = new List< ushort >();
         ushort? current     = to;
@@ -74,38 +77,80 @@ public class MeshBuilder {
         _deformers = deformers.ToList();
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh, int lastOffset ) {
+    public void BuildVertices() {
+        _vertices.Clear();
+        _vertices.AddRange( _mesh.Vertices.Select( BuildVertex ) );
+    }
+
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + ( int )submesh.IndexOffset + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + ( int )submesh.IndexOffset + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + ( int )submesh.IndexOffset + 2 - lastOffset );
+            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildMesh( int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildMesh() {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
-            var triA = BuildVertex( triIdx + 0 - lastOffset );
-            var triB = BuildVertex( triIdx + 1 - lastOffset );
-            var triC = BuildVertex( triIdx + 2 - lastOffset );
+            var triA = _vertices[ _mesh.Indices[ triIdx + 0] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + 1] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + 2] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IVertexBuilder BuildVertex( int vertexIdx ) {
-        ClearCaches();
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd) {
+        var primitive  = builder.Primitives.First();
+        var triangles  = primitive.Triangles;
+        var vertices   = primitive.Vertices;
+        var vertexList = new List< (IVertexGeometry, IVertexGeometry) >();
+        var nameList   = new List< Shape >();
+        for( var i = 0; i < shapes.Count; ++i ) {
+            var shape = shapes[ i ];
+            vertexList.Clear();
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.AssociatedMesh == _mesh )) {
+                foreach( var (baseIdx, otherIdx) in shapeMesh.Values ) {
+                    if( baseIdx < subMeshStart || baseIdx >= subMeshEnd ) continue; // different submesh?
+                    var triIdx    = (baseIdx - subMeshStart) / 3;
+                    var vertexIdx = (baseIdx - subMeshStart) % 3;
 
-        var vertex = _mesh.VertexByIndex( vertexIdx );
+                    var triA = triangles[ triIdx ];
+                    var vertexA = vertices[ vertexIdx switch {
+                        0 => triA.A,
+                        1 => triA.B,
+                        _ => triA.C,
+                    } ];
+
+                    vertexList.Add( ( vertexA.GetGeometry(), _vertices[ otherIdx ].GetGeometry() ) );
+                }
+            }
+
+            if( vertexList.Count == 0 ) continue;
+
+            var morph = builder.UseMorphTarget( nameList.Count );
+            foreach( var (a, b) in vertexList ) { morph.SetVertex( a, b ); }
+
+            nameList.Add( shape );
+        }
+
+        var data = new ExtraDataManager();
+        data.AddShapeNames( nameList );
+        builder.Extras = data.Serialize();
+    }
+
+    private IVertexBuilder BuildVertex( Vertex vertex ) {
+        ClearCaches();
 
         if( _skinningT != typeof( VertexEmpty ) ) {
             for( var k = 0; k < 4; k++ ) {
@@ -118,18 +163,18 @@ public class MeshBuilder {
             }
         }
 
-        Vector3 origPos    = ToVec3( vertex.Position!.Value );
-        Vector3 currentPos = origPos;
+        var origPos    = ToVec3( vertex.Position!.Value );
+        var currentPos = origPos;
 
         if( _deformers.Count > 0 ) {
             foreach( var deformer in _deformers ) {
-                Vector3 deformedPos = Vector3.Zero;
+                var deformedPos = Vector3.Zero;
 
                 foreach( var (idx, weight) in _skinningParamCache ) {
                     if( weight == 0 ) continue;
 
-                    var deformPos = _raceDeformer.DeformVertex( deformer, idx, currentPos );
-                    if( deformPos != null ) { deformedPos += ( deformPos.Value * weight ); }
+                    var deformPos                       = _raceDeformer.DeformVertex( deformer, idx, currentPos );
+                    if( deformPos != null ) deformedPos += deformPos.Value * weight;
                 }
 
                 currentPos = deformedPos;
@@ -190,7 +235,6 @@ public class MeshBuilder {
     //return hasBoneWeights ? typeof( VertexJoints8 ) : typeof( VertexJoints4 );
     return typeof( VertexJoints4 );
 }*/
-
     private static Vector3 ToVec3( Vector4 v ) => new(v.X, v.Y, v.Z);
     private static Vector2 ToVec2( Vector4 v ) => new(v.X, v.Y);
 }

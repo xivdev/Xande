@@ -1,10 +1,10 @@
-﻿using System.Numerics;
+using System.Numerics;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using ImGuiNET;
- using Xande.Files;
- using Xande.Havok;
+using Xande.Files;
+using Xande.Havok;
 
 namespace Xande.TestPlugin.Windows;
 
@@ -29,9 +29,10 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
+        _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
         _modelConverter = new ModelConverter( _luminaManager, _converter );
         _sklbResolver   = new SklbResolver();
+        IsOpen          = Plugin.Configuration.AutoOpen;
     }
 
     public void Dispose() { }
@@ -156,11 +157,16 @@ public class MainWindow : Window, IDisposable {
                     "chara/monster/m0127/skeleton/base/b0001/skl_m0127b0001.sklb"
                 } );
         }
+
+        ImGui.SameLine();
+        if( ImGui.Button( "Model (Gloves)" ) ) {
+            DoTheThingWithTheModels( new[]{ "chara/equipment/e0180/model/c0201e0180_glv.mdl" }, new string[] { "chara/human/c0201/skeleton/base/b0001/skl_c0201b0001.sklb" } );
+        }
     }
 
     private void DrawParseExport() {
         if( ImGui.Button( "Parse .sklb" ) ) {
-            var file = Service.DataManager.GetFile( "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb" )!;
+            var file = _luminaManager.GameData.GetFile( "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb" )!;
             var sklb = SklbFile.FromStream( file.Reader.BaseStream );
 
             var headerHex = BitConverter.ToString( sklb.RawHeader ).Replace( "-", " " );
@@ -172,7 +178,7 @@ public class MainWindow : Window, IDisposable {
         ImGui.SameLine();
 
         if( ImGui.Button( "Parse .pbd" ) ) {
-            var pbd = Service.DataManager.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
+            var pbd = _luminaManager.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
 
             PluginLog.Debug( "Header count: {0}", pbd.Headers.Length );
             for( var i = 0; i < pbd.Headers.Length; i++ ) {
@@ -191,14 +197,14 @@ public class MainWindow : Window, IDisposable {
         }
 
         if( ImGui.Button( "Export .sklb" ) ) {
-            var file = Service.DataManager.GetFile( "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb" )!;
+            var file = _luminaManager.GameData.GetFile( "chara/human/c0101/skeleton/base/b0001/skl_c0101b0001.sklb" )!;
             SaveFileDialog( "Save SKLB file", SklbFilter, "skl_c0101b0001.sklb", ".sklb", path => { File.WriteAllBytes( path, file.Data ); } );
         }
 
         ImGui.SameLine();
 
         if( ImGui.Button( "Export .pbd" ) ) {
-            var file = Service.DataManager.GetFile( "chara/xls/boneDeformer/human.pbd" )!;
+            var file = _luminaManager.GameData.GetFile( "chara/xls/boneDeformer/human.pbd" )!;
             SaveFileDialog( "Save PBD file", PbdFilter, "human.pbd", ".pbd", path => { File.WriteAllBytes( path, file.Data ); } );
         }
     }
@@ -265,6 +271,12 @@ public class MainWindow : Window, IDisposable {
                     } );
                 } );
             } );
+        }
+
+        var autoOpen = Plugin.Configuration.AutoOpen;
+        if( ImGui.Checkbox( "Auto Open Window", ref autoOpen ) ) {
+            Plugin.Configuration.AutoOpen = autoOpen;
+            Plugin.Configuration.Save();
         }
     }
 }

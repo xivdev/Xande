@@ -36,5 +36,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Xande\Xande.csproj" />
+      <ProjectReference Include="..\Lumina\src\Lumina\LuminaX.csproj" />
     </ItemGroup>
 </Project>

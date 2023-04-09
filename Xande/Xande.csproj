@@ -36,6 +36,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Lumina\src\Lumina\Lumina.csproj" />
+      <ProjectReference Include="..\Lumina\src\Lumina\LuminaX.csproj" />
     </ItemGroup>
 </Project>

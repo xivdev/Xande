@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Numerics;
 using Dalamud.Logging;
-using Lumina;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
 using SharpGLTF.Materials;
@@ -258,8 +257,8 @@ public class ModelConverter {
 
         foreach( var path in models ) {
             var xivModel       = _lumina.GetModel( path );
+            //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
             var name           = Path.GetFileNameWithoutExtension( path );
-            var lastMeshOffset = 0;
             var raceCode       = raceDeformer.RaceCodeFromPath( path );
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
@@ -292,27 +291,26 @@ public class ModelConverter {
 
                 // Deform for full bodies
                 if( raceCode != null && deform != null ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
+                meshBuilder.BuildVertices();
 
                 if( xivMesh.Submeshes.Length > 0 ) {
-                    // Annoying hack to work around how IndexOffset works in multiple mesh models
-                    lastMeshOffset = ( int )xivMesh.Submeshes[ 0 ].IndexOffset;
-
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
-                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh, lastMeshOffset );
+                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-
+                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, (int) xivSubmesh.IndexOffset, (int) (xivSubmesh.IndexOffset + xivSubmesh.IndexNum));
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
                 }
                 else {
-                    var mesh = meshBuilder.BuildMesh( lastMeshOffset );
+                    var mesh = meshBuilder.BuildMesh();
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
-
+                    meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, 0, xivMesh.Indices.Length );
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
+
             }
         }
 
