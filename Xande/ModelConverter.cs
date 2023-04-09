@@ -206,15 +206,14 @@ public class ModelConverter {
     /// <summary>
     /// Builds a skeleton tree from a list of .sklb paths.
     /// </summary>
-    /// <param name="skellyPaths">A list of .sklb paths.</param>
+    /// <param name="skeletons">A list of HavokXml instances.</param>
     /// <param name="root">The root bone node.</param>
     /// <returns>A mapping of bone name to node in the scene.</returns>
-    private Dictionary< string, NodeBuilder > GetBoneMap( string[] skellyPaths, out NodeBuilder? root ) {
+    private Dictionary< string, NodeBuilder > GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
         Dictionary< string, NodeBuilder > boneMap = new();
         root = null;
 
-        foreach( var skellyPath in skellyPaths ) {
-            var xml           = GetHavokXml( skellyPath );
+        foreach( var xml in skeletons ) {
             var skeleton      = xml.GetMainSkeleton();
             var boneNames     = skeleton.BoneNames;
             var refPose       = skeleton.ReferencePose;
@@ -246,9 +245,9 @@ public class ModelConverter {
     /// </summary>
     /// <param name="outputDir">A directory to write files and textures to.</param>
     /// <param name="models">A list of .mdl paths.</param>
-    /// <param name="skeletons">A list of .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
+    /// <param name="skeletons">A list of HavokXml instances, obtained from .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
-    public void ExportModel( string outputDir, string[] models, string[] skeletons, ushort? deform = null ) {
+    public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null ) {
         var boneMap      = GetBoneMap( skeletons, out var root );
         var joints       = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
@@ -256,10 +255,10 @@ public class ModelConverter {
         if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
-            var xivModel       = _lumina.GetModel( path );
+            var xivModel = _lumina.GetModel( path );
             //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
-            var name           = Path.GetFileNameWithoutExtension( path );
-            var raceCode       = raceDeformer.RaceCodeFromPath( path );
+            var name     = Path.GetFileNameWithoutExtension( path );
+            var raceCode = raceDeformer.RaceCodeFromPath( path );
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
@@ -291,6 +290,7 @@ public class ModelConverter {
 
                 // Deform for full bodies
                 if( raceCode != null && deform != null ) { meshBuilder.SetupDeformSteps( raceCode.Value, deform.Value ); }
+
                 meshBuilder.BuildVertices();
 
                 if( xivMesh.Submeshes.Length > 0 ) {
@@ -298,7 +298,8 @@ public class ModelConverter {
                         var xivSubmesh = xivMesh.Submeshes[ i ];
                         var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
-                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, (int) xivSubmesh.IndexOffset, (int) (xivSubmesh.IndexOffset + xivSubmesh.IndexNum));
+                        meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
+                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
                         else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
@@ -310,7 +311,6 @@ public class ModelConverter {
                     if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
                     else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
-
             }
         }
 

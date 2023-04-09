@@ -3,6 +3,7 @@ using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using ImGuiNET;
+using Lumina.Data;
 using Xande.Files;
 using Xande.Havok;
 
@@ -19,6 +20,16 @@ public class MainWindow : Window, IDisposable {
     private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
     private const string HkxFilter  = "Havok Packed File{.hkx}";
     private const string XmlFilter  = "Havok XML File{.xml}";
+
+    enum ExportStatus {
+        Idle,
+        ParsingSkeletons,
+        ExportingModel,
+        Done,
+        Error
+    }
+
+    private ExportStatus _exportStatus = ExportStatus.Idle;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
@@ -40,10 +51,24 @@ public class MainWindow : Window, IDisposable {
     public override void Draw() {
         _fileDialogManager.Draw();
 
+        var status = _exportStatus switch {
+            ExportStatus.Idle             => "Idle",
+            ExportStatus.ParsingSkeletons => "Parsing skeletons",
+            ExportStatus.ExportingModel   => "Exporting model",
+            ExportStatus.Done             => "Done",
+            ExportStatus.Error            => "Error exporting model",
+            _                             => ""
+        };
+
+        ImGui.Text( $"Export status: {status}" );
+        ImGui.Separator();
+
         DrawModel();
         ImGui.Separator();
+
         DrawParseExport();
         ImGui.Separator();
+
         DrawConvert();
     }
 
@@ -54,7 +79,28 @@ public class MainWindow : Window, IDisposable {
         var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
         Directory.CreateDirectory( tempPath );
 
-        _modelConverter.ExportModel( tempPath, models, skeletons, deform );
+        Service.Framework.RunOnTick( () => {
+            _exportStatus = ExportStatus.ParsingSkeletons;
+            var skellies = skeletons.Select( path => {
+                var file = _luminaManager.GetFile< FileResource >( path );
+                var sklb = SklbFile.FromStream( file.Reader.BaseStream );
+                var xml  = _converter.HkxToXml( sklb.HkxData );
+                return new HavokXml( xml );
+            } ).ToArray();
+
+            new Thread( () => {
+                _exportStatus = ExportStatus.ExportingModel;
+
+                try {
+                    _modelConverter.ExportModel( tempPath, models, skellies, deform );
+                    PluginLog.Information( "Exported model to {0}", tempPath );
+                    _exportStatus = ExportStatus.Done;
+                } catch( Exception e ) {
+                    PluginLog.Error( e, "Failed to export model" );
+                    _exportStatus = ExportStatus.Error;
+                }
+            } ).Start();
+        } );
     }
 
     private void DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
@@ -160,7 +206,7 @@ public class MainWindow : Window, IDisposable {
 
         ImGui.SameLine();
         if( ImGui.Button( "Model (Gloves)" ) ) {
-            DoTheThingWithTheModels( new[]{ "chara/equipment/e0180/model/c0201e0180_glv.mdl" }, new string[] { "chara/human/c0201/skeleton/base/b0001/skl_c0201b0001.sklb" } );
+            DoTheThingWithTheModels( new[] { "chara/equipment/e0180/model/c0201e0180_glv.mdl" }, new string[] { "chara/human/c0201/skeleton/base/b0001/skl_c0201b0001.sklb" } );
         }
     }
 
