@@ -82,35 +82,35 @@ public class MeshBuilder {
         _vertices.AddRange( _mesh.Vertices.Select( BuildVertex ) );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh, int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0 - lastOffset ] ];
-            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1 - lastOffset ] ];
-            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2 - lastOffset ] ];
+            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildMesh( int lastOffset ) {
+    public IMeshBuilder< MaterialBuilder > BuildMesh() {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
-            var triA = _vertices[ _mesh.Indices[ triIdx + 0 - lastOffset ] ];
-            var triB = _vertices[ _mesh.Indices[ triIdx + 1 - lastOffset ] ];
-            var triC = _vertices[ _mesh.Indices[ triIdx + 2 - lastOffset ] ];
+            var triA = _vertices[ _mesh.Indices[ triIdx + 0] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + 1] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + 2] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int offset ) {
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd) {
         var primitive  = builder.Primitives.First();
         var triangles  = primitive.Triangles;
         var vertices   = primitive.Vertices;
@@ -119,12 +119,11 @@ public class MeshBuilder {
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
             vertexList.Clear();
-            foreach( var shapeMesh in shape.Meshes.Where( m => m.MeshIndexOffset == _mesh.Parent.File!.Meshes[ _mesh.MeshIndex ].StartIndex ) ) {
-                foreach( var (baseTri, otherTri) in shapeMesh.Values ) {
-                    var triIdx    = baseTri - offset;
-                    var vertexIdx = triIdx % 3;
-                    triIdx /= 3;
-                    if( triIdx < 0 || triIdx >= triangles.Count ) continue; // different submesh?
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.AssociatedMesh == _mesh )) {
+                foreach( var (baseIdx, otherIdx) in shapeMesh.Values ) {
+                    if( baseIdx < subMeshStart || baseIdx >= subMeshEnd ) continue; // different submesh?
+                    var triIdx    = (baseIdx - subMeshStart) / 3;
+                    var vertexIdx = (baseIdx - subMeshStart) % 3;
 
                     var triA = triangles[ triIdx ];
                     var vertexA = vertices[ vertexIdx switch {
@@ -133,7 +132,7 @@ public class MeshBuilder {
                         _ => triA.C,
                     } ];
 
-                    vertexList.Add( ( vertexA.GetGeometry(), _vertices[ otherTri ].GetGeometry() ) );
+                    vertexList.Add( ( vertexA.GetGeometry(), _vertices[ otherIdx ].GetGeometry() ) );
                 }
             }
 
