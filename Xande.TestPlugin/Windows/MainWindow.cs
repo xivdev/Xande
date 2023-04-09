@@ -88,7 +88,7 @@ public class MainWindow : Window, IDisposable {
                 return new HavokXml( xml );
             } ).ToArray();
 
-            new Thread( () => {
+            Task.Run( () => {
                 _exportStatus = ExportStatus.ExportingModel;
 
                 try {
@@ -99,7 +99,7 @@ public class MainWindow : Window, IDisposable {
                     PluginLog.Error( e, "Failed to export model" );
                     _exportStatus = ExportStatus.Error;
                 }
-            } ).Start();
+            } );
         } );
     }
 
