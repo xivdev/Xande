@@ -190,9 +190,7 @@ public class ModelConverter {
         glTFMaterial.WithMetallicRoughness( 0 );
     }
 
-    /// <summary>
-    /// Builds a skeleton tree from a list of .sklb paths.
-    /// </summary>
+    /// <summary>Builds a skeleton tree from a list of .sklb paths.</summary>
     /// <param name="skeletons">A list of HavokXml instances.</param>
     /// <param name="root">The root bone node.</param>
     /// <returns>A mapping of bone name to node in the scene.</returns>
@@ -227,9 +225,7 @@ public class ModelConverter {
         return boneMap;
     }
 
-    /// <summary>
-    /// Exports a model(s) to glTF.
-    /// </summary>
+    /// <summary>Exports a model(s) to glTF.</summary>
     /// <param name="outputDir">A directory to write files and textures to.</param>
     /// <param name="models">A list of .mdl paths.</param>
     /// <param name="skeletons">A list of HavokXml instances, obtained from .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>

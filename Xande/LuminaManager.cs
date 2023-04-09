@@ -13,10 +13,11 @@ using Xande.Files;
 namespace Xande;
 
 public class LuminaManager {
-    /// <summary> Provided by Lumina. </summary>
+    /// <summary>Provided by Lumina.</summary>
     public readonly GameData GameData;
 
-    public Func< string, string? >? FileResolver = null;
+    /// <summary>Used to resolve paths to files. Return a path (either on disk or in SqPack) to override file resolution.</summary>
+    public Func< string, string? >? FileResolver;
 
     /// <summary> Construct a LuminaManager instance. </summary>
     public LuminaManager() {
@@ -32,12 +33,8 @@ public class LuminaManager {
         };
 
         var processModule = Process.GetCurrentProcess().MainModule;
-        if( processModule != null ) {
-            GameData = new GameData( Path.Combine( Path.GetDirectoryName( processModule.FileName )!, "sqpack" ), luminaOptions );
-        }
-        else {
-            throw new Exception( "Could not find process data to create lumina." );
-        }
+        if( processModule != null ) { GameData = new GameData( Path.Combine( Path.GetDirectoryName( processModule.FileName )!, "sqpack" ), luminaOptions ); }
+        else { throw new Exception( "Could not find process data to create lumina." ); }
     }
 
     public LuminaManager( Func< string, string? > fileResolver ) : this() => FileResolver = fileResolver;
@@ -49,7 +46,7 @@ public class LuminaManager {
             : GameData.GetFile< T >( actualPath );
     }
 
-    /// <summary> Obtain and parse a model structure from a given path. </summary>
+    /// <summary>Obtain and parse a model structure from a given path.</summary>
     public Model GetModel( string path ) {
         var mdlFile = GetFile< MdlFile >( path );
         return mdlFile != null
@@ -57,7 +54,7 @@ public class LuminaManager {
             : throw new FileNotFoundException();
     }
 
-    /// <summary> Obtain and parse a material structure. </summary>
+    /// <summary>Obtain and parse a material structure.</summary>
     public Material GetMaterial( string path ) {
         var mtrlFile = GetFile< MtrlFile >( path );
         return mtrlFile != null
@@ -68,6 +65,7 @@ public class LuminaManager {
     /// <inheritdoc cref="GetMaterial(string)"/>
     public Material GetMaterial( Material mtrl ) => GetMaterial( mtrl.ResolvedPath ?? mtrl.MaterialPath );
 
+    /// <summary>Obtain and parse a skeleton from a given path.</summary>
     public SklbFile GetSkeleton( string path ) {
         var sklbFile = GetFile< FileResource >( path );
         return sklbFile != null
@@ -79,7 +77,7 @@ public class LuminaManager {
         return GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
     }
 
-    /// <summary> Obtain and parse a texture to a Bitmap.  </summary>
+    /// <summary>Obtain and parse a texture to a Bitmap.</summary>
     public unsafe Bitmap GetTextureBuffer( string path ) {
         var texFile = GameData.GetFile< TexFile >( path );
         if( texFile == null ) throw new Exception( $"Lumina was unable to fetch a .tex file from {path}." );
@@ -90,7 +88,7 @@ public class LuminaManager {
     /// <inheritdoc cref="GetTextureBuffer(string)"/>
     public Bitmap GetTextureBuffer( Texture texture ) => GetTextureBuffer( texture.TexturePath );
 
-    /// <summary> Save a texture to PNG. </summary>
+    /// <summary>Save a texture to PNG.</summary>
     /// <param name="basePath">The directory the file should be saved in.</param>
     /// <param name="texture">The texture to be saved.</param>
     /// <returns></returns>

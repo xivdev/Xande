@@ -1,22 +1,16 @@
 using System.Xml;
-using Dalamud.Logging;
 
 // ReSharper disable NotAccessedField.Global
 // ReSharper disable MemberCanBePrivate.Global
 
 namespace Xande.Havok;
 
-/// <summary>
-/// Parses a Havok XML file.
-/// </summary>
 public class HavokXml {
     public readonly XmlSkeleton[] Skeletons;
     public readonly XmlMapping[]  Mappings;
     public readonly int           MainSkeleton;
 
-    /// <summary>
-    /// Constructs a new HavokXml object from the given XML string.
-    /// </summary>
+    /// <summary>Constructs a new HavokXml object from the given XML string.</summary>
     /// <param name="xml">The XML data.</param>
     public HavokXml( string xml ) {
         var document = new XmlDocument();
@@ -42,10 +36,15 @@ public class HavokXml {
         MainSkeleton = int.Parse( mainSkeleton[ 1.. ] );
     }
 
+    /// <summary>
+    /// Gets the "main" skeleton from the XML file.
+    /// This assumes the skeleton represented in the animation container is the main skeleton.
+    /// </summary>
     public XmlSkeleton GetMainSkeleton() {
         return GetSkeletonById( MainSkeleton );
     }
 
+    /// <summary>Gets a skeleton by its ID.</summary>
     public XmlSkeleton GetSkeletonById( int id ) {
         return Skeletons.First( x => x.Id == id );
     }

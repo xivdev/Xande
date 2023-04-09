@@ -1,5 +1,4 @@
 using System.Numerics;
-using Dalamud.Logging;
 using Lumina.Models.Models;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
@@ -49,6 +48,9 @@ public class MeshBuilder {
         _vertices       = new List< IVertexBuilder >( _mesh.Vertices.Length );
     }
 
+    /// <summary>Calculates the deformation steps from two given races.</summary>
+    /// <param name="from">The current race of the mesh.</param>
+    /// <param name="to">The target race of the mesh.</param>
     public void SetupDeformSteps( ushort from, ushort to ) {
         // Nothing to do
         if( from == to ) return;
@@ -77,40 +79,44 @@ public class MeshBuilder {
         _deformers = deformers.ToList();
     }
 
+    /// <summary>Builds the vertices. This must be called before building meshes.</summary>
     public void BuildVertices() {
         _vertices.Clear();
         _vertices.AddRange( _mesh.Vertices.Select( BuildVertex ) );
     }
 
-    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh) {
+    /// <summary>Creates a mesh from the given submesh.</summary>
+    public IMeshBuilder< MaterialBuilder > BuildSubmesh( Submesh submesh ) {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < submesh.IndexNum; triIdx += 3 ) {
-            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0] ];
-            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1] ];
-            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2] ];
+            var triA = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 0 ] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 1 ] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + ( int )submesh.IndexOffset + 2 ] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
+    /// <summary>Creates a mesh from the entire mesh.</summary>
     public IMeshBuilder< MaterialBuilder > BuildMesh() {
         var ret       = ( IMeshBuilder< MaterialBuilder > )Activator.CreateInstance( _meshBuilderT, string.Empty )!;
         var primitive = ret.UsePrimitive( _materialBuilder );
 
         for( var triIdx = 0; triIdx < _mesh.Indices.Length; triIdx += 3 ) {
-            var triA = _vertices[ _mesh.Indices[ triIdx + 0] ];
-            var triB = _vertices[ _mesh.Indices[ triIdx + 1] ];
-            var triC = _vertices[ _mesh.Indices[ triIdx + 2] ];
+            var triA = _vertices[ _mesh.Indices[ triIdx + 0 ] ];
+            var triB = _vertices[ _mesh.Indices[ triIdx + 1 ] ];
+            var triC = _vertices[ _mesh.Indices[ triIdx + 2 ] ];
             primitive.AddTriangle( triA, triB, triC );
         }
 
         return ret;
     }
 
-    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd) {
+    /// <summary>Builds shape keys (known as morph targets in glTF).</summary>
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd ) {
         var primitive  = builder.Primitives.First();
         var triangles  = primitive.Triangles;
         var vertices   = primitive.Vertices;
@@ -119,11 +125,11 @@ public class MeshBuilder {
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
             vertexList.Clear();
-            foreach( var shapeMesh in shape.Meshes.Where( m => m.AssociatedMesh == _mesh )) {
+            foreach( var shapeMesh in shape.Meshes.Where( m => m.AssociatedMesh == _mesh ) ) {
                 foreach( var (baseIdx, otherIdx) in shapeMesh.Values ) {
                     if( baseIdx < subMeshStart || baseIdx >= subMeshEnd ) continue; // different submesh?
-                    var triIdx    = (baseIdx - subMeshStart) / 3;
-                    var vertexIdx = (baseIdx - subMeshStart) % 3;
+                    var triIdx    = ( baseIdx - subMeshStart ) / 3;
+                    var vertexIdx = ( baseIdx - subMeshStart ) % 3;
 
                     var triA = triangles[ triIdx ];
                     var vertexA = vertices[ vertexIdx switch {
@@ -213,12 +219,12 @@ public class MeshBuilder {
         _skinningParamCache.Clear();
     }
 
-    /// <summary> Obtain the correct geometry type for a given set of vertices. </summary>
+    /// <summary>Obtain the correct geometry type for a given set of vertices.</summary>
     private static Type GetVertexGeometryType( Vertex[] vertex )
         => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
             vertex[ 0 ].Normal != null  ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
-    /// <summary> Obtain the correct material type for a set of vertices. </summary>
+    /// <summary>Obtain the correct material type for a set of vertices.</summary>
     private static Type GetVertexMaterialType( Vertex[] vertex ) {
         var hasColor = vertex[ 0 ].Color != null;
         var hasUv    = vertex[ 0 ].UV != null;
@@ -230,11 +236,6 @@ public class MeshBuilder {
         };
     }
 
-/*private static Type GetVertexSkinningType( Vertex[] vertex ) {
-    var hasBoneWeights = vertex[ 0 ].BlendWeights != null;
-    //return hasBoneWeights ? typeof( VertexJoints8 ) : typeof( VertexJoints4 );
-    return typeof( VertexJoints4 );
-}*/
     private static Vector3 ToVec3( Vector4 v ) => new(v.X, v.Y, v.Z);
     private static Vector2 ToVec2( Vector4 v ) => new(v.X, v.Y);
 }

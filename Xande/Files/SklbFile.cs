@@ -6,9 +6,7 @@ using Lumina.Extensions;
 
 namespace Xande.Files;
 
-/// <summary>
-/// Class for parsing .hkx data from a .sklb file.
-/// </summary>
+/// <summary>Class for parsing .hkx data from a .sklb file.</summary>
 public sealed class SklbFile {
     public short VersionOne;
     public short VersionTwo;
@@ -17,9 +15,7 @@ public sealed class SklbFile {
     public byte[] RawHeader;
     public byte[] HkxData;
 
-    /// <summary>
-    /// Constructs a new SklbFile instance from a stream.
-    /// </summary>
+    /// <summary>Constructs a new SklbFile instance from a stream.</summary>
     /// <param name="stream">A stream to the .sklb data.</param>
     /// <exception cref="InvalidDataException">Thrown if magic does not match.</exception>
     public static SklbFile FromStream( Stream stream ) {
@@ -64,9 +60,7 @@ public sealed class SklbFile {
         };
     }
 
-    /// <summary>
-    /// Splices the given .hkx file into the .sklb.
-    /// </summary>
+    /// <summary>Splices the given .hkx file into the .sklb.</summary>
     /// <param name="hkxData">A byte array representing an .hkx file.</param>
     public void ReplaceHkxData( byte[] hkxData ) {
         HkxData = hkxData;

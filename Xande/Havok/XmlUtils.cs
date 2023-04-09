@@ -6,9 +6,7 @@ using SharpGLTF.Transforms;
 namespace Xande.Havok;
 
 public static class XmlUtils {
-    /// <summary>
-    /// Parses a vec12 from Havok XML.
-    /// </summary>
+    /// <summary>Parses a vec12 from Havok XML.</summary>
     /// <param name="innerText">The inner text of the vec12 node.</param>
     /// <returns>An array of floats.</returns>
     public static float[] ParseVec12( string innerText ) {
@@ -24,9 +22,7 @@ public static class XmlUtils {
         return floats.ToArray();
     }
 
-    /// <summary>
-    /// Creates an affine transform for a bone from the reference pose in the Havok XML file.
-    /// </summary>
+    /// <summary>Creates an affine transform for a bone from the reference pose in the Havok XML file.</summary>
     /// <param name="refPos">The reference pose.</param>
     /// <returns>The affine transform.</returns>
     /// <exception cref="Exception">Thrown if the reference pose is invalid.</exception>

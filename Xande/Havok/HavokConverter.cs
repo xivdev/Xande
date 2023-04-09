@@ -55,18 +55,13 @@ public unsafe class HavokConverter {
 
     private readonly hkBuiltinTypeRegistry* hkBuiltinTypeRegistrySingleton;
 
-    /// <summary>
-    /// Constructs a new HavokConverter instance.
-    /// </summary>
-    /// <exception cref="KeyNotFoundException">Thrown if signatures fail to match. Signatures were last checked on game version 2023.02.28.0000.0000.</exception>
+    /// <exception cref="KeyNotFoundException">Thrown if signatures fail to match. Signatures were last checked on game version 2023.03.24.0000.0000.</exception>
     public HavokConverter() {
         SignatureHelper.Initialise( this );
         hkBuiltinTypeRegistrySingleton = *hkBuiltinTypeRegistrySingletonPtr;
     }
 
-    /// <summary>
-    /// Creates a temporary file and returns its path.
-    /// </summary>
+    /// <summary>Creates a temporary file and returns its path.</summary>
     /// <returns>Path to a temporary file.</returns>
     private string CreateTempFile() {
         var s = File.Create( Path.GetTempFileName() );
@@ -74,9 +69,7 @@ public unsafe class HavokConverter {
         return s.Name;
     }
 
-    /// <summary>
-    /// Converts a .hkx file to a .xml file.
-    /// </summary>
+    /// <summary>Converts a .hkx file to a .xml file.</summary>
     /// <param name="hkx">A byte array representing the .hkx file.</param>
     /// <returns>A string representing the .xml file.</returns>
     /// <exception cref="Exceptions.HavokReadException">Thrown if parsing the .hkx file fails.</exception>
@@ -91,8 +84,8 @@ public unsafe class HavokConverter {
         if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-          | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
-          | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+            | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
+            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
@@ -103,9 +96,7 @@ public unsafe class HavokConverter {
         return bytes;
     }
 
-    /// <summary>
-    /// Converts a .xml file to a .hkx file.
-    /// </summary>
+    /// <summary>Converts a .xml file to a .hkx file.</summary>
     /// <param name="xml">A string representing the .xml file.</param>
     /// <returns>A byte array representing the .hkx file.</returns>
     /// <exception cref="Exceptions.HavokReadException">Thrown if parsing the .xml file fails.</exception>
@@ -120,7 +111,7 @@ public unsafe class HavokConverter {
         if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-          | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
@@ -153,9 +144,7 @@ public unsafe class HavokConverter {
         return resource;
     }
 
-    /// <summary>
-    /// Serializes an hkResource* to a temporary file.
-    /// </summary>
+    /// <summary>Serializes an hkResource* to a temporary file.</summary>
     /// <param name="resource">A pointer to the hkResource, opened through Read().</param>
     /// <param name="optionBits">Flags representing how to serialize the file.</param>
     /// <returns>An opened FileStream of a temporary file. You are expected to read the file and delete it.</returns>
@@ -187,8 +176,7 @@ public unsafe class HavokConverter {
             if( resourcePtr == null ) throw new Exceptions.HavokWriteException();
 
             hkSerializeUtil_Save( result, resourcePtr, hkRootLevelContainerClass, oStream->m_writer.ptr, options );
-        }
-        finally { hkOstream_Dtor( oStream ); }
+        } finally { hkOstream_Dtor( oStream ); }
 
         if( result->Result == hkResult.hkResultEnum.Failure ) throw new Exceptions.HavokFailureException();
 

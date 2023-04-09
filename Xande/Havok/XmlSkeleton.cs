@@ -1,18 +1,23 @@
-﻿using System.Globalization;
-using System.Text.RegularExpressions;
-using System.Xml;
+﻿using System.Xml;
 
 // ReSharper disable MemberCanBePrivate.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
 namespace Xande.Havok;
 
+/// <summary>Representation of a skeleton in XML data.</summary>
 public class XmlSkeleton {
+    /// <summary>The ID of the skeleton.</summary>
     public readonly int Id;
 
+    /// <summary>The reference pose of the skeleton (also known as the "resting" or "base" pose).</summary>
     public readonly float[][] ReferencePose;
-    public readonly int[]     ParentIndices;
-    public readonly string[]  BoneNames;
+
+    /// <summary>The parent indices of the skeleton. The root bone will have a parent index of -1.</summary>
+    public readonly int[] ParentIndices;
+
+    /// <summary>The names of the bones in the skeleton. A bone's "ID" is represented by the index it has in this array.</summary>
+    public readonly string[] BoneNames;
 
     public XmlSkeleton( XmlElement element ) {
         Id = int.Parse( element.GetAttribute( "id" )[ 1.. ] );
@@ -65,7 +70,7 @@ public class XmlSkeleton {
         return parentIndicesArr;
     }
 
-    public string[] ReadBoneNames( XmlElement element ) {
+    private string[] ReadBoneNames( XmlElement element ) {
         var bonesObj = element.GetElementsByTagName( "array" )
             .Cast< XmlElement >()
             .Where( x => x.GetAttribute( "name" ) == "bones" )

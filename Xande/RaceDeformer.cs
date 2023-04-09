@@ -1,10 +1,10 @@
 ﻿using System.Numerics;
-using Dalamud.Logging;
 using SharpGLTF.Scenes;
 using Xande.Files;
 
 namespace Xande;
 
+/// <summary>Calculates deformations from a PBD file.</summary>
 public class RaceDeformer {
     public readonly  PbdFile                           PbdFile;
     private readonly Dictionary< string, NodeBuilder > _boneMap;
@@ -14,8 +14,9 @@ public class RaceDeformer {
         _boneMap = boneMap;
     }
 
-    // TODO: npcs
+    /// <summary>Gets the parent of a given race code.</summary>
     public ushort? GetParent( ushort raceCode ) {
+        // TODO: npcs
         // Annoying special cases
         if( raceCode == 1201 ) return 1101; // Lalafell F -> Lalafell M
         if( raceCode == 0201 ) return 0101; // Midlander F -> Midlander M
@@ -29,6 +30,7 @@ public class RaceDeformer {
         return ( ushort )( isMale ? 0101 : 0201 );
     }
 
+    /// <summary>Parses a model path to obtain its race code.</summary>
     public ushort? RaceCodeFromPath( string path ) {
         var fileName = Path.GetFileNameWithoutExtension( path );
         if( fileName[ 0 ] != 'c' ) return null;
@@ -54,6 +56,11 @@ public class RaceDeformer {
         };
     }
 
+    /// <summary>Deforms a vertex using a deformer.</summary>
+    /// <param name="deformer">The deformer to use.</param>
+    /// <param name="nameIndex">The index of the bone name in the deformer's bone name list.</param>
+    /// <param name="origPos">The original position of the vertex.</param>
+    /// <returns>The deformed position of the vertex.</returns>
     public Vector3? DeformVertex( PbdFile.Deformer deformer, int nameIndex, Vector3 origPos ) {
         var boneNames = _boneMap.Keys.ToArray();
         var boneName  = boneNames[ nameIndex ];
