@@ -27,14 +27,12 @@ public static class ModelExtensions {
 }
 
 public class ModelConverter {
-    private readonly LuminaManager  _lumina;
-    private readonly HavokConverter _converter;
-    private readonly PbdFile        _pbd;
+    private readonly LuminaManager _lumina;
+    private readonly PbdFile       _pbd;
 
-    public ModelConverter( LuminaManager lumina, HavokConverter converter ) {
-        _lumina    = lumina;
-        _converter = converter;
-        _pbd       = lumina.GetPbdFile();
+    public ModelConverter( LuminaManager lumina ) {
+        _lumina = lumina;
+        _pbd    = lumina.GetPbdFile();
     }
 
     /*
@@ -190,17 +188,6 @@ public class ModelConverter {
 
         // I hate you
         glTFMaterial.WithMetallicRoughness( 0 );
-    }
-
-    /// <summary>
-    /// Fetches a HavokXml from a .sklb path.
-    /// </summary>
-    /// <param name="skellyPath">Path to a .sklb.</param>
-    /// <returns>A newly created HavokXml instance.</returns>
-    private HavokXml GetHavokXml( string skellyPath ) {
-        var skelly = _lumina.GetSkeleton( skellyPath );
-        var xmlStr = _converter.HkxToXml( skelly.HkxData );
-        return new HavokXml( xmlStr );
     }
 
     /// <summary>

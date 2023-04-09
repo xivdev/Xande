@@ -41,7 +41,7 @@ public class MainWindow : Window, IDisposable {
         };
 
         _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
-        _modelConverter = new ModelConverter( _luminaManager, _converter );
+        _modelConverter = new ModelConverter( _luminaManager );
         _sklbResolver   = new SklbResolver();
         IsOpen          = Plugin.Configuration.AutoOpen;
     }

@@ -60,15 +60,24 @@ To export a model:
 ```csharp
 var havokConverter = new HavokConverter();
 var luminaManager = new LuminaManager(DataManager.GameData);
-var modelConverter = new ModelConverter(luminaManager, havokConverter);
+var modelConverter = new ModelConverter(luminaManager);
 
 // outputDir can be any directory that exists and is writable, temp paths are used for demonstration
 var outputDir = Path.Combine(Path.GetTempPath(), "XandeModelExport");
 Directory.CreateDirectory(outputDir);
 
-var mdlPaths = new string[] { "chara/human/c0101/obj/body/b0001/model/c0101b0001_top.mdl" };
-var sklbPaths = new string[] { };
-modelConverter.ExportModel(outputDir, mdlPaths, sklbPaths);
+// This is Grebuloff
+var mdlPaths = new string[] { "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl" };
+var sklbPaths = new string[] { "chara/monster/m0405/skeleton/base/b0001/skl_m0405b0001.sklb" };
+
+var skeletons = sklbPaths.Select(path => {
+    var file = luminaManager.GetFile<FileResource>(path);
+    var sklb = SklbFile.FromStream(file.Reader.BaseStream);
+    var xmlStr = havokConverter.HkxToXml(sklb.HkxData);
+    return new HavokXml(xmlStr);
+}).ToArray();
+
+modelConverter.ExportModel(outputDir, mdlPaths, skeletons);
 ```
 
 Multiple models can be supplied to export them into one scene. When exporting a full body character, pass the `deform` parameter representing the race code of the character.
@@ -81,4 +90,4 @@ Xande tries to do its best to wrap Havok for you, but at its core, it is a libra
 
 When contributing Havok code, please make sure to check for null pointers and failed `hkResult`s.
 
-Havok is not thread-safe, and most things in Xande access Havok data, so you should use Xande on the Framework thread (see `Framework.RunOnFrameworkThread` and `Framework.RunOnTick`).
+Havok functions are not thread-safe, so you should use `HavokConverter` on the Framework thread (see `Framework.RunOnFrameworkThread` and `Framework.RunOnTick`). Model exports are thread-safe.
