@@ -215,8 +215,7 @@ public class ModelConverter {
                 if( boneRootId != -1 ) {
                     var parent = boneMap[ boneNames[ boneRootId ] ];
                     parent.AddNode( bone );
-                }
-                else { root = bone; }
+                } else { root = bone; }
 
                 boneMap[ name ] = bone;
             }
@@ -283,16 +282,13 @@ public class ModelConverter {
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                         meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
                             ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
-                        if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); }
-                        else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
+                        if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); } else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
-                }
-                else {
+                } else {
                     var mesh = meshBuilder.BuildMesh();
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
                     meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, 0, xivMesh.Indices.Length );
-                    if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); }
-                    else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
+                    if( useSkinning ) { glTFScene.AddSkinnedMesh( mesh, Matrix4x4.Identity, joints ); } else { glTFScene.AddRigidMesh( mesh, Matrix4x4.Identity ); }
                 }
             }
         }
@@ -301,5 +297,20 @@ public class ModelConverter {
         glTFModel.SaveAsWavefront( Path.Combine( outputDir, "mesh.obj" ) );
         glTFModel.SaveGLB( Path.Combine( outputDir, "mesh.glb" ) );
         glTFModel.SaveGLTF( Path.Combine( outputDir, "mesh.gltf" ) );
+    }
+
+    public byte[] ImportModel( string gltfPath ) {
+        var root         = ModelRoot.Load( gltfPath );
+        var memoryStream = new MemoryStream();
+        var binaryWriter = new BinaryWriter( memoryStream );
+        var modelWriter  = new ModelWriter( root, binaryWriter );
+
+        modelWriter.WriteAll();
+
+        var bytes = memoryStream.ToArray();
+        binaryWriter.Dispose();
+        memoryStream.Dispose();
+
+        return bytes;
     }
 }
