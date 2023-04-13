@@ -299,18 +299,11 @@ public class ModelConverter {
         glTFModel.SaveGLTF( Path.Combine( outputDir, "mesh.gltf" ) );
     }
 
-    public byte[] ImportModel( string gltfPath ) {
-        var root         = ModelRoot.Load( gltfPath );
-        var memoryStream = new MemoryStream();
-        var binaryWriter = new BinaryWriter( memoryStream );
-        var modelWriter  = new ModelWriter( root, binaryWriter );
+    public byte[] ImportModel( string gltfPath, string origModel ) {
+        var root = ModelRoot.Load( gltfPath );
+        var orig = _lumina.GetModel( origModel );
 
-        modelWriter.WriteAll();
-
-        var bytes = memoryStream.ToArray();
-        binaryWriter.Dispose();
-        memoryStream.Dispose();
-
-        return bytes;
+        using var modelWriter = new ModelWriter( root, orig );
+        return modelWriter.WriteAll();
     }
 }
