@@ -13,12 +13,15 @@ public class MdlFileWriter : IDisposable {
     private BinaryWriter _w;
 
     private Dictionary< int, Dictionary< int, Mesh > > _meshes = new();
+    private StringTableBuilder                         _stringTableBuilder;
 
     public MdlFileWriter( ModelRoot root, Model model, Stream stream ) {
         _root      = root;
         _origModel = model;
 
         _w = new BinaryWriter( stream );
+
+        _stringTableBuilder = new StringTableBuilder( _root );
 
         foreach( var mesh in root.LogicalMeshes ) {
             var name = mesh.Name;

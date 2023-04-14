@@ -74,14 +74,14 @@ public class MainWindow : Window, IDisposable {
         DrawConvert();
     }
 
-    private void DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null ) {
+    private Task< string > DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null ) {
         var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
         Directory.CreateDirectory( tempDir );
 
         var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
         Directory.CreateDirectory( tempPath );
 
-        Service.Framework.RunOnTick( () => {
+        return Service.Framework.RunOnTick( () => {
             _exportStatus = ExportStatus.ParsingSkeletons;
             var skellies = skeletons.Select( path => {
                 var file = _luminaManager.GetFile< FileResource >( path );
@@ -90,7 +90,7 @@ public class MainWindow : Window, IDisposable {
                 return new HavokXml( xml );
             } ).ToArray();
 
-            Task.Run( () => {
+            return Task.Run( () => {
                 _exportStatus = ExportStatus.ExportingModel;
 
                 try {
@@ -101,15 +101,17 @@ public class MainWindow : Window, IDisposable {
                     PluginLog.Error( e, "Failed to export model" );
                     _exportStatus = ExportStatus.Error;
                 }
+
+                return tempPath;
             } );
         } );
     }
 
-    private void DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
+    private Task< string > DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
         var skeletons = _sklbResolver.ResolveAll( models );
         if( baseModel != null )
             skeletons = skeletons.Prepend( baseModel ).ToArray();
-        DoTheThingWithTheModels( models, skeletons );
+        return DoTheThingWithTheModels( models, skeletons );
     }
 
     private void OpenFileDialog( string title, string filters, Action< string > callback ) {
@@ -209,6 +211,18 @@ public class MainWindow : Window, IDisposable {
         ImGui.SameLine();
         if( ImGui.Button( "Model (Gloves)" ) ) {
             DoTheThingWithTheModels( new[] { "chara/equipment/e0180/model/c0201e0180_glv.mdl" }, new string[] { "chara/human/c0201/skeleton/base/b0001/skl_c0201b0001.sklb" } );
+        }
+
+        ImGui.Separator();
+
+        if( ImGui.Button( "Model export & import test" ) ) {
+            Task.Run( async () => {
+                var orig    = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
+                var tempDir = await DoTheThingWithTheModels( new[] { orig } );
+                var file    = Path.Combine( tempDir, "mesh.glb" );
+                var bytes   = _modelConverter.ImportModel( file, orig );
+                File.WriteAllBytes( Path.Combine( tempDir, "mesh.mdl" ), bytes );
+            } );
         }
     }
 
