@@ -1,8 +1,7 @@
 ﻿using System.Text.RegularExpressions;
-
 using Dalamud.Utility.Signatures;
 
-namespace Xande;
+namespace Xande.Models.Export;
 
 public class SklbResolver {
     // Native methods

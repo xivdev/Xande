@@ -2,7 +2,7 @@
 using SharpGLTF.Scenes;
 using Xande.Files;
 
-namespace Xande;
+namespace Xande.Models.Export;
 
 /// <summary>Calculates deformations from a PBD file.</summary>
 public class RaceDeformer {

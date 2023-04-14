@@ -6,6 +6,8 @@ using ImGuiNET;
 using Lumina.Data;
 using Xande.Files;
 using Xande.Havok;
+using Xande.Models;
+using Xande.Models.Export;
 
 namespace Xande.TestPlugin.Windows;
 

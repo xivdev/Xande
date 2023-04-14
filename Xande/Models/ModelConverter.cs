@@ -8,11 +8,13 @@ using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
 using Xande.Files;
 using Xande.Havok;
+using Xande.Models.Export;
+using Xande.Models.Import;
 using Mesh = Lumina.Models.Models.Mesh;
 
 // ReSharper disable InconsistentNaming
 
-namespace Xande;
+namespace Xande.Models;
 
 public static class ModelExtensions {
     public static string[]? BoneTable( this Mesh mesh ) {

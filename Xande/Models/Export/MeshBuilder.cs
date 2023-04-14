@@ -5,7 +5,7 @@ using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
 using Xande.Files;
 
-namespace Xande;
+namespace Xande.Models.Export;
 
 public class MeshBuilder {
     private readonly Mesh                 _mesh;

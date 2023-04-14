@@ -1,7 +1,7 @@
-using Lumina.Models.Models;
+﻿using Lumina.Models.Models;
 using SharpGLTF.IO;
 
-namespace Xande;
+namespace Xande.Models.Export;
 
 public class ExtraDataManager {
     private readonly Dictionary< string, object > _extraData = new();

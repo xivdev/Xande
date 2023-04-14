@@ -1,9 +1,8 @@
-﻿using Lumina.Data.Parsing;
-using Lumina.Models.Models;
+﻿using Lumina.Models.Models;
 using SharpGLTF.Schema2;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
-namespace Xande;
+namespace Xande.Models.Import;
 
 // https://github.com/xivdev/Penumbra/blob/master/Penumbra.GameData/Files/MdlFile.Write.cs
 // https://github.com/NotAdam/Lumina/blob/master/src/Lumina/Data/Files/MdlFile.cs
