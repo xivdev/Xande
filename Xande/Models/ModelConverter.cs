@@ -306,7 +306,7 @@ public class ModelConverter {
         var orig = _lumina.GetModel( origModel );
 
         using var stream      = new MemoryStream();
-        using var modelWriter = new ModelWriter( root, orig, stream );
+        using var modelWriter = new MdlFileWriter( root, orig, stream );
 
         modelWriter.WriteAll();
         return stream.ToArray();

@@ -6,7 +6,7 @@ namespace Xande.Models.Import;
 
 // https://github.com/xivdev/Penumbra/blob/master/Penumbra.GameData/Files/MdlFile.Write.cs
 // https://github.com/NotAdam/Lumina/blob/master/src/Lumina/Data/Files/MdlFile.cs
-public class ModelWriter : IDisposable {
+public class MdlFileWriter : IDisposable {
     private ModelRoot _root;
     private Model     _origModel;
 
@@ -14,7 +14,7 @@ public class ModelWriter : IDisposable {
 
     private Dictionary< int, Dictionary< int, Mesh > > _meshes = new();
 
-    public ModelWriter( ModelRoot root, Model model, Stream stream ) {
+    public MdlFileWriter( ModelRoot root, Model model, Stream stream ) {
         _root      = root;
         _origModel = model;
 
