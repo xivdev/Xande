@@ -10,17 +10,15 @@ public class ModelWriter : IDisposable {
     private ModelRoot _root;
     private Model     _origModel;
 
-    private MemoryStream _ms;
     private BinaryWriter _w;
 
     private Dictionary< int, Dictionary< int, Mesh > > _meshes = new();
 
-    public ModelWriter( ModelRoot root, Model model ) {
+    public ModelWriter( ModelRoot root, Model model, Stream stream ) {
         _root      = root;
         _origModel = model;
 
-        _ms = new MemoryStream();
-        _w  = new BinaryWriter( _ms );
+        _w = new BinaryWriter( stream );
 
         foreach( var mesh in root.LogicalMeshes ) {
             var name = mesh.Name;
@@ -124,7 +122,7 @@ public class ModelWriter : IDisposable {
         _w.Seek( 6, SeekOrigin.Current );
     }
 
-    public byte[] WriteAll() {
+    public void WriteAll() {
         // Skip the header - we'll write it later
         _w.Seek( 0x44, SeekOrigin.Begin );
 
@@ -164,12 +162,9 @@ public class ModelWriter : IDisposable {
         // Now write the header, now that everything's in place
         _w.Seek( 0, SeekOrigin.Begin );
         WriteFileHeader();
-
-        return _ms.ToArray();
     }
 
     public void Dispose() {
         _w.Dispose();
-        _ms.Dispose();
     }
 }

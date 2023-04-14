@@ -305,7 +305,10 @@ public class ModelConverter {
         var root = ModelRoot.Load( gltfPath );
         var orig = _lumina.GetModel( origModel );
 
-        using var modelWriter = new ModelWriter( root, orig );
-        return modelWriter.WriteAll();
+        using var stream      = new MemoryStream();
+        using var modelWriter = new ModelWriter( root, orig, stream );
+
+        modelWriter.WriteAll();
+        return stream.ToArray();
     }
 }
