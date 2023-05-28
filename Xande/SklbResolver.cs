@@ -44,7 +44,7 @@ public class SklbResolver {
     private readonly Regex          EquipRx  = new(@"c([0-9]{4})e([0-9]{4})_([a-z]{0,}).mdl");
     private readonly List< string > Partials = new() { "body", "face", "hair", "met", "top" };
 
-    private string? ResolveHuman( string mdl, string[] split, bool isEquipment = false ) {
+    public string? ResolveHuman( string mdl, string[] split, bool isEquipment = false ) {
         string type;
         ushort root;
         ushort set;
@@ -74,8 +74,7 @@ public class SklbResolver {
     }
 
     // Model ID resolver
-
-    private ushort GetHumanId( byte clan, byte sex = 0, byte bodyType = 1 ) {
+    public ushort GetHumanId( byte clan, byte sex = 0, byte bodyType = 1 ) {
         if( bodyType is <= 0 or 3 or > 5 )
             bodyType = 1;
         var x = clan <= 1 ? 0 : clan;
@@ -85,7 +84,7 @@ public class SklbResolver {
         return (ushort)(x * 100 + bodyType);
     }
 
-    private string GetHumanBasePath( ushort modelId )
+    public string GetHumanBasePath( ushort modelId )
         => string.Format( "chara/human/c{0:D4}/skeleton/base/b0001/skl_c{0:D4}b0001.sklb", modelId );
 
     public string ResolveHumanBase( byte clan, byte sex = 0, byte bodyType = 1 )
