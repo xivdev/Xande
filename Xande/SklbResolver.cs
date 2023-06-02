@@ -2,19 +2,21 @@
 
 using Dalamud.Utility.Signatures;
 
+using Xande.Enums;
+
 namespace Xande;
 
 public class SklbResolver {
-    // Native methods
+    // Native
 
-    private delegate ushort PartialIdDelegate(ushort root, int partial, ushort set);
+    private delegate ushort PartialIdDelegate( ushort root, int partial, ushort set );
 
-    [Signature("44 8B C9 83 EA 01")]
+    [Signature( "44 8B C9 83 EA 01" )]
     private readonly PartialIdDelegate ResolvePartialId = null!;
 
-    public SklbResolver() {
-        SignatureHelper.Initialise( this );
-    }
+    // SklbResolver
+
+    public SklbResolver() => SignatureHelper.Initialise( this );
 
     // Path resolver
 
@@ -31,7 +33,7 @@ public class SklbResolver {
                 if( dir != "demihuman" && dir != "monster" && dir != "weapon" ) return null;
                 return string.Format(
                     "chara/{0}/{1}{2:D4}/skeleton/base/b0001/skl_{1}{2:D4}b0001.sklb",
-                    dir, dir[0], ushort.Parse(split[2][1..])
+                    dir, dir[ 0 ], ushort.Parse( split[ 2 ][ 1.. ] )
                 );
         }
     }
@@ -49,15 +51,17 @@ public class SklbResolver {
         ushort root;
         ushort set;
 
-        if( isEquipment ) { // For equipment with additional physics.
+        if( isEquipment ) {
+            // For equipment with additional physics.
             var v = EquipRx.Matches( mdl ).First().Groups;
             type = v[ 3 ].Value;
-            root    = ushort.Parse( v[ 1 ].Value );
-            set    = ushort.Parse( v[ 2 ].Value );
-        } else { // Face and hair.
+            root = ushort.Parse( v[ 1 ].Value );
+            set  = ushort.Parse( v[ 2 ].Value );
+        } else {
+            // Face and hair.
             type = split[ 4 ];
-            root    = ushort.Parse( split[2][1..] );
-            set    = ushort.Parse( split[5][1..] );
+            root = ushort.Parse( split[ 2 ][ 1.. ] );
+            set  = ushort.Parse( split[ 5 ][ 1.. ] );
         }
 
         // TODO: Figure out the best way to handle this.
@@ -69,11 +73,12 @@ public class SklbResolver {
 
         return string.Format(
             "chara/human/c{0:D4}/skeleton/{1}/{2}{3:D4}/skl_c{0:D4}{2}{3:D4}.sklb",
-            root, type, type[0], id
+            root, type, type[ 0 ], id
         );
     }
 
     // Model ID resolver
+
     public ushort GetHumanId( byte clan, byte sex = 0, byte bodyType = 1 ) {
         if( bodyType is <= 0 or 3 or > 5 )
             bodyType = 1;
@@ -81,12 +86,18 @@ public class SklbResolver {
         if( x is > 4 and < 11 )
             x += x < 7 ? 4 : -2;
         x += 1 + sex + x % 2;
-        return (ushort)(x * 100 + bodyType);
+        return ( ushort )( x * 100 + bodyType );
     }
 
-    public string GetHumanBasePath( ushort modelId )
-        => string.Format( "chara/human/c{0:D4}/skeleton/base/b0001/skl_c{0:D4}b0001.sklb", modelId );
+    public string ResolveHumanBase( Clan clan, Gender sex, BodyType bodyType = BodyType.Normal )
+        => GetHumanBasePath( GetHumanId( ( byte )clan, ( byte )sex, ( byte )bodyType ) );
 
     public string ResolveHumanBase( byte clan, byte sex = 0, byte bodyType = 1 )
         => GetHumanBasePath( GetHumanId( clan, sex, bodyType ) );
+
+    public string GetHumanBasePath( GenderRace modelId )
+        => GetHumanBasePath( ( ushort )modelId );
+
+    public string GetHumanBasePath( ushort modelId )
+        => string.Format( "chara/human/c{0:D4}/skeleton/base/b0001/skl_c{0:D4}b0001.sklb", modelId );
 }
