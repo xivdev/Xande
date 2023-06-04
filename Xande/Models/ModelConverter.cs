@@ -304,11 +304,18 @@ public class ModelConverter {
     public byte[] ImportModel( string gltfPath, string origModel ) {
         var root = ModelRoot.Load( gltfPath );
         var orig = _lumina.GetModel( origModel );
+        var modelFileBuilder = new MdlFileBuilder( root, orig );
+        var (file, vertexData, indexData) = modelFileBuilder.Build();
+
+        if (file == null) {
+            PluginLog.Debug( "Could not build MdlFile" );
+            return Array.Empty<byte>();
+        }
 
         using var stream      = new MemoryStream();
-        using var modelWriter = new MdlFileWriter( root, orig, stream );
+        using var modelWriter = new MdlFileWriter( file, stream );
 
-        modelWriter.WriteAll();
+        modelWriter.WriteAll(vertexData, indexData);
         return stream.ToArray();
     }
 }
