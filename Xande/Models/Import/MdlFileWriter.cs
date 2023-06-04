@@ -490,7 +490,7 @@ public class MdlFileWriter : IDisposable {
             PluginLog.Debug( "Submesh size: {x}", Submeshes.Count );
 
             var filledBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
-                Min = new[] { minX, minY, minZ, -9999f },    // TODO: BoundingBoxStruct "w" values?
+                Min = new[] { minX, minY, minZ, 9999f },    // TODO: BoundingBoxStruct "w" values?
                 Max = new[] { maxX, maxY, maxZ, 9999f }
             };
             var zeroBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
@@ -626,6 +626,7 @@ public class MdlFileWriter : IDisposable {
             _vertexData = new List<byte>();
             _indexData = new List<byte>();
             var vertexDict = new Dictionary<int, List<byte>>();
+            var accumulatedVertices = 0;
 
             foreach( var meshIndex in _meshes.Keys ) {
                 foreach( var submeshIndex in _meshes[meshIndex].Keys ) {
@@ -646,9 +647,13 @@ public class MdlFileWriter : IDisposable {
 
                     foreach( var primitive in mesh.Primitives ) {
                         var indices = primitive.GetIndices();
+                        var positions = primitive.GetVertices( "POSITION" ).AsVector3Array();
                         foreach( var index in indices ) {
-                            _indexData.AddRange( BitConverter.GetBytes( ( ushort )index ) );
+                            var val = index + accumulatedVertices;
+                            PluginLog.Debug( val.ToString() );
+                            _indexData.AddRange( BitConverter.GetBytes( ( ushort )val) );
                         }
+                        accumulatedVertices += positions.Count;
                     }
                 }
             }
@@ -759,8 +764,8 @@ public class MdlFileWriter : IDisposable {
             ret[i] = new() {
                 MeshIndex = (ushort)i,
                 MeshCount = 0,
-                ModelLodRange = float.MaxValue,  // idk
-                TextureLodRange = float.MaxValue,   // idk
+                ModelLodRange = float.MaxValue / 2,  // idk
+                TextureLodRange = float.MaxValue / 2,   // idk
                 WaterMeshIndex = 1, // idk?
                 WaterMeshCount = 0,
                 ShadowMeshIndex = 1,    //idk?
