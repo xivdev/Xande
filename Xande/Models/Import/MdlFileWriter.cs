@@ -78,18 +78,22 @@ public class MdlFileWriter : IDisposable {
 
     private List<byte> GetVertexData( MeshPrimitive primitive, int index, Vertex.VertexType type, Vertex.VertexUsage usage, Dictionary<int, int>? blendIndexDict = null ) {
         Vector4 vector4 = new Vector4( 0, 0, 0, 0 );
+        string str = "";
         switch( usage ) {
             case Vertex.VertexUsage.Position:
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
                 if( positions != null && positions.Count > index ) {
                     vector4 = new Vector4( positions[index], 1 );
                 }
+                str += "position ";
+
                 break;
             case Vertex.VertexUsage.BlendWeights:
                 var blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array();
                 if( blendWeights != null && blendWeights.Count > index ) {
                     vector4 = blendWeights[index];
                 }
+                str += "blendweight ";
                 break;
             case Vertex.VertexUsage.BlendIndices:
                 var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
@@ -105,6 +109,7 @@ public class MdlFileWriter : IDisposable {
                         }
                         //PluginLog.Debug( "{a} - {b}", blendIndices[index], vector4 );
                     }
+                    str += "blendindices ";
                 }
                 break;
             case Vertex.VertexUsage.Normal:
@@ -112,71 +117,90 @@ public class MdlFileWriter : IDisposable {
                 if( normals != null && normals.Count > index ) {
                     vector4 = new Vector4( normals[index], 0 );
                 }
+                str += "normal ";
                 break;
             case Vertex.VertexUsage.UV:
                 var texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array();
                 if( texCoords?.Count > index ) {
-                    vector4 = new( texCoords[index], -1, 2 );
+                    vector4 = new( texCoords[index].X, texCoords[index].Y - 1, -1, 2 );
+                    //PluginLog.Debug( "UV: {x}", vector4 );
                 }
+                str += "uv ";
                 break;
             case Vertex.VertexUsage.Tangent2:
                 // ??
                 vector4 = new( 0, 0, 0, 0 );
+                str += "tangent2 ";
                 break;
             case Vertex.VertexUsage.Tangent1:
                 var tangents = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array();
                 if( tangents?.Count > index ) {
                     vector4 = tangents[index];
                 }
+                str += "tangent1 ";
                 break;
             case Vertex.VertexUsage.Color:
                 var colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array();
                 if( colors?.Count > index ) {
                     vector4 = colors[index];
                 }
+                str += "color ";
                 break;
         }
 
         var ret = new List<byte>();
         switch( type ) {
             case Vertex.VertexType.Single3:
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.X ) );
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.Y ) );
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.Z ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.X ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.Y ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.Z ) );
+                str += "single3";
                 break;
             case Vertex.VertexType.Single4:
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.X ) );
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.Y ) );
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.Z ) );
-                ret.AddRange( BitConverter.GetBytes( ( float )vector4.W ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.X ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.Y ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.Z ) );
+                ret.AddRange( BitConverter.GetBytes( vector4.W ) );
+                str += "single4";
                 break;
             case Vertex.VertexType.UInt:
                 ret.Add( ( byte )vector4.X );
                 ret.Add( ( byte )vector4.Y );
                 ret.Add( ( byte )vector4.Z );
                 ret.Add( ( byte )vector4.W );
+                str += "uint";
                 break;
             case Vertex.VertexType.ByteFloat4:
                 ret.Add( ( byte )( vector4.X * 255f ) );
                 ret.Add( ( byte )( vector4.Y * 255f ) );
                 ret.Add( ( byte )( vector4.Z * 255f ) );
                 ret.Add( ( byte )( vector4.W * 255f ) );
+                str += "bytefloat";
                 break;
             case Vertex.VertexType.Half2:
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.X ) );
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.Y ) );
+                str += "half2";
                 break;
             case Vertex.VertexType.Half4:
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.X ) );
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.Y ) );
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.Z ) );
                 ret.AddRange( BitConverter.GetBytes( ( Half )vector4.W ) );
-
+                str += "half4";
                 break;
         }
         return ret;
     }
 
+    /// <summary>
+    /// Key: StreamIndex
+    /// Value: List of bytes
+    /// </summary>
+    /// <param name="mesh"></param>
+    /// <param name="vertexDeclarations"></param>
+    /// <param name="blendIndexDict"></param>
+    /// <returns></returns>
     private Dictionary<int, List<byte>> WriteVertexData( Mesh mesh, MdlStructs.VertexDeclarationStruct[] vertexDeclarations, Dictionary<int, int>? blendIndexDict = null ) {
         var streams = new Dictionary<int, List<byte>>();
         // TODO: How to handle more than one VertexDeclarationStruct in VertexDeclarations? Does this happen?
@@ -306,6 +330,10 @@ public class MdlFileWriter : IDisposable {
 
             foreach( var meshIndex in _meshes.Keys ) {
                 // Get Shape Names
+                var materialIndex = -1;
+                var submeshBoneCount = 0;
+                var boneStartIndex = 0;
+
                 foreach( var submeshIndex in _meshes[meshIndex].Keys ) {
                     var submeshShapes = new List<string>();
                     var mesh = _meshes[meshIndex][submeshIndex];
@@ -365,9 +393,11 @@ public class MdlFileWriter : IDisposable {
                             foreach( var blendIndex in blendIndices ) {
                                 for( var i = 0; i < 4; i++ ) {
                                     var val = ( int )blendIndex[i];
-                                    // I guess we exclude "n_root"
-                                    if( !originalBoneIndexToString.ContainsKey( val ) && val < allBones.Count && allBones[val] != "n_root" ) {
+                                    // I guess we exclude "n_root"? And "n_hara" ???
+                                    if( !originalBoneIndexToString.ContainsKey( val ) && val < allBones.Count
+                                        && allBones[val] != "n_root" && allBones[val] != "n_hara" ) {
                                         originalBoneIndexToString.Add( val, allBones[val] );
+                                        submeshBoneCount++;
                                     }
                                 }
                             }
@@ -422,31 +452,35 @@ public class MdlFileWriter : IDisposable {
                         // TODO: Ignore "skin" materials?
                         if( !String.IsNullOrEmpty( material.Name ) && !materials.Contains( material.Name ) ) {
                             materials.Add( material.Name );
+                            if( materialIndex == -1 ) {
+                                materialIndex = materials.IndexOf( material.Name );
+                            }
                         }
                     }
 
                     var currSubmeshStruct = new MdlStructs.SubmeshStruct() {
-                        IndexOffset = 0, // TODO: Back-fill in IndexOffset
+                        IndexOffset = ( uint )indexCount,
                         IndexCount = ( uint )primitiveIndexCount,
                         AttributeIndexMask = 0,  // TODO: AttributeIndexMask
-                        BoneStartIndex = 0, // TODO: BoneStartIndex
-                        BoneCount = 0   // TODO: BoneCount for submesh
+                        BoneStartIndex = ( ushort )boneStartIndex, // TODO: BoneStartIndex
+                        BoneCount = ( ushort )submeshBoneCount   // TODO: BoneCount for submesh
                     };
 
                     Submeshes.Add( currSubmeshStruct );
                     indexCount += primitiveIndexCount;
+                    boneStartIndex += submeshBoneCount;
                 }
 
                 var currMeshStruct = new MdlStructs.MeshStruct() {
                     VertexCount = ( ushort )vertexCount,
                     IndexCount = ( uint )indexCount,
-                    MaterialIndex = 0,  //TODO: MaterialIndex
+                    MaterialIndex = ( ushort )materialIndex,  //TODO: MaterialIndex
                     SubMeshIndex = 0, // TODO: What is SubMeshIndex?
                     SubMeshCount = ( ushort )_meshes[meshIndex].Keys.Count,
                     BoneTableIndex = 0, // TODO: BoneTableIndex
                     StartIndex = 0, // TODO: StartIndex
-                    VertexBufferOffset = new uint[3] { 0, 0, 0 },   // TODO: Back-fill in VertexBufferOffset
-                    VertexBufferStride = new byte[3] { 0, 0, 0 },   // TODO: Back-fill in VertexBufferStride
+                    VertexBufferOffset = new uint[3] { 0, 0, 0 },   // To be filled in later
+                    VertexBufferStride = new byte[3] { 0, 0, 0 },   // To be filled in later
                     VertexStreamCount = 2   // Always two? Probably goes back to VertexDeclarations...
                 };
 
@@ -484,6 +518,8 @@ public class MdlFileWriter : IDisposable {
             var BoneTableBoneCounts = new List<int>() { 0 };
             BoneTables.Add( new ushort[64] );
             var values = originalBoneIndexToString.Values.Where( x => x != "n_root" ).ToList();
+            values.Sort();
+
             var boneTableIndex = 0;
 
             var otherindex = 0;
@@ -541,7 +577,8 @@ public class MdlFileWriter : IDisposable {
             */
 
             // Write Bones
-            foreach( var boneName in originalBoneIndexToString.Values.Where( x => x != "n_root" && x != "n_hara" ) ) {
+            //foreach( var boneName in originalBoneIndexToString.Values.Where( x => x != "n_root" && x != "n_hara" ) ) {
+            foreach( var boneName in values ) {
                 BoneNameOffsets.Add( stringsAsChar.Count );
                 Strings.Add( boneName );
 
@@ -588,14 +625,23 @@ public class MdlFileWriter : IDisposable {
             var VertexDeclarationStructs = GetVertexDeclarationStructs();
             _vertexData = new List<byte>();
             _indexData = new List<byte>();
+            var vertexDict = new Dictionary<int, List<byte>>();
 
             foreach( var meshIndex in _meshes.Keys ) {
                 foreach( var submeshIndex in _meshes[meshIndex].Keys ) {
                     var mesh = _meshes[meshIndex][submeshIndex];
-                    var dict = WriteVertexData( mesh, VertexDeclarationStructs, originalBoneIndexToNewIndex );
+                    var submeshVertices = WriteVertexData( mesh, VertexDeclarationStructs, originalBoneIndexToNewIndex );
 
-                    foreach( var val in dict.Values ) {
+                    /*
+                    foreach( var val in submeshVertices.Values ) {
                         _vertexData.AddRange( val );
+                    }
+                    */
+                    for( var i = 0; i < submeshVertices.Count; i++ ) {
+                        if( !vertexDict.ContainsKey( i ) ) {
+                            vertexDict.Add( i, new List<byte>() );
+                        }
+                        vertexDict[i].AddRange( submeshVertices[i] );
                     }
 
                     foreach( var primitive in mesh.Primitives ) {
@@ -606,6 +652,14 @@ public class MdlFileWriter : IDisposable {
                     }
                 }
             }
+
+            var done = false;
+            foreach( var data in vertexDict.Values ) {
+
+
+                _vertexData.AddRange( data );
+            }
+
             _vertexBufferSize = ( uint )( _vertexData.Count );
             _indexBufferSize = ( uint )( _indexData.Count );
 
@@ -621,7 +675,7 @@ public class MdlFileWriter : IDisposable {
                 VertexBufferSize = new uint[] { _vertexBufferSize, 0, 0 },
                 IndexBufferSize = new uint[] { _indexBufferSize, 0, 0 },
                 LodCount = 1,
-                EnableIndexBufferStreaming = _origModel.File?.FileHeader.EnableIndexBufferStreaming ?? false,
+                EnableIndexBufferStreaming = _origModel.File?.FileHeader.EnableIndexBufferStreaming ?? true,
                 EnableEdgeGeometry = _origModel.File?.FileHeader.EnableEdgeGeometry ?? false
             };
             file.VertexDeclarations = VertexDeclarationStructs;
@@ -656,8 +710,6 @@ public class MdlFileWriter : IDisposable {
             file.ElementIds = ElementIdStructs;
             file.Lods = GetLodStruct( ( ushort )_meshes.Count );
 
-
-            PluginLog.Debug( "ModelLodRange: {x}", file.Lods[0].ModelLodRange );
             if( file.ModelHeader.ExtraLodEnabled ) {
                 // ExtraLods...
             }
@@ -705,17 +757,17 @@ public class MdlFileWriter : IDisposable {
         var ret = new MdlStructs.LodStruct[3];
         for( var i = 0; i < 3; i++ ) {
             ret[i] = new() {
-                MeshIndex = 0,
+                MeshIndex = (ushort)i,
                 MeshCount = 0,
                 ModelLodRange = float.MaxValue,  // idk
                 TextureLodRange = float.MaxValue,   // idk
-                WaterMeshIndex = 0, // idk?
+                WaterMeshIndex = 1, // idk?
                 WaterMeshCount = 0,
-                ShadowMeshIndex = 0,    //idk?
+                ShadowMeshIndex = 1,    //idk?
                 ShadowMeshCount = 0,
                 TerrainShadowMeshIndex = 0, //idk?
                 TerrainShadowMeshCount = 0,
-                VerticalFogMeshIndex = 0,   //idk?
+                VerticalFogMeshIndex = (ushort)(i + 1),   //idk?
                 VerticalFogMeshCount = 0,
                 EdgeGeometrySize = 0,
                 EdgeGeometryDataOffset = 0, // To be filled in later
@@ -755,15 +807,16 @@ public class MdlFileWriter : IDisposable {
             + file.TerrainShadowSubmeshes.Length * 10
             + file.MaterialNameOffsets.Length * 4
             + file.BoneNameOffsets.Length * 4
-            + file.BoneTables.Length * 136
+            + file.BoneTables.Length * 132
             + file.Shapes.Length * 10
             + file.ShapeMeshes.Length * 12
             + file.ShapeValues.Length * 4
             + 4 // SubmeshBoneMapSize
-            + ( int )( file.SubmeshBoneMap.Length / 2 ) * 2
+            + file.SubmeshBoneMap.Length * 2
             + 8 // PaddingAmount and Padding
             + ( 4 * 32 )  // 4 BoundingBoxes
             + ( file.ModelHeader.BoneCount * 32 );
+
         var vertexOffset0 = runtimeSize
             + 68    // ModelFileHeader
             + stackSize;
@@ -789,6 +842,14 @@ public class MdlFileWriter : IDisposable {
         file.Lods[2].EdgeGeometryDataOffset = fileSize;
         file.Lods[2].VertexDataOffset = fileSize;
         file.Lods[2].IndexDataOffset = fileSize;
+
+        file.Meshes[0].VertexBufferOffset[1] = ( uint )20 * file.Meshes[0].VertexCount;   // Currently 20 because that's the size of "stream 0" in vertexdeclarations
+
+        foreach( var mesh in file.Meshes ) {
+            mesh.VertexBufferStride[0] = 20;
+            mesh.VertexBufferStride[1] = 36;
+        }
+
     }
 
     public void WriteMdlFile( MdlFile mdlFile ) {
@@ -800,10 +861,7 @@ public class MdlFileWriter : IDisposable {
         _w.Write( ( uint )mdlFile.Strings.Length );
         _w.Write( mdlFile.Strings );
 
-        PluginLog.Debug( "After strings: {x}", _w.BaseStream.Position );
-
         WriteModelHeader( mdlFile.ModelHeader );
-        PluginLog.Debug( "After ModelHeader: {x}", _w.BaseStream.Position );
         WriteElementIds( mdlFile.ElementIds );
         WriteLods( mdlFile.Lods );
 
@@ -832,7 +890,6 @@ public class MdlFileWriter : IDisposable {
         // WriteShapeStructs
         // WriteShapeMeshes
         // WriteShapeValues
-
         var submeshBoneMapSize = mdlFile.SubmeshBoneMap.Length * 2;
         _w.Write( ( uint )submeshBoneMapSize );
         foreach( var val in mdlFile.SubmeshBoneMap ) {
@@ -857,7 +914,6 @@ public class MdlFileWriter : IDisposable {
     }
 
     private void WriteFileHeader( MdlStructs.ModelFileHeader modelFileHeader ) {
-        PluginLog.Debug( "Writing FileHeader starting at {x}", _w.BaseStream.Position );
         _w.Write( modelFileHeader.Version );
         _w.Write( modelFileHeader.StackSize );
         _w.Write( modelFileHeader.RuntimeSize );
@@ -882,7 +938,6 @@ public class MdlFileWriter : IDisposable {
     }
 
     private void WriteVertexDeclarations( MdlStructs.VertexDeclarationStruct[] declarations ) {
-        PluginLog.Debug( "Writing {x} DeclarationStructArrays", declarations.Length );
         foreach( var declaration in declarations ) {
             foreach( var vertexElement in declaration.VertexElements ) {
                 _w.Write( vertexElement.Stream );
@@ -896,7 +951,6 @@ public class MdlFileWriter : IDisposable {
     }
 
     private void WriteModelHeader( MdlStructs.ModelHeader modelHeader ) {
-        PluginLog.Debug( "Writing ModelHeader starting at {x}", _w.BaseStream.Position );
         _w.Write( modelHeader.Radius );
         _w.Write( modelHeader.MeshCount );
         _w.Write( modelHeader.AttributeCount );
@@ -909,10 +963,7 @@ public class MdlFileWriter : IDisposable {
         _w.Write( modelHeader.ShapeValueCount );
         _w.Write( modelHeader.LodCount );
 
-        PluginLog.Debug( "After LodCount: {x}", _w.BaseStream.Position );
-
         // Flags are private, so we need to do this - ugly
-
         var flags1 = new BitArray( new bool[]
             {
                 modelHeader.DustOcclusionEnabled,
@@ -946,8 +997,6 @@ public class MdlFileWriter : IDisposable {
         flags2.CopyTo( flags2Byte, 0 );
         _w.Write( flags2Byte[0] );
 
-        PluginLog.Debug( "After Flags2: {x}", _w.BaseStream.Position );
-
         _w.Write( modelHeader.ModelClipOutDistance );
         _w.Write( modelHeader.ShadowClipOutDistance );
         _w.Write( modelHeader.Unknown4 );
@@ -963,7 +1012,6 @@ public class MdlFileWriter : IDisposable {
     }
 
     private void WriteElementIds( MdlStructs.ElementIdStruct[] elements ) {
-        PluginLog.Debug( "Writing {x} ElementIdStructs", elements.Length );
         foreach( var e in elements ) {
             _w.Write( e.ElementId );
             _w.Write( e.ParentBoneName );
@@ -977,7 +1025,6 @@ public class MdlFileWriter : IDisposable {
     }
 
     private void WriteLods( MdlStructs.LodStruct[] lods ) {
-        PluginLog.Debug( "Writing {x} LodStructs", lods.Length );
         foreach( var lod in lods ) {
             _w.Write( lod.MeshIndex );
             _w.Write( lod.MeshCount );
