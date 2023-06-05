@@ -217,10 +217,12 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Model export & import test" ) ) {
             Task.Run( async () => {
-                var orig    = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
-                var tempDir = await DoTheThingWithTheModels( new[] { orig } );
+                var model = "chara/equipment/e6111/model/c0201e6111_sho.mdl";
+                var skellies = new[] { "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb" };
+
+                var tempDir = await DoTheThingWithTheModels( new[] { model }, skellies );
                 var file    = Path.Combine( tempDir, "mesh.glb" );
-                var bytes   = _modelConverter.ImportModel( file, orig );
+                var bytes   = _modelConverter.ImportModel( file, model );
                 File.WriteAllBytes( Path.Combine( tempDir, "mesh.mdl" ), bytes );
             } );
         }
