@@ -96,7 +96,7 @@ public class MdlFileBuilder {
                 break;
             case Vertex.VertexUsage.UV:
                 var texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array();
-                if( texCoords?.Count > index ) { vector4 = new(texCoords[ index ].X, texCoords[ index ].Y - 1, -1, 2); }
+                if( texCoords?.Count > index ) { vector4 = new(texCoords[ index ].X, texCoords[ index ].Y, 0, 0); }
 
                 break;
             case Vertex.VertexUsage.Tangent2:
