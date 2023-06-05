@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
@@ -22,6 +23,7 @@ public class MainWindow : Window, IDisposable {
     private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
     private const string HkxFilter  = "Havok Packed File{.hkx}";
     private const string XmlFilter  = "Havok XML File{.xml}";
+    private const string GltfFilter = "glTF 2.0 File{.gltf,.glb}";
 
     enum ExportStatus {
         Idle,
@@ -32,6 +34,9 @@ public class MainWindow : Window, IDisposable {
     }
 
     private ExportStatus _exportStatus = ExportStatus.Idle;
+
+    private string _modelPaths    = string.Empty;
+    private string _skeletonPaths = string.Empty;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
@@ -53,6 +58,23 @@ public class MainWindow : Window, IDisposable {
     public override void Draw() {
         _fileDialogManager.Draw();
 
+        ImGui.BeginTabBar( "Xande.TestPlugin" );
+        if( ImGui.BeginTabItem( "Main" ) ) {
+            DrawStatus();
+            DrawMainTab();
+            ImGui.EndTabItem();
+        }
+
+        if( ImGui.BeginTabItem( "Paths" ) ) {
+            DrawStatus();
+            DrawPathsTab();
+            ImGui.EndTabItem();
+        }
+
+        ImGui.EndTabBar();
+    }
+
+    private void DrawStatus() {
         var status = _exportStatus switch {
             ExportStatus.Idle             => "Idle",
             ExportStatus.ParsingSkeletons => "Parsing skeletons",
@@ -64,7 +86,9 @@ public class MainWindow : Window, IDisposable {
 
         ImGui.Text( $"Export status: {status}" );
         ImGui.Separator();
+    }
 
+    private void DrawMainTab() {
         DrawModel();
         ImGui.Separator();
 
@@ -217,7 +241,7 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Model export & import test" ) ) {
             Task.Run( async () => {
-                var model = "chara/equipment/e6111/model/c0201e6111_sho.mdl";
+                var model    = "chara/equipment/e6111/model/c0201e6111_sho.mdl";
                 var skellies = new[] { "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb" };
 
                 var tempDir = await DoTheThingWithTheModels( new[] { model }, skellies );
@@ -341,6 +365,38 @@ public class MainWindow : Window, IDisposable {
         if( ImGui.Checkbox( "Auto Open Window", ref autoOpen ) ) {
             Plugin.Configuration.AutoOpen = autoOpen;
             Plugin.Configuration.Save();
+        }
+    }
+
+    private void DrawPathsTab() {
+        var cra      = ImGui.GetContentRegionAvail();
+        var textSize = cra with { Y = cra.Y / 2 - 20 };
+
+        ImGui.InputTextMultiline( "Model paths", ref _modelPaths, 1024 * 16, textSize );
+        ImGui.InputTextMultiline( "Skeleton paths", ref _skeletonPaths, 1024 * 16, textSize );
+
+        if( ImGui.Button( "Export (create glTF)" ) ) {
+            Task.Run( async () => {
+                var tempDir = await DoTheThingWithTheModels( _modelPaths.Trim().Split( '\n' ), _skeletonPaths.Trim().Split( '\n' ) );
+                Process.Start( "explorer.exe", tempDir );
+            } );
+        }
+
+        ImGui.SameLine();
+
+        if( ImGui.Button( "Import (create MDL)" ) ) {
+            OpenFileDialog( "Select glTF", GltfFilter, path => {
+                var data = _modelConverter.ImportModel( path, _modelPaths.Trim().Split( '\n' )[ 0 ] );
+
+                var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
+                Directory.CreateDirectory( tempDir );
+                var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
+                Directory.CreateDirectory( tempPath );
+                var tempFile = Path.Combine( tempPath, "model.mdl" );
+
+                File.WriteAllBytes( tempFile, data );
+                Process.Start( "explorer.exe", tempPath );
+            } );
         }
     }
 }
