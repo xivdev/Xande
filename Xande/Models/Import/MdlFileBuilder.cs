@@ -297,27 +297,28 @@ public class MdlFileBuilder {
 
                 foreach( var submeshIndex in _meshes[meshIndex].Keys ) {
                     var submeshShapes = new List<string>();
-                    var mesh = _meshes[meshIndex][submeshIndex];
+                    var mesh          = _meshes[meshIndex][submeshIndex];
 
-                    var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
-                    if( jsonNode != null ) {
-                        var names = jsonNode["targetNames"]?.AsArray();
-                        if( names != null && names.Any() ) {
-                            foreach( var n in names ) {
+                    try {
+                        var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
+                        if( jsonNode != null ) {
+                            var names = jsonNode[ "targetNames" ]?.AsArray();
+                            if( names != null && names.Any() ) {
+                                foreach( var n in names ) {
 
-                                if( !shapeNames.ContainsKey( (meshIndex, submeshIndex) ) ) {
-                                    shapeNames.Add( (meshIndex, submeshIndex), new() );
-                                }
+                                    if( !shapeNames.ContainsKey( ( meshIndex, submeshIndex ) ) ) { shapeNames.Add( ( meshIndex, submeshIndex ), new() ); }
 
-                                if( n.ToString().StartsWith( "shp_" ) && !shapeNames[(meshIndex, submeshIndex)].Contains( n.ToString() ) ) {
-                                    shapeNames[(meshIndex, submeshIndex)].Add( n.ToString() );
-                                    submeshShapes.Add( n.ToString() );
+                                    if( n.ToString().StartsWith( "shp_" ) && !shapeNames[ ( meshIndex, submeshIndex ) ].Contains( n.ToString() ) ) {
+                                        shapeNames[ ( meshIndex, submeshIndex ) ].Add( n.ToString() );
+                                        submeshShapes.Add( n.ToString() );
+                                    }
                                 }
                             }
+                        } else {
+                            PluginLog.Debug( "Mesh contained no extras." );
                         }
-                    }
-                    else {
-                        PluginLog.Debug( "Mesh contained no extras." );
+                    } catch( Exception ex ) {
+                        PluginLog.Error( $"Error parsing mesh extras: {ex}" );
                     }
 
                     var primitiveIndexCount = 0;
