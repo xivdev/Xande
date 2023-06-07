@@ -74,7 +74,6 @@ public class StringTableBuilder {
     }
 
     internal List<char> GetChars() {
-        // TODO: Gets chars and or bytes from strings
         var str = String.Join( ' ', Attributes, Bones, Materials, Shapes, Extras );
         PluginLog.Debug( $"Getting chars: {str}" );
         return str.ToCharArray().ToList();
@@ -84,6 +83,8 @@ public class StringTableBuilder {
         var aggregator = GetStrings();
 
         var str = String.Join( "\0", aggregator );
+
+        // I don't know if this is actually necessary
         if( Attributes.Count == 0 ) {
             str += "\0";
         }
@@ -99,6 +100,8 @@ public class StringTableBuilder {
         if( Extras.Count == 0 ) {
             str += "\0";
         }
+
+        // This one is required, though
         if (!str.EndsWith("\0")) {
             str += "\0";
         }

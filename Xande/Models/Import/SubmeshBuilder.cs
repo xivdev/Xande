@@ -2,6 +2,7 @@ using Dalamud.Logging;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
+using Lumina.Models.Models;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
@@ -30,9 +31,6 @@ namespace Xande.Models.Import {
         // Does not include shape vertices
         private int _vertexCount = 0;
 
-        private List<string> _attributes;
-        private List<int> _boneIndices = new();
-
         public Dictionary<int, string> OriginalBoneIndexToStrings = new();
 
         /// <summary>
@@ -50,9 +48,11 @@ namespace Xande.Models.Import {
                 Indices.AddRange( primitive.GetIndices() );
                 var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-                var material = primitive.Material.Name;
+                var material = primitive.Material?.Name;
 
                 if( String.IsNullOrEmpty( material ) ) {
+                    // TODO: Figure out what to do in this case
+                    // Have a Model as an argument and take the first material from that?
                     PluginLog.Error( "Submesh had null material name" );
                 }
                 else {
@@ -104,7 +104,6 @@ namespace Xande.Models.Import {
             var ret = new List<ushort>();
             foreach( var val in OriginalBoneIndexToStrings.Values ) {
                 var index = bones.IndexOf( val );
-                PluginLog.Debug( $"Adding to submeshbonemap: {( ushort )index}" );
                 ret.Add( ( ushort )index );
             }
             return ret;
@@ -126,14 +125,10 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        /*
-        public List<byte> GetVertexData() {
-
-        }
-        */
-
         public static string AdjustMaterialPath( string mat ) {
             var ret = mat;
+            // TODO: More nuanced method for adjusting the material path
+            // furniture paths are the entire path
             if( !mat.StartsWith( "/" ) ) {
                 ret = "/" + ret;
             }
@@ -145,40 +140,11 @@ namespace Xande.Models.Import {
 
         public List<Vector4> CalculateTangents() {
             var tris = Mesh.EvaluateTriangles();
-            var tangents = new List<Vector3>( tris.Count() * 3 );
-            var bitangents = new List<Vector3>( tris.Count() * 3 );
-            tangents.AddRange( Enumerable.Repeat( Vector3.Zero, tangents.Count ) );
-            bitangents.AddRange( Enumerable.Repeat( Vector3.Zero, bitangents.Count ) );
-
             var ret = new List<Vector4>();
 
+            // https://github.com/TexTools/xivModdingFramework/blob/f8d442688e61851a90646e309b868783c47122be/xivModdingFramework/Models/Helpers/ModelModifiers.cs#L1575
+            // I think these are functionally the same? Regardless, this is where it came from
             foreach( var tri in tris ) {
-                tri.A.GetGeometry().TryGetTangent( out var aTan );
-                tri.B.GetGeometry().TryGetTangent( out var bTan );
-                tri.C.GetGeometry().TryGetTangent( out var cTan );
-
-                tri.A.GetGeometry().TryGetNormal( out var aNo );
-                tri.B.GetGeometry().TryGetNormal( out var bNo );
-                tri.C.GetGeometry().TryGetNormal( out var cNo );
-
-                /*
-                var vertex1Pos = tri.A.GetGeometry().GetPosition();
-                var vertex2Pos = tri.B.GetGeometry().GetPosition();
-                var vertex3Pos = tri.C.GetGeometry().GetPosition();
-
-                var vertex1UV = tri.A.GetMaterial().GetTexCoord( 0 );
-                var vertex2UV = tri.B.GetMaterial().GetTexCoord( 0 );
-                var vertex3UV = tri.C.GetMaterial().GetTexCoord( 0 );
-
-                var delta1 = vertex2Pos - vertex1Pos;
-                var delta2 = vertex3Pos - vertex1Pos;
-
-                var deltauv1 = vertex2UV - vertex1UV;   //uv1
-                var deltauv2 = vertex3UV - vertex1UV;   //uv2
-
-                var r = 1f / ( deltauv1.X * deltauv2.Y - deltauv2.X * deltauv1.X );
-                var sdir = new Vector3((deltauv2.Y * delta1.X - deltauv1.X * delta2.X)*r, ;
-                */
                 var vertex1Pos = tri.A.GetGeometry().GetPosition();
                 var vertex2Pos = tri.B.GetGeometry().GetPosition();
                 var vertex3Pos = tri.C.GetGeometry().GetPosition();
@@ -200,14 +166,12 @@ namespace Xande.Models.Import {
                 var deltaV2 = vertex3UV.Y - vertex1UV.Y;
 
                 var r = 1.0f / ( deltaU1 * deltaV2 - deltaU2 * deltaV1 );
-                var sdir = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
-                var tdir = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
+                var t = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
+                var b = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
 
                 tri.A.GetGeometry().TryGetNormal( out var n1 );
                 tri.B.GetGeometry().TryGetNormal( out var n2 );
                 tri.C.GetGeometry().TryGetNormal( out var n3 );
-                var t = sdir;
-                var b = tdir;
 
                 var narr = new List<Vector3>() { n1, n2, n3 };
                 foreach( var n in narr ) {
@@ -220,8 +184,6 @@ namespace Xande.Models.Import {
                     var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
                     binormal *= handedness;
 
-                    //PluginLog.Debug( $"tan: {tangent}" );
-                    //PluginLog.Debug( $"bi: {binormal}" );
                     var val = new Vector4( binormal, handedness );
                     ret.Add( val );
                 }

@@ -72,35 +72,10 @@ namespace Xande.Models.Import {
                 ret.Add( kvp.Key, counter );
                 counter++;
             }
-            /*
-            foreach( var kvp in _originalBoneIndexToString ) {
-                var index = bones.IndexOf( kvp.Value );
-                if (index != -1 ) {
-                    ret.Add( kvp.Key, index );
-                }
-            }
-            */
-            /*
-            foreach (var kvp in ret) {
-                PluginLog.Debug( $"{kvp.Key} => {kvp.Value}" );
-            }
-            */
             return ret;
         }
 
         public MdlStructs.BoneTableStruct GetBoneTableStruct( List<string> bones ) {
-            /*
-            var boneTable = new List<ushort>();
-            var values = _originalBoneIndexToString.Values.Where( x => x != "n_root" ).ToList();
-
-            foreach( var bone in bones ) {
-                var index = values.IndexOf( bone );
-                if( index >= 0 ) {
-                    boneTable.Add( ( ushort )index );
-                }
-            }
-
-            */
             var boneTable = new List<ushort>();
             var values = _originalBoneIndexToString.Values.Where( x => x != "n_root" ).ToList();
 

@@ -218,7 +218,7 @@ public class MdlFileBuilder {
                 SubMeshIndex = ( ushort )submeshCounter,
                 SubMeshCount = ( ushort )meshBuilder.Submeshes.Count,
                 BoneTableIndex = ( ushort )i,
-                StartIndex = ( uint )indexData.Count / 2, // TODO: MeshStruct.StartIndex
+                StartIndex = ( uint )indexData.Count / 2,
                 VertexBufferOffset = vertexBufferOffsets.ConvertAll( x => ( uint )x ).ToArray(),
                 VertexBufferStride = vertexBufferStride,
                 VertexStreamCount = ( byte )vertexBufferStride.Where( x => x > 0 ).Count()
@@ -311,8 +311,6 @@ public class MdlFileBuilder {
                 }
                 */
 
-
-
                 addedShapeVertices += shapeValues.Count;
                 accumulatedVertices += submesh.GetVertexCount( strings );
 
@@ -341,6 +339,8 @@ public class MdlFileBuilder {
             }
 
             vertexDict.Clear();
+
+            // Not sure if this is necessary
             while( meshIndexData.Count % 8 != 0 ) {
                 meshIndexData.Add( ( byte )0 );
             }
