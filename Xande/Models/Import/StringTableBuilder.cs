@@ -6,7 +6,9 @@ namespace Xande.Models.Import;
 
 public class StringTableBuilder {
     public readonly List<string> Attributes = new();
-    public readonly List<string> Bones = new();
+    //public List<string> Bones = new();
+    public SortedSet<string> Bones = new();
+    public List<string> HierarchyBones = new();
     public readonly List<string> Materials = new();
     public readonly List<string> Shapes = new();
     public readonly List<string> Extras = new();
@@ -16,7 +18,7 @@ public class StringTableBuilder {
         var skelly = root.DefaultScene.FindNode( x => x.Name == "n_root" );
         RecursiveSkeleton( skelly );
 
-        Bones = Bones.Distinct().ToList();
+        //Bones = Bones.Distinct().ToList();
     }
 
     public void AddAttribute( string attr ) {
@@ -47,11 +49,9 @@ public class StringTableBuilder {
     }
 
     public void AddShape( string shape ) {
-        /*
         if( !Shapes.Contains( shape ) ) {
             Shapes.Add( shape );
         }
-        */
     }
 
     public void AddShapes( List<string> shapes ) {
@@ -81,14 +81,27 @@ public class StringTableBuilder {
     }
 
     internal byte[] GetBytes() {
-        var aggregator = new List<string>();
-        aggregator.AddRange( Attributes );
-        aggregator.AddRange( Bones );
-        aggregator.AddRange( Materials );
-        aggregator.AddRange( Shapes );
-        aggregator.AddRange( Extras );
+        var aggregator = GetStrings();
 
-        var str = String.Join( "\0", aggregator ) + "\0";
+        var str = String.Join( "\0", aggregator );
+        if( Attributes.Count == 0 ) {
+            str += "\0";
+        }
+        if (Bones.Count == 0) {
+            str += "\0";
+        }
+        if( Materials.Count == 0 ) {
+            str += "\0";
+        }
+        if( Shapes.Count == 0 ) {
+            str += "\0";
+        }
+        if( Extras.Count == 0 ) {
+            str += "\0";
+        }
+        if (!str.EndsWith("\0")) {
+            str += "\0";
+        }
         return Encoding.UTF8.GetBytes( str );
     }
 
@@ -101,21 +114,16 @@ public class StringTableBuilder {
     }
 
     internal uint[] GetBoneNameOffsets() {
-        return GetOffsets( Bones ).ToArray();
+        return GetOffsets( Bones.ToList() ).ToArray();
     }
 
     internal uint GetShapeNameOffset( string v ) {
-        return GetOffsets(new List<string> { v } ).ToArray()[0];
+        return GetOffsets( new List<string> { v } ).ToArray()[0];
     }
 
     private List<uint> GetOffsets( List<string> strings ) {
         var ret = new List<uint>();
-        var aggregator = new List<string>();
-        aggregator.AddRange( Attributes );
-        aggregator.AddRange( Bones );
-        aggregator.AddRange( Materials );
-        aggregator.AddRange( Shapes );
-        aggregator.AddRange( Extras );
+        var aggregator = GetStrings();
         var str = string.Join( "\0", aggregator );
         foreach( var s in strings ) {
             var index = str.IndexOf( s );
@@ -127,5 +135,15 @@ public class StringTableBuilder {
             }
         }
         return ret;
+    }
+
+    internal List<string> GetStrings() {
+        var aggregator = new List<string>();
+        aggregator.AddRange( Attributes );
+        aggregator.AddRange( Bones );
+        aggregator.AddRange( Materials );
+        aggregator.AddRange( Shapes );
+        aggregator.AddRange( Extras );
+        return aggregator;
     }
 }

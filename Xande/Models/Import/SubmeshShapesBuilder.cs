@@ -6,6 +6,7 @@ using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Numerics;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
@@ -70,21 +71,26 @@ namespace Xande.Models.Import {
                             _shapeValues.Add( new() );
                             _shapeMeshes.Add( new() );
                             _shapeStructs.Add( new() );
-                            var indices = primitive.GetIndexAccessor()?.AsScalarArray();
-                            if( indices != null ) {
-                                for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
-                                    var index = indices[indexIdx];
-                                    for( var j = 0; j < _differentVertices.Count; j++ ) {
-                                        if( _differentVertices[j].Contains( ( int )index ) ) {
-                                            _shapeValues[i].Add( new() {
-                                                BaseIndicesIndex = ( ushort )( indexIdx ),
-                                                // Later, we will have to add the total number of vertices (and vertices added via shapes) that come before this Submesh
-                                                ReplacingVertexIndex = ( ushort )( _differentVertices[j].IndexOf( ( int )index ) )
-                                                // That is to say, that these values are relative to the Submesh
-                                            } );
+                            try {
+                                var indices = primitive.GetIndices();
+                                if( indices != null ) {
+                                    for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
+                                        var index = indices[indexIdx];
+                                        for( var j = 0; j < _differentVertices.Count; j++ ) {
+                                            if( _differentVertices[j].Contains( ( int )index ) ) {
+                                                _shapeValues[i].Add( new() {
+                                                    BaseIndicesIndex = ( ushort )( indexIdx ),
+                                                    // Later, we will have to add the total number of vertices (and vertices added via shapes) that come before this Submesh
+                                                    ReplacingVertexIndex = ( ushort )( _differentVertices[j].IndexOf( ( int )index ) )
+                                                    // That is to say, that these values are relative to the Submesh
+                                                } );
+                                            }
                                         }
                                     }
                                 }
+                            }
+                            catch( Exception ex ) {
+                                PluginLog.Error( $"Could not get indices. {ex.Message}" );
                             }
                         }
                     }
@@ -106,6 +112,8 @@ namespace Xande.Models.Import {
                     ShapeMeshCount = new ushort[] { 1, 0, 0 }   // TODO: What is ShapeMeshCount?
                 };
             }
+
+            PluginLog.Debug( $"# Shapes: {Shapes.Count}" );
         }
 
         public int GetVertexCount( List<string>? strings = null ) {
@@ -132,7 +140,34 @@ namespace Xande.Models.Import {
                     ret.Add( _shapeStructs[i] );
                 }
             }
+
             return ret;
+        }
+
+        public MdlStructs.ShapeStruct? GetShapeStruct(string shapeName) {
+            var index = Shapes.IndexOf( shapeName );
+            if (index >= 0 ) {
+                return _shapeStructs[index];
+            }
+            else {
+                return null;
+            }
+        }
+
+        public MdlStructs.ShapeMeshStruct? GetShapeMeshStruct(string shapeName) {
+            var index = Shapes.IndexOf( shapeName );
+            if (index >=0) {
+                return _shapeMeshes[index];
+            }
+            return null;
+        }
+
+        public List<MdlStructs.ShapeValueStruct>? GetShapeValueStructs(string shapeName) {
+            var index = Shapes.IndexOf( shapeName );
+            if (index >=0) {
+                return _shapeValues[index];
+            }
+            return null;
         }
 
         public List<MdlStructs.ShapeMeshStruct> GetShapeMeshStructs( List<string>? shapeNames = null ) {
