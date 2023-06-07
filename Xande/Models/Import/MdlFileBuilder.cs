@@ -58,6 +58,8 @@ public class MdlFileBuilder {
                 }
             }
         }
+
+
     }
 
     private List<string> GetJoints( List<Node> children, List<string> matches ) {
@@ -131,6 +133,7 @@ public class MdlFileBuilder {
         var vertexDeclarations = GetVertexDeclarationStructs( _meshes.Keys.Count, _origModel.File.VertexDeclarations[0] );
 
         var allBones = new List<string>();
+        var bonesToNodes = new Dictionary<string, Node>();
         var skeleton = _root.LogicalSkins?[0];
         if( skeleton != null ) {
             for( var id = 0; id < skeleton.JointsCount; id++ ) {
@@ -139,9 +142,11 @@ public class MdlFileBuilder {
                 var boneString = Joint.Name;
                 if( !String.IsNullOrEmpty( boneString ) ) {
                     allBones.Add( boneString );
+                    bonesToNodes.Add( boneString, Joint );
                 }
             }
         }
+
 
         foreach( var meshIdx in _meshes.Keys ) {
             var meshBuilder = new MdlFileMeshBuilder( allBones );
@@ -155,18 +160,19 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddShapes( meshBuilder.Shapes );
         }
 
-        var strings = new List<string>();
+        _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
+
+        var strings = _stringTableBuilder.GetStrings();
 
         var vertexData = new List<byte>();
         var vertexDict = new Dictionary<int, List<byte>>();
         var indexData = new List<byte>();
 
+
         var submeshCounter = 0;
         var vertexCounter = 0;
-        var meshIndexCounter = 0;
         var boneCounter = 0;
         uint shapeValueOffset = 0;
-        var accumulatedVertices = 0;
 
         var meshStructs = new List<MdlStructs.MeshStruct>();
         var submeshStructs = new List<MdlStructs.SubmeshStruct>();
@@ -179,21 +185,21 @@ public class MdlFileBuilder {
         var terrainShadowSubmeshStructs = new List<MdlStructs.TerrainShadowSubmeshStruct>();
         var boneTableStructs = new List<MdlStructs.BoneTableStruct>();
         var submeshBoneMap = new List<ushort>();
-        for( var i = 0; i < _stringTableBuilder.Bones.Count; i++ ) {
-            submeshBoneMap.Add( ( ushort )i );
-        }
 
-        PluginLog.Debug( $"SubmeshBoneMap.Count: {submeshBoneMap.Count}" );
+        var min = new Vector4( 9999f, 9999f, 9999f, 1 );
+        var max = new Vector4( -9999f, -9999f, -9999f, 1 );
 
-        var min = new Vector4( 9999f, 9999f, 9999f, -9999f );
-        var max = new Vector4( -9999f, -9999f, -9999f, 9999f );
+        var shapeDict = new Dictionary<string, List<MdlStructs.ShapeStruct>>();
+        var shapeMeshDict = new Dictionary<string, List<MdlStructs.ShapeMeshStruct>>();
+        var shapeValuesDict = new Dictionary<string, List<MdlStructs.ShapeValueStruct>>();
 
         var vertexBufferOffset = 0;
         for( var i = 0; i < _meshBuilders.Count; i++ ) {
+            var meshIndexData = new List<byte>();
             var meshBuilder = _meshBuilders[i];
             var vertexCount = meshBuilder.GetVertexCount( strings );
             var vertexBufferStride = GetVertexBufferStride( vertexDeclarations[i] ).ConvertAll( x => ( byte )x ).ToArray();
-            boneTableStructs.Add( meshBuilder.GetBoneTableStruct( _stringTableBuilder.Bones ) );
+            boneTableStructs.Add( meshBuilder.GetBoneTableStruct( _stringTableBuilder.Bones.ToList()) );
 
             var vertexBufferOffsets = new List<int>() { vertexBufferOffset, 0, 0 };
             for( var j = 1; j < 3; j++ ) {
@@ -204,6 +210,7 @@ public class MdlFileBuilder {
                     vertexBufferOffsets[j] = vertexBufferOffset;
                 }
             }
+
             meshStructs.Add( new() {
                 VertexCount = ( ushort )vertexCount,
                 IndexCount = ( ushort )meshBuilder.IndexCount,
@@ -211,7 +218,7 @@ public class MdlFileBuilder {
                 SubMeshIndex = ( ushort )submeshCounter,
                 SubMeshCount = ( ushort )meshBuilder.Submeshes.Count,
                 BoneTableIndex = ( ushort )i,
-                StartIndex = 0, // TODO: MeshStruct.StartIndex
+                StartIndex = ( uint )indexData.Count / 2, // TODO: MeshStruct.StartIndex
                 VertexBufferOffset = vertexBufferOffsets.ConvertAll( x => ( uint )x ).ToArray(),
                 VertexBufferStride = vertexBufferStride,
                 VertexStreamCount = ( byte )vertexBufferStride.Where( x => x > 0 ).Count()
@@ -219,60 +226,108 @@ public class MdlFileBuilder {
             submeshCounter += meshBuilder.Submeshes.Count;
 
             var addedShapeVertices = 0;
-            var submeshIndexCounter = 0;
+            var accumulatedVertices = 0;
+
+            var bss = meshBuilder.GetSubmeshBoneMap( _stringTableBuilder.Bones.ToList() );
+            submeshBoneMap.AddRange( bss );
+
+
             foreach( var submesh in meshBuilder.Submeshes ) {
-                indexData.AddRange( submesh.GetIndexData(accumulatedVertices) );
+                var bitangents = submesh.CalculateTangents();
+                var submeshIndexData = submesh.GetIndexData( accumulatedVertices );
+                var submeshIndexOffset = ( indexData.Count + meshIndexData.Count ) / 2;
+
+                meshIndexData.AddRange( submeshIndexData );
+
+                PluginLog.Debug( $"SubmeshIndexOffset: {submeshIndexOffset}, SubmeshIndexCount: {submesh.IndexCount}" );
                 submeshStructs.Add( new() {
-                    IndexOffset = ( uint )meshIndexCounter,
+                    IndexOffset = ( uint )submeshIndexOffset,
                     IndexCount = ( uint )submesh.IndexCount,
                     AttributeIndexMask = submesh.GetAttributeIndexMask( _stringTableBuilder.Attributes ),
                     BoneStartIndex = ( ushort )boneCounter,
-                    BoneCount = ( ushort )_stringTableBuilder.Bones.Count //( ushort )submesh.BoneCount
+                    //BoneCount = ( ushort )submesh.BoneCount
+                    BoneCount = ( ushort )meshBuilder.Bones.Count
                 } );
 
+                boneCounter += meshBuilder.Bones.Count;
 
-                for( var j = 0; j < submesh.SubmeshShapeBuilder.GetShapeStructs( strings ).Count; j++ ) {
-                    shapeStructs.Add( new() {
-                        StringOffset = _stringTableBuilder.GetShapeNameOffset( submesh.SubmeshShapeBuilder.Shapes[j] ),
-                        ShapeMeshStartIndex = new ushort[] { 0, 0, 0 },
-                        ShapeMeshCount = new ushort[] { 1, 0, 0 }
-                    } );
+                foreach( var shape in _stringTableBuilder.Shapes ) {
+                    if( !shapeDict.ContainsKey( shape ) ) {
+                        shapeDict[shape] = new();
+                    }
+                    if( !shapeMeshDict.ContainsKey( shape ) ) {
+                        shapeMeshDict[shape] = new();
+                    }
+                    if( !shapeValuesDict.ContainsKey( shape ) ) {
+                        shapeValuesDict[shape] = new();
+                    }
+
+
+                    var ss = submesh.SubmeshShapeBuilder.GetShapeStruct( shape );
+                    if( ss != null ) {
+                        shapeDict[shape].Add( ( MdlStructs.ShapeStruct )ss );
+                    }
+                    var sm = submesh.SubmeshShapeBuilder.GetShapeMeshStruct( shape );
+                    if( sm != null ) {
+                        shapeMeshDict[shape].Add( ( MdlStructs.ShapeMeshStruct )sm );
+                    }
+                    var sv = submesh.SubmeshShapeBuilder.GetShapeValueStructs( shape );
+                    if( sv != null ) {
+                        shapeValuesDict[shape].AddRange( sv );
+                    }
                 }
 
-
+                /*
                 var submeshShapeValues = submesh.SubmeshShapeBuilder.GetShapeValueStructs( strings );
-                foreach( var svs in submeshShapeValues ) {
-                    shapeValues.Add( new() {
-                        BaseIndicesIndex = ( ushort )( svs.BaseIndicesIndex + meshIndexCounter ),
-                        ReplacingVertexIndex = ( ushort )( svs.ReplacingVertexIndex + vertexCounter + addedShapeVertices )
-                    } );
-                }
+                if( submeshShapeValues.Count > 0 ) {
 
-                var submeshShapeMeshes = submesh.SubmeshShapeBuilder.GetShapeMeshStructs( strings );
-                foreach( var sm in submeshShapeMeshes ) {
-                    shapeMeshes.Add( new() {
-                        MeshIndexOffset = ( uint )meshIndexCounter,
-                        ShapeValueCount = ( ushort )sm.ShapeValueCount,
-                        ShapeValueOffset = shapeValueOffset
-                    } );
-                    shapeValueOffset += sm.ShapeValueCount;
+                    for( var j = 0; j < submesh.SubmeshShapeBuilder.GetShapeStructs( strings ).Count; j++ ) {
+                        shapeStructs.Add( new() {
+                            StringOffset = _stringTableBuilder.GetShapeNameOffset( submesh.SubmeshShapeBuilder.Shapes[j] ),
+                            ShapeMeshStartIndex = new ushort[] { 0, 0, 0 },
+                            ShapeMeshCount = new ushort[] { 1, 0, 0 }
+                        } );
+                    }
+
+                    PluginLog.Debug( $"ShapeValueCount: {shapeValues.Count}" );
+                    PluginLog.Debug( $"Adding more: {submeshShapeValues.Count}" );
+
+                    foreach( var svs in submeshShapeValues ) {
+                        shapeValues.Add( new() {
+                            BaseIndicesIndex = ( ushort )( svs.BaseIndicesIndex + meshIndexCounter ),
+                            ReplacingVertexIndex = ( ushort )( svs.ReplacingVertexIndex + vertexCounter + addedShapeVertices )
+                        } );
+                    }
+
+                    var submeshShapeMeshes = submesh.SubmeshShapeBuilder.GetShapeMeshStructs( strings );
+                    foreach( var sm in submeshShapeMeshes ) {
+                        shapeMeshes.Add( new() {
+                            MeshIndexOffset = ( uint )submeshCounter,
+                            ShapeValueCount = ( ushort )sm.ShapeValueCount,
+                            ShapeValueOffset = shapeValueOffset
+                        } );
+                        shapeValueOffset += sm.ShapeValueCount;
+                    }
                 }
+                */
+
+
 
                 addedShapeVertices += shapeValues.Count;
-                boneCounter += submesh.BoneCount;
-                accumulatedVertices += submesh.GetVertexCount(strings);
-                meshIndexCounter += submesh.IndexCount;
+                accumulatedVertices += submesh.GetVertexCount( strings );
 
                 // Assuming that this is how the bounding boxes are calculated
                 min.X = min.X < submesh.MinBoundingBox.X ? min.X : submesh.MinBoundingBox.X;
                 min.Y = min.Y < submesh.MinBoundingBox.Y ? min.Y : submesh.MinBoundingBox.Y;
                 min.Z = min.Z < submesh.MinBoundingBox.Z ? min.Z : submesh.MinBoundingBox.Z;
 
-                max.X = max.X < submesh.MaxBoundingBox.X ? max.X : submesh.MaxBoundingBox.X;
-                max.Y = max.Y < submesh.MaxBoundingBox.Y ? max.Y : submesh.MaxBoundingBox.Y;
-                max.Z = max.Z < submesh.MaxBoundingBox.Z ? max.Z : submesh.MaxBoundingBox.Z;
+                max.X = max.X > submesh.MaxBoundingBox.X ? max.X : submesh.MaxBoundingBox.X;
+                max.Y = max.Y > submesh.MaxBoundingBox.Y ? max.Y : submesh.MaxBoundingBox.Y;
+                max.Z = max.Z > submesh.MaxBoundingBox.Z ? max.Z : submesh.MaxBoundingBox.Z;
 
-                var data = VertexDataBuilder.GetVertexData( submesh, vertexDeclarations[i], strings, meshBuilder.GetBlendIndicesDict( _stringTableBuilder.Bones ) );
+                var data = VertexDataBuilder.GetVertexData( submesh, vertexDeclarations[i], strings, meshBuilder.GetBlendIndicesDict( _stringTableBuilder.HierarchyBones ), bitangents );
+
+                // Write the entirety of each mesh
                 foreach( var kvp in data ) {
                     if( !vertexDict.ContainsKey( kvp.Key ) ) {
                         vertexDict.Add( kvp.Key, new() );
@@ -280,11 +335,50 @@ public class MdlFileBuilder {
                     vertexDict[kvp.Key].AddRange( kvp.Value );
                 }
             }
+
+            foreach( var data in vertexDict.Values ) {
+                vertexData.AddRange( data );
+            }
+
+            vertexDict.Clear();
+            while( meshIndexData.Count % 8 != 0 ) {
+                meshIndexData.Add( ( byte )0 );
+            }
+            indexData.AddRange( meshIndexData );
+        }
+        /*
+        var shapeMeshStartIndex = 0;
+        foreach( var kvp in shapeDict ) {
+            shapeStructs.Add( new() {
+                StringOffset = _stringTableBuilder.GetShapeNameOffset( kvp.Key ),
+                ShapeMeshStartIndex = new ushort[] { ( ushort )shapeMeshStartIndex, 0, 0 },
+                ShapeMeshCount = new ushort[] { 1, 0, 0 }
+            } );
         }
 
-        foreach( var data in vertexDict.Values ) {
-            vertexData.AddRange( data );
+        foreach( var kvp in shapeMeshDict ) {
+            var sv = ( uint )0;
+            foreach( var sm in kvp.Value ) {
+                sv += sm.ShapeValueCount;
+            }
+            shapeMeshes.Add( new() {
+                MeshIndexOffset = 0,
+                ShapeValueCount = sv,
+                ShapeValueOffset = shapeValueOffset
+            } );
+            shapeValueOffset += sv;
         }
+
+        foreach( var kvp in shapeValuesDict ) {
+            foreach (var sv in kvp.Value) {
+                shapeValues.Add( new() {
+                    BaseIndicesIndex = sv.BaseIndicesIndex,
+                    ReplacingVertexIndex = sv.ReplacingVertexIndex
+                } );
+            }
+        }
+        */
+        PluginLog.Debug( $"ShapeMeshes.Count: {shapeMeshes.Count}" );
 
 
         var filledBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
@@ -310,7 +404,7 @@ public class MdlFileBuilder {
             VertexBufferSize = new uint[] { ( uint )vertexData.Count, 0, 0 },
             IndexBufferSize = new uint[] { ( uint )indexData.Count, 0, 0 },
             LodCount = 1,
-            EnableIndexBufferStreaming = _origModel.File?.FileHeader.EnableIndexBufferStreaming ?? true,
+            EnableIndexBufferStreaming = true,
             EnableEdgeGeometry = _origModel.File?.FileHeader.EnableEdgeGeometry ?? false
         };
         file.VertexDeclarations = vertexDeclarations.ToArray();
@@ -328,6 +422,7 @@ public class MdlFileBuilder {
             ShapeCount = ( ushort )shapeStructs.Count,
             ShapeValueCount = ( ushort )shapeValues.Count,
             LodCount = 1,
+
             ElementIdCount = ( ushort )elementIds.Count,
 
             TerrainShadowMeshCount = _origModel.File?.ModelHeader.TerrainShadowMeshCount ?? 0,
@@ -344,8 +439,6 @@ public class MdlFileBuilder {
             Unknown9 = _origModel.File?.ModelHeader.Unknown9 ?? 0,
         };
         file.ElementIds = elementIds.ToArray();
-
-        PluginLog.Debug( $"strings: {file.Strings.Length}" );
 
         file.Meshes = meshStructs.ToArray();
         file.AttributeNameOffsets = _stringTableBuilder.GetAttributeNameOffsets();
@@ -400,15 +493,15 @@ public class MdlFileBuilder {
             lods.Add( new() {
                 MeshIndex = ( ushort )meshIndex,
                 MeshCount = ( i == 0 ) ? ( ushort )meshStructs.Count : ( ushort )0,
-                ModelLodRange = 0,  // idk
-                TextureLodRange = 0,    //idk
-                WaterMeshIndex = 0, // idk
+                ModelLodRange = 1,  // idk
+                TextureLodRange = 1,    //idk
+                WaterMeshIndex = ( ushort )meshStructs.Count, // idk
                 WaterMeshCount = 0,
-                ShadowMeshIndex = 0,    // idk
+                ShadowMeshIndex = ( ushort )meshStructs.Count,    // idk
                 ShadowMeshCount = 0,
                 TerrainShadowMeshIndex = 0, // maybe idk?
                 TerrainShadowMeshCount = 0,
-                VerticalFogMeshIndex = 0, // probably idk
+                VerticalFogMeshIndex = ( ushort )meshIndex, // probably idk
                 VerticalFogMeshCount = 0,
                 EdgeGeometrySize = 0,
                 EdgeGeometryDataOffset = ( i == 0 ) ? indexOffset0 : fileSize,
@@ -420,7 +513,9 @@ public class MdlFileBuilder {
                 IndexDataOffset = ( i == 0 ) ? ( uint )indexOffset0 : fileSize
             } );
 
-            meshIndex += meshStructs.Count;
+            if( i == 0 ) {
+                meshIndex += meshStructs.Count;
+            }
         }
 
         file.Lods = lods.ToArray();
@@ -453,7 +548,6 @@ public class MdlFileBuilder {
             new(), new(), new()
         };
         foreach( var ele in vds.VertexElements ) {
-            PluginLog.Debug( $"{ele.Stream}" );
             if( ele.Stream == 255 ) {
                 break;
             }
@@ -462,17 +556,12 @@ public class MdlFileBuilder {
             }
         }
 
-        foreach( var vd in vertexDeclarations ) {
-            PluginLog.Debug( $"{vd.Count}" );
-        }
-
         var vertexDeclarationSizes = new List<int>() { 0, 0, 0 };
         for( var i = 0; i < 3; i++ ) {
             if( vertexDeclarations[i].Count == 0 ) {
                 continue;
             }
 
-            PluginLog.Debug( $"VertexDec.Length: {vertexDeclarations[i].Count}" );
             var lastEle = vertexDeclarations[i].Last();
 
             vertexDeclarationSizes[i] = ( Vertex.VertexType )lastEle.Type switch {
