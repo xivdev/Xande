@@ -137,11 +137,13 @@ namespace Xande.Models.Import {
                 modelHeader.RainOcclusionEnabled,
                 modelHeader.Unknown1,
                 modelHeader.BgLightingReflectionEnabled,
-                modelHeader.WavingAnimationDisabled,
+                //modelHeader.WavingAnimationDisabled,
+                true,
                 modelHeader.LightShadowDisabled,
                 modelHeader.ShadowDisabled
-                }
+                }.Reverse().ToArray()
                 );
+
             var flags1Byte = new byte[1];
             flags1.CopyTo( flags1Byte, 0 );
             _w.Write( flags1Byte[0] );
@@ -316,15 +318,15 @@ namespace Xande.Models.Import {
         }
 
         private void WriteShapeMeshStructs( MdlStructs.ShapeMeshStruct[] shapeMeshStructs ) {
-            foreach (var shapeMeshStruct in shapeMeshStructs ) {
+            foreach( var shapeMeshStruct in shapeMeshStructs ) {
                 _w.Write( shapeMeshStruct.MeshIndexOffset );
                 _w.Write( shapeMeshStruct.ShapeValueCount );
                 _w.Write( shapeMeshStruct.ShapeValueOffset );
             }
         }
 
-        private void WriteShapeValueStructs( MdlStructs.ShapeValueStruct[] shapeValueStructs) {
-            foreach (var shapeValueStruct in shapeValueStructs) {
+        private void WriteShapeValueStructs( MdlStructs.ShapeValueStruct[] shapeValueStructs ) {
+            foreach( var shapeValueStruct in shapeValueStructs ) {
                 _w.Write( shapeValueStruct.BaseIndicesIndex );
                 _w.Write( shapeValueStruct.ReplacingVertexIndex );
             }
