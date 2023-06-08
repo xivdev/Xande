@@ -83,9 +83,7 @@ namespace Xande.Models.Import {
                                         if( _differentVertices[shapeName].Contains( ( int )index ) ) {
                                             _shapeValues[shapeName].Add( new() {
                                                 BaseIndicesIndex = ( ushort )( indexIdx ),
-                                                // Later, we will have to add the total number of vertices (and vertices added via shapes) that come before this Submesh
                                                 ReplacingVertexIndex = ( ushort )( _differentVertices[shapeName].IndexOf( ( int )index ) )
-                                                // That is to say, that these values are relative to the Submesh
                                             } );
                                         }
                                     }

@@ -27,9 +27,9 @@ public class StringTableBuilder {
         }
     }
 
-    public void AddAttributes(IEnumerable<string> attr) {
-        foreach (var a in attr) {
-            AddAttribute(a);
+    public void AddAttributes( IEnumerable<string> attr ) {
+        foreach( var a in attr ) {
+            AddAttribute( a );
         }
     }
 
@@ -95,7 +95,7 @@ public class StringTableBuilder {
         if( Attributes.Count == 0 ) {
             str += "\0";
         }
-        if (Bones.Count == 0) {
+        if( Bones.Count == 0 ) {
             str += "\0";
         }
         if( Materials.Count == 0 ) {
@@ -109,11 +109,9 @@ public class StringTableBuilder {
         }
 
         // This one is required, though
-        if (!str.EndsWith("\0")) {
+        if( !str.EndsWith( "\0" ) ) {
             str += "\0";
         }
-        str += "\0";
-        str += "\0";
 
         return Encoding.UTF8.GetBytes( str );
     }

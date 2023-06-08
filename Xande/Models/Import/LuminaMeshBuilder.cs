@@ -23,9 +23,7 @@ namespace Xande.Models.Import {
         public List<string> Shapes = new();
 
         private List<string> _skeleton;
-        private string _material = String.Empty;
 
-        private SortedSet<string> _sortedBones = new();
         private Dictionary<int, string> _originalBoneIndexToString = new();
         private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private List<Vector4> Bitangents = new();
@@ -39,7 +37,6 @@ namespace Xande.Models.Import {
         }
 
         public void AddSubmesh( Mesh mesh ) {
-            //MeshShapeBuilder.Add( mesh );
             var submeshBuilder = new SubmeshBuilder( mesh, _skeleton );
             Submeshes.Add( submeshBuilder );
             TryAddBones( submeshBuilder );
@@ -148,7 +145,6 @@ namespace Xande.Models.Import {
             foreach( var kvp in submesh.OriginalBoneIndexToStrings ) {
                 if( !_originalBoneIndexToString.ContainsKey( kvp.Key ) ) {
                     _originalBoneIndexToString.Add( kvp.Key, kvp.Value );
-                    _sortedBones.Add( kvp.Value );
                 }
             }
             if( _originalBoneIndexToString.Keys.Count > 64 ) {

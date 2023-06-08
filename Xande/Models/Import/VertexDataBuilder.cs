@@ -21,9 +21,6 @@ namespace Xande.Models.Import {
             Dictionary<int, int>? blendIndexDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null,
             List<Vector4>? bitangents = null ) {
             var vector4 = new Vector4( 0, 0, 0, 0 );
-            if (shapeAccessor != null) {
-                //PluginLog.Debug( $"Looking at vertexId: {index}" );
-            }
 
             switch( usage ) {
                 case Vertex.VertexUsage.Position:
@@ -33,7 +30,7 @@ namespace Xande.Models.Import {
                     var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
                     if( positions != null && positions.Count > index ) {
                         vector4 = new Vector4( positions[index], 1 );
-                        if (shapePositions != null) {
+                        if( shapePositions != null ) {
                             var shapePos = new Vector4( shapePositions[index], 0 );
                             vector4 += shapePos;
                         }
@@ -56,7 +53,6 @@ namespace Xande.Models.Import {
                                 }
                             }
                         }
-
                     }
                     break;
                 case Vertex.VertexUsage.Normal:
@@ -66,8 +62,8 @@ namespace Xande.Models.Import {
                     var normals = primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array();
                     if( normals != null && normals.Count > index ) {
                         vector4 = new Vector4( normals[index], 0 );
-                        if (shapeNormals != null) {
-                            var shapeNor = new Vector4( shapeNormals[index],0 );
+                        if( shapeNormals != null ) {
+                            var shapeNor = new Vector4( shapeNormals[index], 0 );
                             vector4 += shapeNor;
                         }
                     }
@@ -157,13 +153,13 @@ namespace Xande.Models.Import {
 
         }
 
-        public static Dictionary<int, List<byte>> GetShapeVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, IReadOnlyDictionary<string, Accessor>? shapeAccessor, List<int> diffVertices, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null) {
+        public static Dictionary<int, List<byte>> GetShapeVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, IReadOnlyDictionary<string, Accessor>? shapeAccessor, List<int> diffVertices, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
             var streams = new Dictionary<int, List<byte>>();
 
             foreach( var primitive in submesh.Mesh.Primitives ) {
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
                 if( positions != null ) {
-                    foreach (var vertexId in diffVertices) {
+                    foreach( var vertexId in diffVertices ) {
                         for( var declarationId = 0; declarationId < vertexDeclarations.VertexElements.Length; declarationId++ ) {
                             var ve = vertexDeclarations.VertexElements[declarationId];
                             if( ve.Stream == 255 ) { break; }
@@ -201,31 +197,6 @@ namespace Xande.Models.Import {
                     }
                 }
             }
-
-            /*
-            var shapeAccessors = submesh.SubmeshShapeBuilder.GetActiveShapeAccessors( strings );
-            foreach( var s in shapeAccessors ) {
-                if( s.ContainsKey( "POSITION" ) ) {
-                    foreach( var primitive in submesh.Mesh.Primitives ) {
-                        var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-                        s.TryGetValue( "POSITION", out var shapeAccessor );
-                        var shapePositions = shapeAccessor?.AsVector3Array();
-                        if( positions != null && shapePositions != null ) {
-                            for( var vertexId = 0; vertexId < positions.Count; vertexId++ ) {
-                                for( var declarationId = 0; declarationId < vertexDeclarations.VertexElements.Length; declarationId++ ) {
-                                    var ve = vertexDeclarations.VertexElements[declarationId];
-                                    if( ve.Stream == 255 ) { break; }
-
-                                    if (shapePositions[vertexId] != Vector3.Zero) {
-                                        streams[ve.Stream].AddRange(GetVertexData(primitive, vertexId, ve, blendIndicesDict, s) );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            */
 
             return streams;
         }
