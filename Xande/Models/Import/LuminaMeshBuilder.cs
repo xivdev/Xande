@@ -15,8 +15,9 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 namespace Xande.Models.Import {
     internal class LuminaMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
-        public MeshShapeBuilder MeshShapeBuilder = new();
+        //public MeshShapeBuilder MeshShapeBuilder = new();
         public Dictionary<int, List<byte>> VertexData = new();
+        public SortedSet<string> Attributes = new();
         public List<string> Bones => _originalBoneIndexToString.Values.ToList();
         public string Material = String.Empty;
         public List<string> Shapes = new();
@@ -38,11 +39,12 @@ namespace Xande.Models.Import {
         }
 
         public void AddSubmesh( Mesh mesh ) {
-            MeshShapeBuilder.Add( mesh );
+            //MeshShapeBuilder.Add( mesh );
             var submeshBuilder = new SubmeshBuilder( mesh, _skeleton );
             Submeshes.Add( submeshBuilder );
             TryAddBones( submeshBuilder );
             AddShapes( submeshBuilder );
+            AddAttributes( submeshBuilder );
 
             IndexCount += submeshBuilder.IndexCount;
             if( String.IsNullOrEmpty( Material ) ) {
@@ -87,18 +89,17 @@ namespace Xande.Models.Import {
             var boneTable = new List<ushort>();
             var values = _originalBoneIndexToString.Values.Where( x => x != "n_root" ).ToList();
             var newValues = new List<string>();
-            foreach( var b in hierarchyBones) {
-                if (values.Contains(b)) {
+            foreach( var b in hierarchyBones ) {
+                if( values.Contains( b ) ) {
                     newValues.Add( b );
                 }
             }
 
-            foreach (var v in _originalBoneIndexToString) {
-                _blendIndicesDict.Add(v.Key, newValues.IndexOf(v.Value));
+            foreach( var v in _originalBoneIndexToString ) {
+                _blendIndicesDict.Add( v.Key, newValues.IndexOf( v.Value ) );
             }
 
             foreach( var v in newValues ) {
-                PluginLog.Debug( $"bone: {v}" );
                 var index = bones.IndexOf( v );
                 if( index >= 0 ) {
                     boneTable.Add( ( ushort )index );
@@ -177,10 +178,26 @@ namespace Xande.Models.Import {
             return ret;
         }
 
+        public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
+            var ret = new List<MdlStructs.ShapeValueStruct>();
+            foreach( var submesh in Submeshes ) {
+                ret.AddRange( submesh.SubmeshShapeBuilder.GetShapeValues( str ) );
+            }
+            return ret;
+        }
+
         private void AddShapes( SubmeshBuilder submesh ) {
-            foreach( var s in submesh.SubmeshShapeBuilder.Shapes ) {
+            foreach( var s in submesh.SubmeshShapeBuilder.Shapes.Keys ) {
                 if( !Shapes.Contains( s ) ) {
                     Shapes.Add( s );
+                }
+            }
+        }
+
+        private void AddAttributes( SubmeshBuilder submesh ) {
+            foreach( var attr in submesh.Attributes ) {
+                if( !Attributes.Contains( attr ) ) {
+                    Attributes.Add( attr );
                 }
             }
         }
