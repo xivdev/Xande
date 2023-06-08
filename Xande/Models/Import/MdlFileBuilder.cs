@@ -147,9 +147,6 @@ public class MdlFileBuilder {
             }
         }
 
-        _stringTableBuilder.AddAttribute( "atr_sss" );
-
-
         foreach( var meshIdx in _meshes.Keys ) {
             var meshBuilder = new LuminaMeshBuilder( allBones, vertexDeclarations[meshIdx] );
             foreach( var submeshIndex in _meshes[meshIdx].Keys ) {
@@ -160,6 +157,7 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddBones( meshBuilder.Bones );
             _stringTableBuilder.AddMaterial( meshBuilder.Material );
             _stringTableBuilder.AddShapes( meshBuilder.Shapes );
+            _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
         }
 
         _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
@@ -233,7 +231,7 @@ public class MdlFileBuilder {
             //submeshBoneMap.AddRange( bss );
 
             for( var j = 0; j < meshBuilder.Bones.Count; j++ ) {
-                submeshBoneMap.Add( (ushort)j );
+                submeshBoneMap.Add( ( ushort )j );
             }
 
             foreach( var submesh in meshBuilder.Submeshes ) {
@@ -246,7 +244,7 @@ public class MdlFileBuilder {
                 submeshStructs.Add( new() {
                     IndexOffset = ( uint )submeshIndexOffset,
                     IndexCount = ( uint )submesh.IndexCount,
-                    AttributeIndexMask = submesh.GetAttributeIndexMask( _stringTableBuilder.Attributes ),
+                    AttributeIndexMask = submesh.GetAttributeIndexMask( _stringTableBuilder.Attributes.ToList() ),
                     BoneStartIndex = ( ushort )boneCounter,
                     BoneCount = ( ushort )meshBuilder.Bones.Count
                 } );
@@ -285,44 +283,48 @@ public class MdlFileBuilder {
             PluginLog.Debug( $"MeshVertices: {meshVertices}" );
             PluginLog.Debug( $"indices: {accumulatedIndices}" );
             var mesh = _meshBuilders[i];
-            meshVertices += mesh.GetVertexCount( false, _stringTableBuilder.Shapes );
+            meshVertices = mesh.GetVertexCount( false, _stringTableBuilder.Shapes.ToList() );
             var meshVertexDict = mesh.GetVertexData();
-            var meshShapeData = mesh.GetShapeData( _stringTableBuilder.Shapes );
+            var meshShapeData = mesh.GetShapeData( _stringTableBuilder.Shapes.ToList() );
 
             PluginLog.Debug( $"meshshapeData.Keys: {meshShapeData.Count}" );
             var verticesFromShapes = 0;
-            foreach( var shapeName in meshShapeData.Keys ) {
-                var shapeVertexData = meshShapeData[shapeName];
-                var meshShapeValues = mesh.MeshShapeBuilder.GetShapeValues( shapeName );
+            foreach( var shapeName in _stringTableBuilder.Shapes.ToList() ) {
+                if (meshShapeData.ContainsKey(shapeName)) {
+                    PluginLog.Debug( $"shapename: {shapeName}" );
+                    var shapeVertexData = meshShapeData[shapeName];
+                    var meshShapeValues = mesh.GetShapeValues( shapeName );
 
-                PluginLog.Debug( $"MeshShapeValues.Count: {meshShapeValues.Count}" );
+                    PluginLog.Debug( $"MeshShapeValues.Count: {meshShapeValues.Count}" );
 
-                foreach( var stream in shapeVertexData.Keys ) {
-                    meshVertexDict[stream].AddRange( shapeVertexData[stream] );
-                }
+                    foreach( var stream in shapeVertexData.Keys ) {
+                        meshVertexDict[stream].AddRange( shapeVertexData[stream] );
+                    }
 
-                shapeStructs.Add( new() {
-                    StringOffset = _stringTableBuilder.GetShapeNameOffset( shapeName ),
-                    ShapeMeshStartIndex = new ushort[] { ( ushort )shapeCount, 0, 0 },
-                    ShapeMeshCount = new ushort[] { 1, 0, 0 }
-                } );
-                shapeMeshes.Add( new() {
-                    MeshIndexOffset = ( uint )i,
-                    ShapeValueCount = ( uint )meshShapeValues.Count,
-                    ShapeValueOffset = ( uint )shapeValueOffset
-                } );
-
-                PluginLog.Debug( $"{accumulatedIndices} - {meshVertices} - {verticesFromShapes}" );
-                var newShapeValues = new List<MdlStructs.ShapeValueStruct>();
-                foreach( var svs in meshShapeValues ) {
-                    newShapeValues.Add( new() {
-                        BaseIndicesIndex = ( ushort )( svs.BaseIndicesIndex + accumulatedIndices),
-                        ReplacingVertexIndex = ( ushort )( svs.ReplacingVertexIndex + meshVertices )
+                    shapeStructs.Add( new() {
+                        StringOffset = _stringTableBuilder.GetShapeNameOffset( shapeName ),
+                        ShapeMeshStartIndex = new ushort[] { ( ushort )shapeCount, 0, 0 },
+                        ShapeMeshCount = new ushort[] { 1, 0, 0 }
                     } );
+                    shapeMeshes.Add( new() {
+                        MeshIndexOffset = ( uint )accumulatedIndices,
+                        ShapeValueCount = ( uint )meshShapeValues.Count,
+                        ShapeValueOffset = ( uint )shapeValueOffset
+                    } );
+
+                    var newShapeValues = new List<MdlStructs.ShapeValueStruct>();
+                    foreach( var svs in meshShapeValues ) {
+                        newShapeValues.Add( new() {
+                            BaseIndicesIndex = ( ushort )( svs.BaseIndicesIndex /*+ accumulatedIndices*/ ),
+                            ReplacingVertexIndex = ( ushort )( svs.ReplacingVertexIndex + meshVertices )
+                        } );
+                    }
+                    //newShapeValues.Sort( CompareShapeValueStructs );
+                    shapeValues.AddRange( newShapeValues );
+                    verticesFromShapes += meshShapeValues.Count;
+                    shapeCount++;
                 }
-                newShapeValues.Sort( CompareShapeValueStructs );
-                shapeValues.AddRange( newShapeValues );
-                verticesFromShapes += meshShapeValues.Count;
+
             }
             //meshVertices += verticesFromShapes;
             accumulatedIndices += mesh.IndexCount;
