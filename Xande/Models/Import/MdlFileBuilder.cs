@@ -227,9 +227,6 @@ public class MdlFileBuilder {
             var addedShapeVertices = 0;
             var accumulatedVertices = 0;
 
-            //var bss = meshBuilder.GetSubmeshBoneMap( _stringTableBuilder.Bones.ToList() );
-            //submeshBoneMap.AddRange( bss );
-
             for( var j = 0; j < meshBuilder.Bones.Count; j++ ) {
                 submeshBoneMap.Add( ( ushort )j );
             }
@@ -290,12 +287,12 @@ public class MdlFileBuilder {
             PluginLog.Debug( $"meshshapeData.Keys: {meshShapeData.Count}" );
             var verticesFromShapes = 0;
             foreach( var shapeName in _stringTableBuilder.Shapes.ToList() ) {
+
+                // TODO: It seems like if a model has more than one shape, the only the first one gets applied correctly
                 if (meshShapeData.ContainsKey(shapeName)) {
                     PluginLog.Debug( $"shapename: {shapeName}" );
                     var shapeVertexData = meshShapeData[shapeName];
                     var meshShapeValues = mesh.GetShapeValues( shapeName );
-
-                    PluginLog.Debug( $"MeshShapeValues.Count: {meshShapeValues.Count}" );
 
                     foreach( var stream in shapeVertexData.Keys ) {
                         meshVertexDict[stream].AddRange( shapeVertexData[stream] );
@@ -334,24 +331,6 @@ public class MdlFileBuilder {
                 vertexData.AddRange( block );
             }
         }
-
-        PluginLog.Debug( $"ShapeStructs.Count: {shapeStructs.Count}" );
-        foreach( var ss in shapeStructs ) {
-            PluginLog.Debug( $"{ss.StringOffset}: {ss.ShapeMeshStartIndex[0]}-{ss.ShapeMeshStartIndex[1]}-{ss.ShapeMeshStartIndex[2]} || {ss.ShapeMeshCount[0]}-{ss.ShapeMeshCount[1]}-{ss.ShapeMeshCount[2]}" );
-        }
-
-        PluginLog.Debug( $"ShapeMeshes.Count: {shapeMeshes.Count}" );
-        foreach( var sm in shapeMeshes ) {
-            PluginLog.Debug( $"{sm.MeshIndexOffset}: {sm.ShapeValueCount} || {sm.ShapeValueOffset}" );
-        }
-
-
-        PluginLog.Debug( $"ShapeValues.Count: {shapeValues.Count}" );
-        /*
-        foreach( var sv in shapeValues ) {
-            PluginLog.Debug( $"{sv.BaseIndicesIndex}:{sv.ReplacingVertexIndex}" );
-        }
-        */
 
         var filledBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
             Min = new[] { min.X, min.Y, min.Z, min.W },
