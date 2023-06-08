@@ -149,12 +149,49 @@ namespace Xande.Models.Import {
             return null;
         }
 
+
+
         public List<MdlStructs.ShapeValueStruct>? GetShapeValueStructs(string shapeName) {
             var index = Shapes.IndexOf( shapeName );
             if (index >=0) {
                 return _shapeValues[index];
             }
             return null;
+        }
+
+        public List<MdlStructs.ShapeStruct> GetShapeStructs( List<string>? shapeNames = null ) {
+            var ret = new List<MdlStructs.ShapeStruct>();
+            for( var i = 0; i < Shapes.Count; i++ ) {
+                var includeShape = shapeNames == null || shapeNames.Contains( Shapes[i] );
+
+                if( includeShape ) {
+                    ret.Add( _shapeStructs[i] );
+                }
+            }
+
+            return ret;
+        }
+
+
+        public List<MdlStructs.ShapeMeshStruct> GetShapeMeshStructs( List<string>? shapeNames = null ) {
+            var ret = new List<MdlStructs.ShapeMeshStruct>();
+            for( var i = 0; i < Shapes.Count; i++ ) {
+                var includeShape = shapeNames == null || shapeNames.Contains( Shapes[i] );
+                if( includeShape ) {
+                    ret.Add( _shapeMeshes[i] );
+                }
+            }
+            return ret;
+        }
+        public List<MdlStructs.ShapeValueStruct> GetShapeValueStructs( List<string>? shapeNames = null ) {
+            var ret = new List<MdlStructs.ShapeValueStruct>();
+            for( var i = 0; i < Shapes.Count; i++ ) {
+                var includeShape = shapeNames == null || shapeNames.Contains( Shapes[i] );
+                if( includeShape ) {
+                    ret.AddRange( _shapeValues[i] );
+                }
+            }
+            return ret;
         }
 
         public List<IReadOnlyDictionary<string, Accessor>> GetActiveShapeAccessors( List<string>? strings = null ) {
