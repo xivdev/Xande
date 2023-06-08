@@ -105,6 +105,9 @@ public class StringTableBuilder {
         if (!str.EndsWith("\0")) {
             str += "\0";
         }
+        str += "\0";
+        str += "\0";
+
         return Encoding.UTF8.GetBytes( str );
     }
 

@@ -14,6 +14,7 @@ namespace Xande.Models.Import {
 
         private Dictionary<string, List<MdlStructs.ShapeValueStruct>> ShapeValues = new();
         private Dictionary<string, MeshPrimitive> MeshPrimitives = new();
+        private Dictionary<string, int> _accumulatedShapeVertices = new();
 
         private int _indexCount = 0;
         private int _vertexCount = 0;
@@ -64,15 +65,19 @@ namespace Xande.Models.Import {
 
                         var shapePositions = positionsAccessor?.AsVector3Array();
                         var shapeNormals = normalsAccessor?.AsVector3Array();
+                        var numAdded = 0;
 
                         if( shapePositions != null && shapeNormals != null ) {
                             for( var j = 0; j < shapePositions.Count; j++ ) {
                                 if( shapePositions[j] != Vector3.Zero ) {
                                     uniqueVertices[currShape].Add( j );
+                                    numAdded++;
                                 }
                             }
+                            if( !_accumulatedShapeVertices.ContainsKey( currShape ) ) {
+                                _accumulatedShapeVertices.Add( currShape, 0 );
+                            }
 
-                            accumulatedVertices += uniqueVertices[currShape].Count;
                             if( indices != null ) {
                                 for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
                                     var index = indices[indexIdx];
@@ -81,15 +86,15 @@ namespace Xande.Models.Import {
                                         var replacedVertex = uniqueVertices[currShape].IndexOf( ( int )index );
                                         ShapeValues[currShape].Add( new() {
                                             BaseIndicesIndex = ( ushort )( indexIdx + _indexCount),
-                                            ReplacingVertexIndex = ( ushort )( replacedVertex )
+                                            ReplacingVertexIndex = ( ushort )( replacedVertex + _accumulatedShapeVertices[currShape] )
                                         } );
                                     }
                                 }
                             }
                         }
-                        _vertexCount += accumulatedVertices;
 
-                        PluginLog.Debug( $"{currShape} - {ShapeValues[currShape].Count}" );
+                        PluginLog.Debug( $"accumulated: {_accumulatedShapeVertices[currShape]}" );
+                        _accumulatedShapeVertices[ currShape ] += numAdded;
                     }
                 }
             }

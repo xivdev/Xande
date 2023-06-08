@@ -21,14 +21,22 @@ namespace Xande.Models.Import {
             Dictionary<int, int>? blendIndexDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null,
             List<Vector4>? bitangents = null ) {
             var vector4 = new Vector4( 0, 0, 0, 0 );
+            if (shapeAccessor != null) {
+                //PluginLog.Debug( $"Looking at vertexId: {index}" );
+            }
 
             switch( usage ) {
                 case Vertex.VertexUsage.Position:
                     Accessor? positionAccessor = null;
                     shapeAccessor?.TryGetValue( "POSITION", out positionAccessor );
-                    var positions = positionAccessor?.AsVector3Array() ?? primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
+                    var shapePositions = positionAccessor?.AsVector3Array();
+                    var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
                     if( positions != null && positions.Count > index ) {
                         vector4 = new Vector4( positions[index], 1 );
+                        if (shapePositions != null) {
+                            var shapePos = new Vector4( shapePositions[index], 0 );
+                            vector4 += shapePos;
+                        }
                     }
                     break;
                 case Vertex.VertexUsage.BlendWeights:
@@ -48,20 +56,26 @@ namespace Xande.Models.Import {
                                 }
                             }
                         }
+
                     }
                     break;
                 case Vertex.VertexUsage.Normal:
                     Accessor? normalAccessor = null;
                     shapeAccessor?.TryGetValue( "NORMAL", out normalAccessor );
-                    var normals = normalAccessor?.AsVector3Array() ?? primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array();
+                    var shapeNormals = normalAccessor?.AsVector3Array();
+                    var normals = primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array();
                     if( normals != null && normals.Count > index ) {
                         vector4 = new Vector4( normals[index], 0 );
+                        if (shapeNormals != null) {
+                            var shapeNor = new Vector4( shapeNormals[index],0 );
+                            vector4 += shapeNor;
+                        }
                     }
                     break;
                 case Vertex.VertexUsage.UV:
                     var texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array();
                     if( texCoords?.Count > index ) {
-                        vector4 = new( texCoords[index].X, texCoords[index].Y, 0, 0 );
+                        vector4 = new( texCoords[index].X, texCoords[index].Y, 0f, 0f );
                     }
                     break;
                 case Vertex.VertexUsage.Tangent2:
@@ -143,7 +157,7 @@ namespace Xande.Models.Import {
 
         }
 
-        public static Dictionary<int, List<byte>> GetVertexData2( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, Dictionary<int, int>? blendIndicesDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null, List<Vector4>? bitangents = null, List<int>? diffVertices = null ) {
+        public static Dictionary<int, List<byte>> GetShapeVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, IReadOnlyDictionary<string, Accessor>? shapeAccessor, List<int> diffVertices, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null) {
             var streams = new Dictionary<int, List<byte>>();
 
             foreach( var primitive in submesh.Mesh.Primitives ) {
