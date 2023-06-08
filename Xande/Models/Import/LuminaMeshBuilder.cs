@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
 namespace Xande.Models.Import {
-    internal class MdlFileMeshBuilder {
+    internal class LuminaMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
         public MeshShapeBuilder MeshShapeBuilder = new();
         public Dictionary<int, List<byte>> VertexData = new();
@@ -28,10 +28,11 @@ namespace Xande.Models.Import {
         private Dictionary<int, string> _originalBoneIndexToString = new();
         private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private List<Vector4> Bitangents = new();
+        private Dictionary<int, int> _blendIndicesDict;
 
         public int IndexCount { get; protected set; } = 0;
 
-        public MdlFileMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds ) {
+        public LuminaMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds ) {
             _skeleton = skeleton;
             _vertexDeclarationStruct = vds;
         }
@@ -44,11 +45,11 @@ namespace Xande.Models.Import {
             AddShapes( submeshBuilder );
 
             IndexCount += submeshBuilder.IndexCount;
-            if (String.IsNullOrEmpty(Material)) {
+            if( String.IsNullOrEmpty( Material ) ) {
                 Material = submeshBuilder.MaterialPath;
             }
             else {
-                if (Material != submeshBuilder.MaterialPath) {
+                if( Material != submeshBuilder.MaterialPath ) {
                     PluginLog.Error( $"Found multiple materials. Original \"{Material}\" vs \"{submeshBuilder.MaterialPath}\"" );
                 }
             }
@@ -59,10 +60,10 @@ namespace Xande.Models.Import {
         /// </summary>
         /// <param name="strings">An optional list of strings that may or may not contain the names of used shapes</param>
         /// <returns></returns>
-        public int GetVertexCount(bool includeShapes, List<string>? strings = null ) {
+        public int GetVertexCount( bool includeShapes, List<string>? strings = null ) {
             var vertexCount = 0;
             foreach( var submeshBuilder in Submeshes ) {
-                vertexCount += submeshBuilder.GetVertexCount(includeShapes, strings );
+                vertexCount += submeshBuilder.GetVertexCount( includeShapes, strings );
             }
             return vertexCount;
         }
@@ -71,7 +72,7 @@ namespace Xande.Models.Import {
             return materials.IndexOf( Material );
         }
 
-        public Dictionary<int, int> GetBlendIndicesDict( ) {
+        public Dictionary<int, int> GetBlendIndicesDict() {
             var ret = new Dictionary<int, int>();
             var counter = 0;
             foreach( var kvp in _originalBoneIndexToString ) {
@@ -81,13 +82,25 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public MdlStructs.BoneTableStruct GetBoneTableStruct( List<string> bones ) {
+        public MdlStructs.BoneTableStruct GetBoneTableStruct( List<string> bones, List<string> hierarchyBones ) {
+            _blendIndicesDict = new();
             var boneTable = new List<ushort>();
             var values = _originalBoneIndexToString.Values.Where( x => x != "n_root" ).ToList();
+            var newValues = new List<string>();
+            foreach( var b in hierarchyBones) {
+                if (values.Contains(b)) {
+                    newValues.Add( b );
+                }
+            }
 
-           foreach (var v in values) {
+            foreach (var v in _originalBoneIndexToString) {
+                _blendIndicesDict.Add(v.Key, newValues.IndexOf(v.Value));
+            }
+
+            foreach( var v in newValues ) {
+                PluginLog.Debug( $"bone: {v}" );
                 var index = bones.IndexOf( v );
-                if (index >= 0) {
+                if( index >= 0 ) {
                     boneTable.Add( ( ushort )index );
                 }
             }
@@ -104,9 +117,9 @@ namespace Xande.Models.Import {
             };
         }
 
-        public List<ushort> GetSubmeshBoneMap(List<string> bones ) {
+        public List<ushort> GetSubmeshBoneMap( List<string> bones ) {
             var ret = new List<ushort>();
-            foreach (var b in _originalBoneIndexToString.Values ) {
+            foreach( var b in _originalBoneIndexToString.Values ) {
                 var index = bones.IndexOf( b );
                 ret.Add( ( ushort )index );
             }
@@ -115,16 +128,16 @@ namespace Xande.Models.Import {
 
         public Dictionary<int, List<byte>> GetVertexData() {
             var vertexDict = new Dictionary<int, List<byte>>();
-            foreach (var submesh in Submeshes) {
+            foreach( var submesh in Submeshes ) {
                 var bitangents = submesh.CalculateBitangents();
                 Bitangents.AddRange( bitangents );
-                var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, GetBlendIndicesDict(), bitangents );
+                var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, _blendIndicesDict, bitangents );
 
-                foreach (var stream in submeshVertexData.Keys ) {
-                    if (!vertexDict.ContainsKey(stream)) {
+                foreach( var stream in submeshVertexData.Keys ) {
+                    if( !vertexDict.ContainsKey( stream ) ) {
                         vertexDict.Add( stream, new() );
                     }
-                    vertexDict[stream].AddRange( submeshVertexData[stream]);
+                    vertexDict[stream].AddRange( submeshVertexData[stream] );
                 }
             }
             return vertexDict;
@@ -142,20 +155,20 @@ namespace Xande.Models.Import {
             }
         }
 
-        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData(List<string>? strings = null) {
+        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData( List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
-            foreach (var submesh in Submeshes) {
-                var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, GetBlendIndicesDict() );
-                foreach (var submeshShapeName in submeshShapeData.Keys) {
+            foreach( var submesh in Submeshes ) {
+                var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, _blendIndicesDict );
+                foreach( var submeshShapeName in submeshShapeData.Keys ) {
                     var submeshShapeVertexData = submeshShapeData[submeshShapeName];
-                    if (!ret.ContainsKey(submeshShapeName)) {
-                        ret.Add(submeshShapeName, submeshShapeVertexData );
+                    if( !ret.ContainsKey( submeshShapeName ) ) {
+                        ret.Add( submeshShapeName, submeshShapeVertexData );
                     }
                     else {
                         var shapeDict = ret[submeshShapeName];
-                        foreach (var stream in shapeDict.Keys) {
-                            if (submeshShapeVertexData.ContainsKey(stream)) {
-                                shapeDict[stream].AddRange( submeshShapeVertexData[stream]);
+                        foreach( var stream in shapeDict.Keys ) {
+                            if( submeshShapeVertexData.ContainsKey( stream ) ) {
+                                shapeDict[stream].AddRange( submeshShapeVertexData[stream] );
                             }
                         }
                     }
@@ -164,9 +177,9 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        private void AddShapes(SubmeshBuilder submesh) {
-            foreach (var s in submesh.SubmeshShapeBuilder.Shapes) {
-                if (!Shapes.Contains(s)) {
+        private void AddShapes( SubmeshBuilder submesh ) {
+            foreach( var s in submesh.SubmeshShapeBuilder.Shapes ) {
+                if( !Shapes.Contains( s ) ) {
                     Shapes.Add( s );
                 }
             }
