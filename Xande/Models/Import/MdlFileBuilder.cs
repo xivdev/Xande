@@ -233,7 +233,7 @@ public class MdlFileBuilder {
 
 
             foreach( var submesh in meshBuilder.Submeshes ) {
-                var bitangents = submesh.CalculateTangents();
+                var bitangents = submesh.CalculateBitangents();
                 var submeshIndexData = submesh.GetIndexData( accumulatedVertices );
                 var submeshIndexOffset = ( indexData.Count + meshIndexData.Count ) / 2;
 

@@ -138,7 +138,8 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public List<Vector4> CalculateTangents() {
+        // TODO: Do we actually need to calculate these values?
+        public List<Vector4> CalculateBitangents() {
             var tris = Mesh.EvaluateTriangles();
             var ret = new List<Vector4>();
 

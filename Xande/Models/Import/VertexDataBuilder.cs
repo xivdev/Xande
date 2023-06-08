@@ -71,6 +71,7 @@ namespace Xande.Models.Import {
                     vector4 = new( 0, 0, 0, 0 );
                     break;
                 case Vertex.VertexUsage.Tangent1:
+                    /*
                     if( bitangents != null ) {
                         var vector3 = new Vector3( bitangents[index].X, bitangents[index].Y, bitangents[index].Z );
                         vector3 = Vector3.Normalize( vector3 );
@@ -81,10 +82,13 @@ namespace Xande.Models.Import {
                         vector4 = new Vector4( vector3, handedness );
                     }
                     else {
-                        var tangents = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array();
-                        if( tangents?.Count > index ) {
-                            vector4 = tangents[index];
-                        }
+
+                    }
+                    */
+
+                    var tangents = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array();
+                    if( tangents?.Count > index ) {
+                        vector4 = tangents[index];
                     }
                     break;
                 case Vertex.VertexUsage.Color:
