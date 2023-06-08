@@ -15,6 +15,8 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 namespace Xande.Models.Import {
     internal class MdlFileMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
+        public MeshShapeBuilder MeshShapeBuilder = new();
+        public Dictionary<int, List<byte>> VertexData = new();
         public List<string> Bones => _originalBoneIndexToString.Values.ToList();
         public string Material = String.Empty;
         public List<string> Shapes = new();
@@ -24,14 +26,18 @@ namespace Xande.Models.Import {
 
         private SortedSet<string> _sortedBones = new();
         private Dictionary<int, string> _originalBoneIndexToString = new();
+        private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
+        private List<Vector4> Bitangents = new();
 
         public int IndexCount { get; protected set; } = 0;
 
-        public MdlFileMeshBuilder( List<string> skeleton ) {
+        public MdlFileMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds ) {
             _skeleton = skeleton;
+            _vertexDeclarationStruct = vds;
         }
 
         public void AddSubmesh( Mesh mesh ) {
+            MeshShapeBuilder.Add( mesh );
             var submeshBuilder = new SubmeshBuilder( mesh, _skeleton );
             Submeshes.Add( submeshBuilder );
             TryAddBones( submeshBuilder );
@@ -53,10 +59,10 @@ namespace Xande.Models.Import {
         /// </summary>
         /// <param name="strings">An optional list of strings that may or may not contain the names of used shapes</param>
         /// <returns></returns>
-        public int GetVertexCount( List<string>? strings = null ) {
+        public int GetVertexCount(bool includeShapes, List<string>? strings = null ) {
             var vertexCount = 0;
             foreach( var submeshBuilder in Submeshes ) {
-                vertexCount += submeshBuilder.GetVertexCount( strings );
+                vertexCount += submeshBuilder.GetVertexCount(includeShapes, strings );
             }
             return vertexCount;
         }
@@ -65,7 +71,7 @@ namespace Xande.Models.Import {
             return materials.IndexOf( Material );
         }
 
-        public Dictionary<int, int> GetBlendIndicesDict( List<string> bones ) {
+        public Dictionary<int, int> GetBlendIndicesDict( ) {
             var ret = new Dictionary<int, int>();
             var counter = 0;
             foreach( var kvp in _originalBoneIndexToString ) {
@@ -107,17 +113,55 @@ namespace Xande.Models.Import {
             return ret;
         }
 
+        public Dictionary<int, List<byte>> GetVertexData() {
+            var vertexDict = new Dictionary<int, List<byte>>();
+            foreach (var submesh in Submeshes) {
+                var bitangents = submesh.CalculateBitangents();
+                Bitangents.AddRange( bitangents );
+                var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, GetBlendIndicesDict(), bitangents );
+
+                foreach (var stream in submeshVertexData.Keys ) {
+                    if (!vertexDict.ContainsKey(stream)) {
+                        vertexDict.Add( stream, new() );
+                    }
+                    vertexDict[stream].AddRange( submeshVertexData[stream]);
+                }
+            }
+            return vertexDict;
+        }
+
         private void TryAddBones( SubmeshBuilder submesh ) {
             foreach( var kvp in submesh.OriginalBoneIndexToStrings ) {
                 if( !_originalBoneIndexToString.ContainsKey( kvp.Key ) ) {
                     _originalBoneIndexToString.Add( kvp.Key, kvp.Value );
                     _sortedBones.Add( kvp.Value );
-                    PluginLog.Debug( $"Adding bone: {kvp.Value}" );
                 }
             }
             if( _originalBoneIndexToString.Keys.Count > 64 ) {
                 PluginLog.Error( $"There are currently {_originalBoneIndexToString.Keys.Count} bones, which is over the allowed 64." );
             }
+        }
+
+        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData(List<string>? strings = null) {
+            var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
+            foreach (var submesh in Submeshes) {
+                var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, GetBlendIndicesDict() );
+                foreach (var submeshShapeName in submeshShapeData.Keys) {
+                    var submeshShapeVertexData = submeshShapeData[submeshShapeName];
+                    if (!ret.ContainsKey(submeshShapeName)) {
+                        ret.Add(submeshShapeName, submeshShapeVertexData );
+                    }
+                    else {
+                        var shapeDict = ret[submeshShapeName];
+                        foreach (var stream in shapeDict.Keys) {
+                            if (submeshShapeVertexData.ContainsKey(stream)) {
+                                shapeDict[stream].AddRange( submeshShapeVertexData[stream]);
+                            }
+                        }
+                    }
+                }
+            }
+            return ret;
         }
 
         private void AddShapes(SubmeshBuilder submesh) {

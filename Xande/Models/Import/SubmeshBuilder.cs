@@ -41,7 +41,7 @@ namespace Xande.Models.Import {
         /// <param name="indexCount">The number of (3d modeling) indices that have come before this submesh</param>
         public SubmeshBuilder( Mesh mesh, List<string> skeleton ) {
             Mesh = mesh;
-            SubmeshShapeBuilder = new( Mesh );
+            SubmeshShapeBuilder = new( this, Mesh);
 
             foreach( var primitive in Mesh.Primitives ) {
 
@@ -109,8 +109,8 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public int GetVertexCount( List<string>? strings = null ) {
-            return _vertexCount; // + SubmeshShapeBuilder.GetVertexCount( strings );
+        public int GetVertexCount(bool includeShapes, List<string>? strings = null ) {
+            return _vertexCount + (includeShapes ? SubmeshShapeBuilder.GetVertexCount( strings ) : 0 );
         }
 
         public uint GetAttributeIndexMask( List<string> attributes ) {

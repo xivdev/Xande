@@ -4,6 +4,7 @@ using Lumina.Models.Models;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -12,7 +13,7 @@ using System.Threading.Tasks;
 namespace Xande.Models.Import {
     internal class VertexDataBuilder {
 
-        private static List<byte> GetVertexData( MeshPrimitive primitive, int index, MdlStructs.VertexElement ve, Dictionary<int, int>? blendIndicesDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null, List<Vector4>? bitangents = null ) {
+        public static List<byte> GetVertexData( MeshPrimitive primitive, int index, MdlStructs.VertexElement ve, Dictionary<int, int>? blendIndicesDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null, List<Vector4>? bitangents = null ) {
             var vector4 = GetVector4( primitive, index, ( Vertex.VertexUsage )ve.Usage, blendIndicesDict, shapeAccessor, bitangents );
             return GetBytes( vector4, ( Vertex.VertexType )ve.Type );
         }
@@ -25,9 +26,6 @@ namespace Xande.Models.Import {
                 case Vertex.VertexUsage.Position:
                     Accessor? positionAccessor = null;
                     shapeAccessor?.TryGetValue( "POSITION", out positionAccessor );
-                    if( positionAccessor != null ) {
-                        PluginLog.Debug( "shape is active" );
-                    }
                     var positions = positionAccessor?.AsVector3Array() ?? primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
                     if( positions != null && positions.Count > index ) {
                         vector4 = new Vector4( positions[index], 1 );
@@ -145,9 +143,31 @@ namespace Xande.Models.Import {
 
         }
 
-        public static Dictionary<int, List<byte>> GetVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, List<string>? strings = null, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
+        public static Dictionary<int, List<byte>> GetVertexData2( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, Dictionary<int, int>? blendIndicesDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null, List<Vector4>? bitangents = null, List<int>? diffVertices = null ) {
             var streams = new Dictionary<int, List<byte>>();
-            var ret = new List<byte>();
+
+            foreach( var primitive in submesh.Mesh.Primitives ) {
+                var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
+                if( positions != null ) {
+                    foreach (var vertexId in diffVertices) {
+                        for( var declarationId = 0; declarationId < vertexDeclarations.VertexElements.Length; declarationId++ ) {
+                            var ve = vertexDeclarations.VertexElements[declarationId];
+                            if( ve.Stream == 255 ) { break; }
+                            if( !streams.ContainsKey( ve.Stream ) ) {
+                                streams.Add( ve.Stream, new List<byte>() );
+                            }
+                            var currStream = streams[ve.Stream];
+
+                            streams[ve.Stream].AddRange( GetVertexData( primitive, vertexId, ve, blendIndicesDict, shapeAccessor, bitangents ) );
+                        }
+                    }
+                }
+            }
+            return streams;
+        }
+
+        public static Dictionary<int, List<byte>> GetVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
+            var streams = new Dictionary<int, List<byte>>();
 
             foreach( var primitive in submesh.Mesh.Primitives ) {
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
@@ -183,7 +203,7 @@ namespace Xande.Models.Import {
                                     if( ve.Stream == 255 ) { break; }
 
                                     if (shapePositions[vertexId] != Vector3.Zero) {
-                                        ret.AddRange(GetVertexData(primitive, vertexId, ve, blendIndicesDict, s) );
+                                        streams[ve.Stream].AddRange(GetVertexData(primitive, vertexId, ve, blendIndicesDict, s) );
                                     }
                                 }
                             }
