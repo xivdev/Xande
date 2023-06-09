@@ -23,8 +23,6 @@ namespace Xande.Models.Import {
         private Dictionary<string, List<int>> _differentVertices = new();
         private Dictionary<string, IReadOnlyDictionary<string, Accessor>> _accessors = new();
 
-        public Dictionary<string, List<MdlStructs.ShapeValueStruct>> ShapeValues = new();
-
         public SubmeshShapesBuilder( SubmeshBuilder parent, Mesh mesh ) {
             _parent = parent;
             _mesh = mesh;
@@ -123,8 +121,8 @@ namespace Xande.Models.Import {
         }
 
         public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
-            if( ShapeValues.ContainsKey( str ) ) {
-                return ShapeValues[str];
+            if( _shapeValues.ContainsKey( str ) ) {
+                return _shapeValues[str];
             }
             return new List<MdlStructs.ShapeValueStruct>();
         }
