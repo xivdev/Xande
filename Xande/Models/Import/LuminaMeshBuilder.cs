@@ -52,6 +52,10 @@ namespace Xande.Models.Import {
                     PluginLog.Error( $"Found multiple materials. Original \"{Material}\" vs \"{submeshBuilder.MaterialPath}\"" );
                 }
             }
+
+            if (Bones.Count == 0) {
+                PluginLog.Warning( $" Mesh {mesh.Name} had zero bones. This can cause a game crash if a skeleton is expected." );
+            }
         }
 
         /// <summary>
@@ -155,7 +159,8 @@ namespace Xande.Models.Import {
         public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData( List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
             foreach( var submesh in Submeshes ) {
-                var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, _blendIndicesDict );
+                //var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, _blendIndicesDict );
+                var submeshShapeData = submesh.GetVertexShapeData( _vertexDeclarationStruct, strings, _blendIndicesDict );
                 foreach( var submeshShapeName in submeshShapeData.Keys ) {
                     var submeshShapeVertexData = submeshShapeData[submeshShapeName];
                     if( !ret.ContainsKey( submeshShapeName ) ) {
@@ -177,15 +182,23 @@ namespace Xande.Models.Import {
         public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
             var ret = new List<MdlStructs.ShapeValueStruct>();
             foreach( var submesh in Submeshes ) {
-                ret.AddRange( submesh.SubmeshShapeBuilder.GetShapeValues( str ) );
+                //ret.AddRange( submesh.SubmeshShapeBuilder.GetShapeValues( str ) );
+                ret.AddRange( submesh.GetShapeValues( str ) );
             }
             return ret;
         }
 
         private void AddShapes( SubmeshBuilder submesh ) {
+            /*
             foreach( var s in submesh.SubmeshShapeBuilder.Shapes.Keys ) {
                 if( !Shapes.Contains( s ) ) {
                     Shapes.Add( s );
+                }
+            }
+            */
+            foreach (var s in submesh.Shapes) {
+                if (!Shapes.Contains(s)) {
+                    Shapes.Add(s);
                 }
             }
         }
