@@ -20,7 +20,7 @@ public class RaceDeformer {
         // Annoying special cases
         if( raceCode == 1201 ) return 1101; // Lalafell F -> Lalafell M
         if( raceCode == 0201 ) return 0101; // Midlander F -> Midlander M
-        if( raceCode == 1001 ) return 0901; // Roegadyn F -> Roegadyn M
+        if( raceCode == 1001 ) return 0201; // Roegadyn F -> Midlander F
         if( raceCode == 0101 ) return null; // Midlander M has no parent
 
         // First two digits being odd or even can tell us gender

@@ -20,6 +20,7 @@ namespace Xande.Models.Import {
         public int IndexCount => Indices.Count;
         public List<uint> Indices = new List<uint>();
         public int BoneCount { get; } = 0;
+        public List<string> Attributes = new();
         public SubmeshShapesBuilder SubmeshShapeBuilder;
         public Mesh Mesh;
         public string MaterialPath = String.Empty;
@@ -41,10 +42,9 @@ namespace Xande.Models.Import {
         /// <param name="indexCount">The number of (3d modeling) indices that have come before this submesh</param>
         public SubmeshBuilder( Mesh mesh, List<string> skeleton ) {
             Mesh = mesh;
-            SubmeshShapeBuilder = new( Mesh );
+            SubmeshShapeBuilder = new( this, Mesh );
 
             foreach( var primitive in Mesh.Primitives ) {
-
                 Indices.AddRange( primitive.GetIndices() );
                 var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
@@ -95,6 +95,27 @@ namespace Xande.Models.Import {
                         }
                     }
                 }
+
+                try {
+                    var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
+                    if( jsonNode != null ) {
+                        var names = jsonNode["targetNames"]?.AsArray();
+                        if( names != null && names.Any() ) {
+                            foreach( var n in names ) {
+                                if( n != null && n.ToString().StartsWith( "atr_" ) && !Attributes.Contains( n.ToString() ) ) {
+                                    PluginLog.Debug( $"Adding attr: {n.ToString()}" );
+                                    Attributes.Add( n.ToString() );
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        PluginLog.Debug( "Mesh contained no extras." );
+                    }
+                }
+                catch( Exception ex ) {
+
+                }
             }
 
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
@@ -109,12 +130,21 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public int GetVertexCount( List<string>? strings = null ) {
-            return _vertexCount; // + SubmeshShapeBuilder.GetVertexCount( strings );
+        public int GetVertexCount( bool includeShapes, List<string>? strings = null ) {
+            return _vertexCount + ( includeShapes ? SubmeshShapeBuilder.GetVertexCount( strings ) : 0 );
         }
 
         public uint GetAttributeIndexMask( List<string> attributes ) {
-            return 0;
+            var ret = 0;
+            for( var i = 0; i < attributes.Count; i++ ) {
+                if( Attributes.Contains( attributes[i] ) ) {
+                    PluginLog.Debug( $"Contains {attributes[i]}" );
+                    ret += ( 1 << i );
+                }
+            }
+
+            PluginLog.Debug( $"Attribute mask: {ret}" );
+            return ( uint )ret;
         }
 
         public List<byte> GetIndexData( int indexCounter = 0 ) {
@@ -138,7 +168,8 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public List<Vector4> CalculateTangents() {
+        // TODO: Do we actually need to calculate these values?
+        public List<Vector4> CalculateBitangents() {
             var tris = Mesh.EvaluateTriangles();
             var ret = new List<Vector4>();
 

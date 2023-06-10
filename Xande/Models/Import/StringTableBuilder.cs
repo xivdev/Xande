@@ -5,12 +5,12 @@ using System.Text;
 namespace Xande.Models.Import;
 
 public class StringTableBuilder {
-    public readonly List<string> Attributes = new();
+    public SortedSet<string> Attributes = new();
     //public List<string> Bones = new();
     public SortedSet<string> Bones = new();
     public List<string> HierarchyBones = new();
     public readonly List<string> Materials = new();
-    public readonly List<string> Shapes = new();
+    public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
 
     public StringTableBuilder( ModelRoot root ) {
@@ -26,6 +26,13 @@ public class StringTableBuilder {
             Attributes.Add( attr );
         }
     }
+
+    public void AddAttributes( IEnumerable<string> attr ) {
+        foreach( var a in attr ) {
+            AddAttribute( a );
+        }
+    }
+
     public bool RemoveAttribute( string attr ) {
         return Attributes.Remove( attr );
     }
@@ -88,7 +95,7 @@ public class StringTableBuilder {
         if( Attributes.Count == 0 ) {
             str += "\0";
         }
-        if (Bones.Count == 0) {
+        if( Bones.Count == 0 ) {
             str += "\0";
         }
         if( Materials.Count == 0 ) {
@@ -102,14 +109,15 @@ public class StringTableBuilder {
         }
 
         // This one is required, though
-        if (!str.EndsWith("\0")) {
+        if( !str.EndsWith( "\0" ) ) {
             str += "\0";
         }
+
         return Encoding.UTF8.GetBytes( str );
     }
 
     internal uint[] GetAttributeNameOffsets() {
-        return GetOffsets( Attributes ).ToArray();
+        return GetOffsets( Attributes.ToList() ).ToArray();
     }
 
     internal uint[] GetMaterialNameOffsets() {

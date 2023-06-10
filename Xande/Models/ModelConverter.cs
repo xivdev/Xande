@@ -246,8 +246,10 @@ public class ModelConverter {
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
-                var xivMaterial  = _lumina.GetMaterial( xivMesh.Material );
-                var glTFMaterial = new MaterialBuilder();
+                var xivMaterial = _lumina.GetMaterial( xivMesh.Material );
+                var glTFMaterial = new MaterialBuilder {
+                    Name = xivMesh.Material.MaterialPath
+                };
 
                 ComposeTextures( glTFMaterial, xivMaterial, outputDir );
 
@@ -302,20 +304,20 @@ public class ModelConverter {
     }
 
     public byte[] ImportModel( string gltfPath, string origModel ) {
-        var root = ModelRoot.Load( gltfPath );
-        var orig = _lumina.GetModel( origModel );
+        var root             = ModelRoot.Load( gltfPath );
+        var orig             = _lumina.GetModel( origModel );
         var modelFileBuilder = new MdlFileBuilder( root, orig );
         var (file, vertexData, indexData) = modelFileBuilder.Build();
 
-        if (file == null) {
+        if( file == null ) {
             PluginLog.Debug( "Could not build MdlFile" );
-            return Array.Empty<byte>();
+            return Array.Empty< byte >();
         }
 
         using var stream      = new MemoryStream();
         using var modelWriter = new MdlFileWriter( file, stream );
 
-        modelWriter.WriteAll(vertexData, indexData);
+        modelWriter.WriteAll( vertexData, indexData );
         return stream.ToArray();
     }
 }

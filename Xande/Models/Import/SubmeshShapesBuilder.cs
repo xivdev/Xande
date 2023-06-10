@@ -15,28 +15,34 @@ using System.Threading.Tasks;
 
 namespace Xande.Models.Import {
     internal class SubmeshShapesBuilder {
-        public List<string> Shapes = new();
+        public Dictionary<string, int> Shapes = new();
+        private SubmeshBuilder _parent;
 
         private Mesh _mesh;
-        private List<List<MdlStructs.ShapeValueStruct>> _shapeValues = new();
-        private List<MdlStructs.ShapeMeshStruct> _shapeMeshes = new();
-        private List<MdlStructs.ShapeStruct> _shapeStructs = new();
-        private List<List<int>> _differentVertices = new();
-        private List<IReadOnlyDictionary<string, Accessor>> _accessors = new();
+        private Dictionary<string, List<MdlStructs.ShapeValueStruct>> _shapeValues = new();
+        private Dictionary<string, List<int>> _differentVertices = new();
+        private Dictionary<string, IReadOnlyDictionary<string, Accessor>> _accessors = new();
 
-        public SubmeshShapesBuilder( Mesh mesh ) {
+        public SubmeshShapesBuilder( SubmeshBuilder parent, Mesh mesh ) {
+            _parent = parent;
             _mesh = mesh;
 
+            var shapeIndices = new List<int>();
             foreach( var primitive in _mesh.Primitives ) {
                 try {
                     var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
                     if( jsonNode != null ) {
                         var names = jsonNode["targetNames"]?.AsArray();
                         if( names != null && names.Any() ) {
-                            foreach( var n in names ) {
+                            for( var i = 0; i < names.Count; i++ ) {
+                                var n = names[i];
+                                if(n != null && n.ToString().StartsWith("shp_") && !Shapes.ContainsKey( n.ToString() ) ) {
+                                    shapeIndices.Add( i );
+                                    Shapes.Add( n.ToString(), i );
+                                    _shapeValues.Add( n.ToString(), new() );
+                                    _differentVertices.Add( n.ToString(), new() );
+                                    _accessors.Add( n.ToString(), new Dictionary<string, Accessor>() );
 
-                                if( !Shapes.Contains( n.ToString() ) ) {
-                                    Shapes.Add( n.ToString() );
                                 }
                             }
                         }
@@ -51,9 +57,9 @@ namespace Xande.Models.Import {
 
 
                 if( Shapes.Count > 0 && primitive.MorphTargetsCount == Shapes.Count ) {
-                    for( var i = 0; i < primitive.MorphTargetsCount; i++ ) {
-                        var shape = primitive.GetMorphTargetAccessors( i );
-                        _accessors.Add( shape );
+                    foreach( var shapeName in Shapes.Keys ) {
+                        var shape = primitive.GetMorphTargetAccessors( Shapes[shapeName] );
+                        _accessors[shapeName] = shape;
 
                         var hasPositions = shape.TryGetValue( "POSITION", out var positionsAccessor );
                         var hasNormals = shape.TryGetValue( "NORMAL", out var normalsAccessor );
@@ -62,29 +68,21 @@ namespace Xande.Models.Import {
                         var shapeNormals = normalsAccessor?.AsVector3Array();
 
                         if( shapePositions != null && shapeNormals != null ) {
-                            _differentVertices.Add( new() );
                             for( var j = 0; j < shapePositions.Count; j++ ) {
                                 if( shapePositions[j] != Vector3.Zero ) {
-                                    _differentVertices[i].Add( j );
+                                    _differentVertices[shapeName].Add( j );
                                 }
                             }
-                            _shapeValues.Add( new() );
-                            _shapeMeshes.Add( new() );
-                            _shapeStructs.Add( new() );
                             try {
                                 var indices = primitive.GetIndices();
                                 if( indices != null ) {
                                     for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
                                         var index = indices[indexIdx];
-                                        for( var j = 0; j < _differentVertices.Count; j++ ) {
-                                            if( _differentVertices[j].Contains( ( int )index ) ) {
-                                                _shapeValues[i].Add( new() {
-                                                    BaseIndicesIndex = ( ushort )( indexIdx ),
-                                                    // Later, we will have to add the total number of vertices (and vertices added via shapes) that come before this Submesh
-                                                    ReplacingVertexIndex = ( ushort )( _differentVertices[j].IndexOf( ( int )index ) )
-                                                    // That is to say, that these values are relative to the Submesh
-                                                } );
-                                            }
+                                        if( _differentVertices[shapeName].Contains( ( int )index ) ) {
+                                            _shapeValues[shapeName].Add( new() {
+                                                BaseIndicesIndex = ( ushort )( indexIdx ),
+                                                ReplacingVertexIndex = ( ushort )( _differentVertices[shapeName].IndexOf( ( int )index ) )
+                                            } );
                                         }
                                     }
                                 }
@@ -96,77 +94,37 @@ namespace Xande.Models.Import {
                     }
                 }
             }
-
-            for( var i = 0; i < Shapes.Count; i++ ) {
-                _shapeMeshes[i] = new() {
-                    MeshIndexOffset = 0, // TODO: What is MeshIndexOffset?
-                    ShapeValueCount = ( uint )_shapeValues[i].Count,
-                    ShapeValueOffset = 0    // Sum of all previous ShapeValueCounts
-                };
-            }
-
-            for( var i = 0; i < Shapes.Count; i++ ) {
-                _shapeStructs[i] = new() {
-                    StringOffset = 0,   // To be filled later
-                    ShapeMeshStartIndex = new ushort[] { 0, 0, 0 }, // TODO: What is ShapeMeshStartIndex?
-                    ShapeMeshCount = new ushort[] { 1, 0, 0 }   // TODO: What is ShapeMeshCount?
-                };
-            }
-
-            PluginLog.Debug( $"# Shapes: {Shapes.Count}" );
         }
 
         public int GetVertexCount( List<string>? strings = null ) {
             var vertexCount = 0;
-            for( var i = 0; i < Shapes.Count; i++ ) {
-                var includeShape = strings == null || strings.Contains( Shapes[i] );
-
-                if( includeShape ) {
-                    var hasPositions = _accessors[i].TryGetValue( "POSITION", out var positionAccessor );
-                    if( hasPositions ) {
-                        vertexCount += positionAccessor.Count;
-                    }
+            foreach (var shapeName in Shapes.Keys) {
+                if(strings == null || strings.Contains( shapeName )) {
+                    vertexCount += _differentVertices[shapeName].Count;
                 }
             }
             return vertexCount;
         }
 
-        public MdlStructs.ShapeStruct? GetShapeStruct(string shapeName) {
-            var index = Shapes.IndexOf( shapeName );
-            if (index >= 0 ) {
-                return _shapeStructs[index];
-            }
-            else {
-                return null;
-            }
-        }
-
-        public MdlStructs.ShapeMeshStruct? GetShapeMeshStruct(string shapeName) {
-            var index = Shapes.IndexOf( shapeName );
-            if (index >=0) {
-                return _shapeMeshes[index];
-            }
-            return null;
-        }
-
-        public List<MdlStructs.ShapeValueStruct>? GetShapeValueStructs(string shapeName) {
-            var index = Shapes.IndexOf( shapeName );
-            if (index >=0) {
-                return _shapeValues[index];
-            }
-            return null;
-        }
-
-        public List<IReadOnlyDictionary<string, Accessor>> GetActiveShapeAccessors( List<string>? strings = null ) {
-            var ret = new List<IReadOnlyDictionary<string, Accessor>>();
-
-            for( var i = 0; i < Shapes.Count; i++ ) {
-                var includeShape = strings == null || strings.Contains( Shapes[i] );
-                if( includeShape ) {
-                    ret.Add( _accessors[i] );
+        public Dictionary<string, Dictionary<int, List<byte>>> GetVertexData( MdlStructs.VertexDeclarationStruct vertexDeclarations, List<string>? strings = null, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
+            var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
+            foreach( var shapeName in Shapes.Keys ) {
+                if( strings == null || strings.Contains( shapeName ) ) {
+                    var accessors = _accessors[shapeName];
+                    var diff = _differentVertices[shapeName];
+                    //PluginLog.Debug( $"{shapeName} - {diff.Count}" );
+                    var shapeVertexData = VertexDataBuilder.GetShapeVertexData( _parent, vertexDeclarations, accessors, diff, blendIndicesDict, bitangents );
+                    ret.Add( shapeName, shapeVertexData );
                 }
             }
             return ret;
+        }
+
+        public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
+            if( _shapeValues.ContainsKey( str ) ) {
+                return _shapeValues[str];
+            }
+            return new List<MdlStructs.ShapeValueStruct>();
         }
     }
 }
