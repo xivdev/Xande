@@ -304,20 +304,30 @@ public class ModelConverter {
     }
 
     public byte[] ImportModel( string gltfPath, string origModel ) {
-        var root             = ModelRoot.Load( gltfPath );
-        var orig             = _lumina.GetModel( origModel );
+        var root = ModelRoot.Load( gltfPath );
+
+        Model? orig = null;
+
+        try {
+            orig = _lumina.GetModel( origModel );
+        }
+        catch (FileNotFoundException) {
+            PluginLog.Error($"Could not find original model: \"{origModel}\"");
+            return Array.Empty<byte>();
+        }
+
         var modelFileBuilder = new MdlFileBuilder( root, orig );
         var (file, vertexData, indexData) = modelFileBuilder.Build();
 
-        if( file == null ) {
+        if (file == null) {
             PluginLog.Debug( "Could not build MdlFile" );
-            return Array.Empty< byte >();
+            return Array.Empty<byte>();
         }
 
         using var stream      = new MemoryStream();
         using var modelWriter = new MdlFileWriter( file, stream );
 
-        modelWriter.WriteAll( vertexData, indexData );
+        modelWriter.WriteAll(vertexData, indexData);
         return stream.ToArray();
     }
 }
