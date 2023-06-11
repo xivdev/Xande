@@ -24,6 +24,7 @@ namespace Xande.Models.Import {
         public List<string> Shapes => _shapeBuilders.Keys.ToList();
         //public SubmeshShapesBuilder SubmeshShapeBuilder;
         private Dictionary<string, ShapeBuilder> _shapeBuilders = new();
+        private Dictionary<string, List<ShapeBuilder>> _shapeBuilderList = new();
         public Mesh Mesh;
         public string MaterialPath = String.Empty;
         private string _material = String.Empty;
@@ -35,6 +36,9 @@ namespace Xande.Models.Import {
         private int _vertexCount = 0;
 
         public Dictionary<int, string> OriginalBoneIndexToStrings = new();
+        public List<List<Vector3>> AppliedShapes = new();
+
+        public VertexDataBuilder VertexDataBuilder;
 
         /// <summary>
         /// 
@@ -42,11 +46,11 @@ namespace Xande.Models.Import {
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
         /// <param name="indexCount">The number of (3d modeling) indices that have come before this submesh</param>
-        public SubmeshBuilder( Mesh mesh, List<string> skeleton ) {
+        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
             Mesh = mesh;
-            //SubmeshShapeBuilder = new( this, Mesh );
 
             foreach( var primitive in Mesh.Primitives ) {
+                VertexDataBuilder = new( primitive, vertexDeclarationStruct );
                 Indices.AddRange( primitive.GetIndices() );
                 var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
                 var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
@@ -104,17 +108,37 @@ namespace Xande.Models.Import {
                         var names = jsonNode["targetNames"]?.AsArray();
                         if( names != null && names.Any() ) {
                             for( var i = 0; i < names.Count; i++ ) {
-                                var n = names[i];
-                                if( n != null && n.ToString().StartsWith( "shp_" ) ) {
-                                    if (!_shapeBuilders.ContainsKey(n.ToString())) {
-                                        _shapeBuilders[n.ToString()] = new ShapeBuilder( this, n.ToString(), primitive, i );
+                                var n = names[i]?.ToString();
+                                if (n == null) { continue; }
+                                if( n.StartsWith( "shp_" ) ) {
+                                    if( !_shapeBuilders.ContainsKey( n ) ) {
+                                        _shapeBuilders[n] = new ShapeBuilder( this, n, primitive, i, vertexDeclarationStruct );
+
+                                        _shapeBuilderList[n] = new();
                                     }
                                     else {
-                                        _shapeBuilders[n.ToString()].Add(primitive, i);
+                                        _shapeBuilders[n].Add( primitive, i );
                                     }
+                                    _shapeBuilderList[n].Add( new ShapeBuilder( this, n, primitive, i, vertexDeclarationStruct ) );
                                 }
-                                if( n != null && n.ToString().StartsWith( "atr_" ) && !Attributes.Contains( n.ToString() ) ) {
-                                    Attributes.Add( n.ToString() );
+                                else if( n.StartsWith( "atr_" ) && !Attributes.Contains( n ) ) {
+                                    Attributes.Add( n );
+                                }
+                                else {
+                                    //TODO: "applied shapes" ?
+                                    //This currently applies all of them, regardless of the value
+                                    /*
+                                    var target = primitive.GetMorphTargetAccessors( i );
+                                    if (target == null) { continue; }
+                                    foreach (var kvp in target) {
+                                        PluginLog.Debug( $"{kvp.Key} - {kvp.Value}" );
+                                    }
+                                    target.TryGetValue( "POSITION", out var shapeAccessor );
+                                    var appliedPositions = shapeAccessor?.AsVector3Array();
+                                    if ( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where(x => x != Vector3.Zero).Any()) {
+                                        AppliedShapes.Add( appliedPositions.ToList());
+                                    }
+                                    */
                                 }
                             }
                         }
@@ -151,7 +175,6 @@ namespace Xande.Models.Import {
                 }
             }
             return ret;
-            //return _vertexCount + ( includeShapes ? _shapeBuilders.GetVertexCount( strings ) : 0 );
         }
 
         public uint GetAttributeIndexMask( List<string> attributes ) {
@@ -239,6 +262,22 @@ namespace Xande.Models.Import {
             return ret;
         }
 
+        public Dictionary<int, List<byte>> GetVertexData() {
+            return VertexDataBuilder.GetVertexData();
+        }
+
+        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
+            var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
+
+            foreach (var shapeName in _shapeBuilders.Keys) {
+                if (strings == null || strings.Contains(shapeName)) {
+                    ret.Add( shapeName, _shapeBuilders[shapeName].GetVertexData() );
+                }
+            }
+            return ret;
+        }
+
+        /*
         public Dictionary<string, Dictionary<int, List<byte>>> GetVertexShapeData( MdlStructs.VertexDeclarationStruct vertexDeclarations, List<string>? strings = null, Dictionary<int, int>? blendIndicesDict = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
 
@@ -250,6 +289,7 @@ namespace Xande.Models.Import {
 
             return ret;
         }
+        */
 
         public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
             if( _shapeBuilders.ContainsKey( str ) ) {

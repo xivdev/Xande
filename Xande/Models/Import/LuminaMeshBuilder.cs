@@ -2,6 +2,7 @@ using Dalamud.Logging;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
+using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,9 +16,9 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 namespace Xande.Models.Import {
     internal class LuminaMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
-        //public MeshShapeBuilder MeshShapeBuilder = new();
         public Dictionary<int, List<byte>> VertexData = new();
         public SortedSet<string> Attributes = new();
+        public MdlStructs.BoneTableStruct BoneTableStruct;
         public List<string> Bones => _originalBoneIndexToString.Values.ToList();
         public string Material = String.Empty;
         public List<string> Shapes = new();
@@ -25,15 +26,45 @@ namespace Xande.Models.Import {
         private List<string> _skeleton;
 
         private Dictionary<int, string> _originalBoneIndexToString = new();
-        private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
+        //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private List<Vector4> Bitangents = new();
         private Dictionary<int, int> _blendIndicesDict;
 
         public int IndexCount { get; protected set; } = 0;
+        public int _startIndex = 0;
 
-        public LuminaMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds ) {
+        public LuminaMeshBuilder(List<SubmeshBuilder> submeshes, int startIndex) {
+            //_vertexDeclarationStruct = vds;
+            _startIndex = startIndex;
+
+            foreach (var sm in submeshes) {
+                Submeshes.Add( sm );
+                TryAddBones( sm );
+                AddShapes( sm );
+                AddAttributes( sm );
+
+                IndexCount += sm.IndexCount;
+
+                if( String.IsNullOrEmpty( Material ) ) {
+                    Material = sm.MaterialPath;
+                }
+                else {
+                    if( Material != sm.MaterialPath ) {
+                        PluginLog.Error( $"Found multiple materials. Original \"{Material}\" vs \"{sm.MaterialPath}\"" );
+                    }
+                }
+            }
+
+            if (Bones.Count == 0) {
+                PluginLog.Warning( $" Mesh had zero bones. This can cause a game crash if a skeleton is expected." );
+            }
+        }
+
+        /*
+        public LuminaMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds, int startIndex ) {
             _skeleton = skeleton;
             _vertexDeclarationStruct = vds;
+            _startIndex = startIndex;
         }
 
         public void AddSubmesh( Mesh mesh ) {
@@ -57,6 +88,7 @@ namespace Xande.Models.Import {
                 PluginLog.Warning( $" Mesh {mesh.Name} had zero bones. This can cause a game crash if a skeleton is expected." );
             }
         }
+        */
 
         /// <summary>
         /// 
@@ -73,16 +105,6 @@ namespace Xande.Models.Import {
 
         public int GetMaterialIndex( List<string> materials ) {
             return materials.IndexOf( Material );
-        }
-
-        public Dictionary<int, int> GetBlendIndicesDict() {
-            var ret = new Dictionary<int, int>();
-            var counter = 0;
-            foreach( var kvp in _originalBoneIndexToString ) {
-                ret.Add( kvp.Key, counter );
-                counter++;
-            }
-            return ret;
         }
 
         public MdlStructs.BoneTableStruct GetBoneTableStruct( List<string> bones, List<string> hierarchyBones ) {
@@ -113,6 +135,10 @@ namespace Xande.Models.Import {
                 boneTable.Add( 0 );
             }
 
+            foreach (var sm in Submeshes) {
+                sm.VertexDataBuilder.BlendIndicesDict = _blendIndicesDict;
+            }
+
             return new() {
                 BoneIndex = boneTable.ToArray(),
                 BoneCount = ( byte )boneCount
@@ -132,8 +158,9 @@ namespace Xande.Models.Import {
             var vertexDict = new Dictionary<int, List<byte>>();
             foreach( var submesh in Submeshes ) {
                 var bitangents = submesh.CalculateBitangents();
-                Bitangents.AddRange( bitangents );
-                var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, _blendIndicesDict, bitangents );
+                Bitangents.AddRange( bitangents);
+                //var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, _blendIndicesDict, bitangents );
+                var submeshVertexData = submesh.GetVertexData();
 
                 foreach( var stream in submeshVertexData.Keys ) {
                     if( !vertexDict.ContainsKey( stream ) ) {
@@ -160,7 +187,8 @@ namespace Xande.Models.Import {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
             foreach( var submesh in Submeshes ) {
                 //var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, _blendIndicesDict );
-                var submeshShapeData = submesh.GetVertexShapeData( _vertexDeclarationStruct, strings, _blendIndicesDict );
+                //var submeshShapeData = submesh.GetVertexShapeData( _vertexDeclarationStruct, strings, _blendIndicesDict );
+                var submeshShapeData = submesh.GetShapeVertexData( strings );
                 foreach( var submeshShapeName in submeshShapeData.Keys ) {
                     var submeshShapeVertexData = submeshShapeData[submeshShapeName];
                     if( !ret.ContainsKey( submeshShapeName ) ) {
@@ -181,9 +209,17 @@ namespace Xande.Models.Import {
 
         public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
             var ret = new List<MdlStructs.ShapeValueStruct>();
+            var indexCount = 0;
             foreach( var submesh in Submeshes ) {
-                //ret.AddRange( submesh.SubmeshShapeBuilder.GetShapeValues( str ) );
-                ret.AddRange( submesh.GetShapeValues( str ) );
+                var vals = submesh.GetShapeValues( str );
+                foreach (var v in vals) {
+                    ret.Add( new() {
+                        BaseIndicesIndex = (ushort)(v.BaseIndicesIndex + _startIndex + indexCount),
+                        ReplacingVertexIndex = v.ReplacingVertexIndex
+                    } );
+                }
+
+                indexCount += submesh.IndexCount;
             }
             return ret;
         }

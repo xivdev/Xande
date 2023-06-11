@@ -12,19 +12,23 @@ namespace Xande.Models.Import {
         public readonly string ShapeName;
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();
         public int VertexCount => ShapeValues.Count;
-        private readonly SubmeshBuilder _submeshBuilder;
+        public readonly SubmeshBuilder SubmeshBuilder;
 
         private List<int> _differentVertices = new();
         private IReadOnlyDictionary<string, Accessor> _accessors = new Dictionary<string, Accessor>();
 
-        public ShapeBuilder(SubmeshBuilder parent, string name, MeshPrimitive primitive, int morphTargetIndex) {
-            _submeshBuilder = parent;
+        private VertexDataBuilder _vertexDataBuilder;
+
+        public ShapeBuilder(SubmeshBuilder parent, string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+            SubmeshBuilder = parent;
             ShapeName = name;
-            Add(primitive, morphTargetIndex);
+            _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
+            Add( primitive, morphTargetIndex );
         }
 
         public void Add(MeshPrimitive primitive, int morphTargetIndex) {
             var shape = primitive.GetMorphTargetAccessors( morphTargetIndex );
+            _vertexDataBuilder.ShapeAccessor = shape;
             _accessors = shape;
 
             var hasPositions = shape.TryGetValue( "POSITION", out var positionsAccessor );
@@ -64,8 +68,14 @@ namespace Xande.Models.Import {
             return _differentVertices.Count;
         }
 
-        public Dictionary<int, List<byte>> GetVertexData(MdlStructs.VertexDeclarationStruct vertexDeclaration, Dictionary<int, int>? blendIndicesDict, List<Vector4>? bitangents = null) {
-            return VertexDataBuilder.GetShapeVertexData( _submeshBuilder, vertexDeclaration, _accessors, _differentVertices, blendIndicesDict, bitangents );
+        public Dictionary<int, List<byte>> GetVertexData() {
+            return _vertexDataBuilder.GetShapeVertexData( _differentVertices );
         }
+
+        /*
+        public Dictionary<int, List<byte>> GetVertexData(MdlStructs.VertexDeclarationStruct vertexDeclaration, Dictionary<int, int>? blendIndicesDict, List<Vector4>? bitangents = null) {
+            return VertexDataBuilder.GetShapeVertexData( SubmeshBuilder, vertexDeclaration, _accessors, _differentVertices, blendIndicesDict, bitangents );
+        }
+        */
     }
 }
