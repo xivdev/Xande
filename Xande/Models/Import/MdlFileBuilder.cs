@@ -17,7 +17,7 @@ public class MdlFileBuilder {
     private ModelRoot _root;
     private Model _origModel;
 
-    private SortedDictionary<int, Dictionary<int, Mesh>> _meshes = new();
+    private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
     private List<LuminaMeshBuilder> _meshBuilders = new();
 
@@ -133,6 +133,10 @@ public class MdlFileBuilder {
 
         var allBones = new List<string>();
         var bonesToNodes = new Dictionary<string, Node>();
+        if (_root.LogicalSkins.Count == 0) {
+            PluginLog.Error( $"There was no skeleton/armature in the file." );
+            return (null, new List<byte>(), new List<byte>());
+        }
         var skeleton = _root.LogicalSkins?[0];
         if( skeleton != null ) {
             for( var id = 0; id < skeleton.JointsCount; id++ ) {
@@ -174,6 +178,11 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
         }
 
+        if (_stringTableBuilder.Bones.Where(x => x.Contains("n_hara")).Count() > 1) {
+            // TODO: ElementIds
+        }
+
+        PluginLog.Debug( $"bonecount: {_stringTableBuilder.Bones.Count}" );
         _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
 
         var strings = _stringTableBuilder.GetStrings();
