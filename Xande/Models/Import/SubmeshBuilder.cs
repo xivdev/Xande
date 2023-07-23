@@ -1,5 +1,4 @@
 using Dalamud.Logging;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
@@ -36,7 +35,8 @@ namespace Xande.Models.Import {
         private int _vertexCount = 0;
 
         public Dictionary<int, string> OriginalBoneIndexToStrings = new();
-        public List<List<Vector3>> AppliedShapes = new();
+        public List<(List<Vector3>, float)> AppliedShapes = new();
+        public List<(List<Vector3>, float)> AppliedShapesNormals = new();
 
         public VertexDataBuilder VertexDataBuilder;
 
@@ -90,55 +90,69 @@ namespace Xande.Models.Import {
                     PluginLog.Error( "This submesh had no positions." );
                 }
 
+                var includeNHara = skeleton.Where( x => x.StartsWith( "n_hara" ) ).Count() > 1;
+
                 if( blendIndices != null ) {
                     foreach( var blendIndex in blendIndices ) {
                         for( var i = 0; i < 4; i++ ) {
                             var index = ( int )blendIndex[i];
                             if( !OriginalBoneIndexToStrings.ContainsKey( index ) && index < skeleton.Count &&
-                                skeleton[index] != "n_root" && skeleton[index] != "n_hara" ) {
+                                skeleton[index] != "n_root" && ( skeleton[index] != "n_hara" || includeNHara ) ) {
                                 OriginalBoneIndexToStrings.Add( index, skeleton[index] );
                             }
                         }
                     }
                 }
 
+                var shapeWeights = mesh.GetMorphWeights();
                 try {
                     var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
                     if( jsonNode != null ) {
                         var names = jsonNode["targetNames"]?.AsArray();
                         if( names != null && names.Any() ) {
                             for( var i = 0; i < names.Count; i++ ) {
-                                var n = names[i]?.ToString();
-                                if (n == null) { continue; }
-                                if( n.StartsWith( "shp_" ) ) {
-                                    if( !_shapeBuilders.ContainsKey( n ) ) {
-                                        _shapeBuilders[n] = new ShapeBuilder( this, n, primitive, i, vertexDeclarationStruct );
+                                var shapeName = names[i]?.ToString();
+                                if( shapeName == null ) { continue; }
 
-                                        _shapeBuilderList[n] = new();
+                                if( shapeName.StartsWith( "shp_" ) ) {
+                                    if( !_shapeBuilders.ContainsKey( shapeName ) ) {
+                                        _shapeBuilders[shapeName] = new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct );
+
+                                        _shapeBuilderList[shapeName] = new();
                                     }
                                     else {
-                                        _shapeBuilders[n].Add( primitive, i );
+                                        _shapeBuilders[shapeName].Add( primitive, i );
                                     }
-                                    _shapeBuilderList[n].Add( new ShapeBuilder( this, n, primitive, i, vertexDeclarationStruct ) );
+                                    _shapeBuilderList[shapeName].Add( new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct ) );
                                 }
-                                else if( n.StartsWith( "atr_" ) && !Attributes.Contains( n ) ) {
-                                    Attributes.Add( n );
+                                else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
+                                    Attributes.Add( shapeName );
                                 }
                                 else {
                                     //TODO: "applied shapes" ?
-                                    //This currently applies all of them, regardless of the value
-                                    /*
+                                    var shapeWeight = shapeWeights[i];
+                                    if( shapeWeight == 0 ) { continue; }
+
                                     var target = primitive.GetMorphTargetAccessors( i );
-                                    if (target == null) { continue; }
+                                    if( target == null ) { continue; }
+                                    /*
                                     foreach (var kvp in target) {
                                         PluginLog.Debug( $"{kvp.Key} - {kvp.Value}" );
                                     }
-                                    target.TryGetValue( "POSITION", out var shapeAccessor );
-                                    var appliedPositions = shapeAccessor?.AsVector3Array();
-                                    if ( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where(x => x != Vector3.Zero).Any()) {
-                                        AppliedShapes.Add( appliedPositions.ToList());
-                                    }
                                     */
+                                    target.TryGetValue( "POSITION", out var shapeAccessor );
+                                    target.TryGetValue( "NORMAL", out var shapeNormalAccessor );
+                                    var appliedPositions = shapeAccessor?.AsVector3Array();
+                                    var appliedNormalPositions = shapeNormalAccessor?.AsVector3Array();
+                                    if( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where( x => x != Vector3.Zero ).Any() ) {
+                                        PluginLog.Debug( $"Found applied shape: {shapeName} - {shapeWeight}" );
+                                        AppliedShapes.Add( (appliedPositions.ToList(), shapeWeight) );
+                                    }
+                                    if( appliedNormalPositions != null && appliedNormalPositions.Any() && appliedNormalPositions.Where( x => x != Vector3.Zero ).Any() ) {
+                                        // Unsure if this actually matters
+                                        PluginLog.Debug( $"FOUND NORMAL SHAPES" );
+                                        AppliedShapesNormals.Add( (appliedNormalPositions.ToList(), shapeWeight) );
+                                    }
                                 }
                             }
                         }
@@ -152,6 +166,8 @@ namespace Xande.Models.Import {
                 }
             }
 
+            VertexDataBuilder.AppliedShapePositions = AppliedShapes;
+            VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
         }
 
@@ -211,10 +227,173 @@ namespace Xande.Models.Import {
         // TODO: Do we actually need to calculate these values?
         public List<Vector4> CalculateBitangents() {
             var tris = Mesh.EvaluateTriangles();
+            var indices = Mesh.Primitives[0].GetIndices();
             var ret = new List<Vector4>();
+            var positions = Mesh.Primitives[0].GetVertexAccessor( "POSITION" )?.AsVector3Array();
+            var uvs = Mesh.Primitives[0].GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+            var normals = Mesh.Primitives[0].GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
+            var colors = Mesh.Primitives[0].GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
+
+            var binormalDict = new SortedDictionary<int, Vector4>();
+            var tangentDict = new SortedDictionary<int, Vector3>();
+
+            var indicesCounter = 0;
 
             // https://github.com/TexTools/xivModdingFramework/blob/f8d442688e61851a90646e309b868783c47122be/xivModdingFramework/Models/Helpers/ModelModifiers.cs#L1575
-            // I think these are functionally the same? Regardless, this is where it came from
+            var connectedVertices = new Dictionary<int, HashSet<int>>();
+            for( var i = 0; i < indices.Count; i += 3 ) {
+                var t0 = ( int )indices[i];
+                var t1 = ( int )indices[i + 1];
+                var t2 = ( int )indices[i + 2];
+
+                if( !connectedVertices.ContainsKey( t0 ) ) {
+                    connectedVertices.Add( t0, new HashSet<int>() );
+                }
+                if( !connectedVertices.ContainsKey( t1 ) ) {
+                    connectedVertices.Add( t1, new HashSet<int>() );
+                }
+                if( !connectedVertices.ContainsKey( t2 ) ) {
+                    connectedVertices.Add( t2, new HashSet<int>() );
+                }
+
+                connectedVertices[t0].Add( t1 );
+                connectedVertices[t0].Add( t2 );
+                connectedVertices[t1].Add( t0 );
+                connectedVertices[t1].Add( t2 );
+                connectedVertices[t2].Add( t0 );
+                connectedVertices[t2].Add( t1 );
+            }
+
+            var vertTranslation = new Dictionary<int, int>();
+            var weldedVerts = new Dictionary<int, List<int>>();
+            var tempVertices = new List<int>();
+
+            for( var oIdx = 0; oIdx < positions.Count; oIdx++ ) {
+                var idx = -1;
+                for( var nIdx = 0; nIdx < tempVertices.Count; nIdx++ ) {
+                    if( positions[nIdx] == positions[oIdx]
+                        && uvs[nIdx] == uvs[oIdx]
+                        && normals[nIdx] == normals[oIdx]
+                        && colors[nIdx] != colors[oIdx] ) {
+                        var alreadyMergedVerts = weldedVerts[nIdx];
+                        var alreadyConnectedOldVerts = new HashSet<int>();
+                        foreach( var amIdx in alreadyMergedVerts ) {
+                            foreach( var cv in connectedVertices[amIdx] ) {
+                                alreadyConnectedOldVerts.Add( cv );
+                            }
+                        }
+
+                        var myConnectedVerts = connectedVertices[oIdx];
+                        var isMirror = false;
+                        foreach( var weldedConnection in alreadyConnectedOldVerts ) {
+                            foreach( var newConnection in myConnectedVerts ) {
+                                if( uvs[newConnection] == uvs[weldedConnection] &&
+                                    positions[newConnection] != positions[weldedConnection] ) {
+                                    isMirror = true;
+                                    break;
+                                }
+                            }
+                            if( isMirror ) {
+                                break;
+                            }
+                        }
+
+                        if( !isMirror ) {
+                            idx = nIdx;
+                            break;
+                        }
+                    }
+                }
+                if( idx == -1 ) {
+                    tempVertices.Add( oIdx );
+                    idx = tempVertices.Count - 1;
+                    weldedVerts.Add( idx, new List<int>() );
+                }
+
+                weldedVerts[idx].Add( oIdx );
+                vertTranslation.Add( oIdx, idx );
+            }
+
+            var tempIndices = new List<int>();
+            for( var i = 0; i < indices.Count; i++ ) {
+                var oldVert = indices[i];
+                var newVert = vertTranslation[( int )oldVert];
+                tempIndices.Add( newVert );
+            }
+
+            var tangents = new List<Vector3>( tempVertices.Count );
+            tangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
+            var bitangents = new List<Vector3>( tempVertices.Count );
+            bitangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
+
+            for( var a = 0; a < tempIndices.Count; a += 3 ) {
+                // applied shapes?
+                var vertexId1 = tempIndices[a];
+                var vertexId2 = tempIndices[a + 1];
+                var vertexId3 = tempIndices[a + 2];
+
+                var vertex1 = tempVertices[vertexId1];
+                var vertex2 = tempVertices[vertexId2];
+                var vertex3 = tempVertices[vertexId3];
+
+                var deltaX1 = positions[vertex2].X - positions[vertex1].X;
+                var deltaX2 = positions[vertex3].X - positions[vertex1].X;
+
+                var deltaY1 = positions[vertex2].Y - positions[vertex1].Y;
+                var deltaY2 = positions[vertex3].Y - positions[vertex1].Y;
+
+                var deltaZ1 = positions[vertex2].Z - positions[vertex1].Z;
+                var deltaZ2 = positions[vertex3].Z - positions[vertex1].Z;
+
+                var deltaU1 = uvs[vertex2].X - uvs[vertex1].X;
+                var deltaU2 = uvs[vertex3].X - uvs[vertex1].X;
+
+                var deltaV1 = uvs[vertex2].Y - uvs[vertex1].Y;
+                var deltaV2 = uvs[vertex3].Y - uvs[vertex1].Y;
+
+                var r = 1.0f / ( deltaU1 * deltaV2 - deltaU2 * deltaV1 );
+                var sdir = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
+                var tdir = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
+
+                tangents[vertexId1] += sdir;
+                tangents[vertexId2] += sdir;
+                tangents[vertexId3] += sdir;
+
+                bitangents[vertexId1] += tdir;
+                bitangents[vertexId2] += tdir;
+                bitangents[vertexId3] += tdir;
+            }
+
+            for( var vertexId = 0; vertexId < tempVertices.Count; vertexId++ ) {
+                var vertex = tempVertices[vertexId];
+                var oVertices = vertTranslation.Where( x => x.Value == vertexId ).Select( x => x.Key ).ToList();
+
+                var n = normals[vertex];
+                var t = tangents[vertexId];
+                var b = bitangents[vertexId];
+
+                var tangent = t - ( n * Vector3.Dot( n, t ) );
+                tangent = Vector3.Normalize( tangent );
+
+                var binormal = Vector3.Cross( n, tangent );
+                binormal = Vector3.Normalize( binormal );
+                var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
+                binormal *= handedness;
+
+                ret.Add( new Vector4( binormal, handedness ) );
+
+                foreach( var vIdx in oVertices ) {
+                    if( !binormalDict.ContainsKey( vIdx ) ) {
+                        binormalDict.Add( vIdx, new Vector4( binormal, handedness ) );
+                    }
+                    if (!tangentDict.ContainsKey(vIdx)) {
+                        tangentDict.Add( vIdx, tangent );
+                    }
+                }
+            }
+
+            return binormalDict.Values.ToList();
+            /*
             foreach( var tri in tris ) {
                 var vertex1Pos = tri.A.GetGeometry().GetPosition();
                 var vertex2Pos = tri.B.GetGeometry().GetPosition();
@@ -256,21 +435,29 @@ namespace Xande.Models.Import {
                     binormal *= handedness;
 
                     var val = new Vector4( binormal, handedness );
-                    ret.Add( val );
+
+                    if( !dict.ContainsKey( indices[indicesCounter] )) {
+                        dict.Add( indices[indicesCounter], new Vector4( 0, 0, 0, 0 ) );
+                    }
+                    dict[indices[indicesCounter]] += val;
+                    indicesCounter++;
                 }
             }
-            return ret;
+            return dict.Values.ToList();
+            */
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
+            VertexDataBuilder.Bitangents = CalculateBitangents();
+
             return VertexDataBuilder.GetVertexData();
         }
 
         public Dictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
 
-            foreach (var shapeName in _shapeBuilders.Keys) {
-                if (strings == null || strings.Contains(shapeName)) {
+            foreach( var shapeName in _shapeBuilders.Keys ) {
+                if( strings == null || strings.Contains( shapeName ) ) {
                     ret.Add( shapeName, _shapeBuilders[shapeName].GetVertexData() );
                 }
             }
