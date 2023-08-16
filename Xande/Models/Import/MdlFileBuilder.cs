@@ -21,7 +21,7 @@ public class MdlFileBuilder {
     private StringTableBuilder _stringTableBuilder;
     private List<LuminaMeshBuilder> _meshBuilders = new();
 
-    private Dictionary<(int meshIndex, int submeshIndex, string shapeName), List<MdlStructs.ShapeValueStruct>> _shapeData = new();
+    private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
     public MdlFileBuilder( ModelRoot root, Model model ) {
         _root = root;
@@ -59,6 +59,22 @@ public class MdlFileBuilder {
                 }
             }
         }
+    }
+
+    public bool AddAttribute(string name, int mesh, int submesh) {
+        if (_meshes.ContainsKey(mesh) && _meshes[mesh].ContainsKey(submesh)) {
+            if (!_addedAttributes.ContainsKey(mesh)) {
+                _addedAttributes[mesh] = new();
+            }
+            if( !_addedAttributes[mesh].ContainsKey(submesh)) {
+                _addedAttributes[mesh][submesh] = new();
+            }
+            if( !_addedAttributes[mesh][submesh].Contains (name)) {
+                _addedAttributes[mesh][submesh].Add( name );
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<string> GetJoints( List<Node> children, List<string> matches ) {
@@ -133,6 +149,7 @@ public class MdlFileBuilder {
 
         var allBones = new List<string>();
         var bonesToNodes = new Dictionary<string, Node>();
+        var eidNodes = new Dictionary<string, Node>();
         if (_root.LogicalSkins.Count == 0) {
             PluginLog.Error( $"There was no skeleton/armature in the file." );
             return (null, new List<byte>(), new List<byte>());
@@ -140,12 +157,16 @@ public class MdlFileBuilder {
         var skeleton = _root.LogicalSkins?[0];
         if( skeleton != null ) {
             for( var id = 0; id < skeleton.JointsCount; id++ ) {
-                var (Joint, InverseBindMatrix) = skeleton.GetJoint( id );
+                var (joint, InverseBindMatrix) = skeleton.GetJoint( id );
 
-                var boneString = Joint.Name;
+                var boneString = joint.Name;
                 if( !String.IsNullOrEmpty( boneString ) ) {
                     allBones.Add( boneString );
-                    bonesToNodes.Add( boneString, Joint );
+                    bonesToNodes.Add( boneString, joint );
+
+                    if (boneString.StartsWith("eid_")) {
+                        eidNodes.Add( boneString, joint );
+                    }
                 }
             }
         }
@@ -158,17 +179,35 @@ public class MdlFileBuilder {
             //var meshBuilder = new LuminaMeshBuilder( allBones, vertexDeclarations[meshIdx], indexCount );
 
             var submeshes = new List<SubmeshBuilder>();
-            foreach( var submeshIndex in _meshes[meshIdx].Keys ) {
-                var submesh = new SubmeshBuilder(_meshes[meshIdx][submeshIndex], allBones, vertexDeclarations[meshIdx] );
+            foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
+                MdlStructs.VertexDeclarationStruct vd;
+                if (vertexDeclarations.Length > meshIdx) {
+                    vd = vertexDeclarations[meshIdx];
+                }
+                else {
+                    vd = vertexDeclarations[0];
+                }
+                var submesh = new SubmeshBuilder(_meshes[meshIdx][submeshIdx], allBones, vd );
+                if( _addedAttributes.ContainsKey( meshIdx ) && _addedAttributes[meshIdx].ContainsKey( submeshIdx ) ) {
+                    foreach (var attr in _addedAttributes[meshIdx][submeshIdx ] ) {
+                        if (submesh.AddAttribute( attr )) {
+
+                        }
+                        else {
+                            PluginLog.Warning( $"Could not add attribute: \"{attr}\" at mesh {meshIdx}, submesh {submeshIdx}" );
+                        }
+                    }
+                }
 
                 if (submesh.BoneCount == 0) {
-                    PluginLog.Debug( $"Mesh {meshIdx}-{submeshIndex} had zero bones. This can cause a game crash if animations are expected." );
+                    PluginLog.Debug( $"Mesh {meshIdx}-{submeshIdx} had zero bones. This can cause a game crash if animations are expected." );
                 }
 
                 submeshes.Add( submesh );
-               // meshBuilder.AddSubmesh( submesh );
+                // meshBuilder.AddSubmesh( submesh );
             }
             var meshBuilder = new LuminaMeshBuilder( submeshes, indexCount);
+
             indexCount += meshBuilder.IndexCount;
 
             _meshBuilders.Add( meshBuilder );
@@ -183,6 +222,8 @@ public class MdlFileBuilder {
         }
 
         PluginLog.Debug( $"bonecount: {_stringTableBuilder.Bones.Count}" );
+
+        // TODO: if skeleton == null?
         _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
 
         var strings = _stringTableBuilder.GetStrings();
@@ -208,12 +249,32 @@ public class MdlFileBuilder {
         var boneTableStructs = new List<MdlStructs.BoneTableStruct>();
         var submeshBoneMap = new List<ushort>();
 
-        var min = new Vector4( 9999f, 9999f, 9999f, 1 );
-        var max = new Vector4( -9999f, -9999f, -9999f, 1 );
-
         var shapeDict = new Dictionary<string, List<MdlStructs.ShapeStruct>>();
         var shapeMeshDict = new Dictionary<string, List<MdlStructs.ShapeMeshStruct>>();
         var shapeValuesDict = new Dictionary<string, List<MdlStructs.ShapeValueStruct>>();
+
+        var eidCounter = 0;
+        foreach( var (boneName, joint) in eidNodes ) {
+            var transform = joint.LocalTransform;
+            var translate = transform.Translation;
+            var rotation = transform.Rotation;
+            var parent = joint.VisualParent;
+            var parentName = parent.Name;
+
+            var parentNameOffset = _stringTableBuilder.GetOffset(parentName);
+
+            var eid = new MdlStructs.ElementIdStruct() {
+                ElementId = (uint)eidCounter,
+                ParentBoneName = parentNameOffset,
+                Translate = new float[] {translate.X, translate.Y, translate.Z},
+                Rotate = new float[] {rotation.X, rotation.Y, rotation.Z}
+            };
+            eidCounter++;
+            elementIds.Add(eid);
+        }
+
+        var min = new Vector4( 9999f, 9999f, 9999f, 1 );
+        var max = new Vector4( -9999f, -9999f, -9999f, 1 );
 
         var vertexBufferOffset = 0;
         for( var i = 0; i < _meshBuilders.Count; i++ ) {
