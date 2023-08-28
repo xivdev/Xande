@@ -23,7 +23,6 @@ namespace Xande.Models.Import {
         public List<string> Shapes => _shapeBuilders.Keys.ToList();
         //public SubmeshShapesBuilder SubmeshShapeBuilder;
         private Dictionary<string, ShapeBuilder> _shapeBuilders = new();
-        private Dictionary<string, List<ShapeBuilder>> _shapeBuilderList = new();
         public Mesh Mesh;
         public string MaterialPath = String.Empty;
         private string _material = String.Empty;
@@ -39,13 +38,13 @@ namespace Xande.Models.Import {
         public List<(List<Vector3>, float)> AppliedShapesNormals = new();
 
         public VertexDataBuilder VertexDataBuilder;
+        public int RelativeIndex = 0;
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
-        /// <param name="indexCount">The number of (3d modeling) indices that have come before this submesh</param>
         public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
             Mesh = mesh;
 
@@ -115,15 +114,19 @@ namespace Xande.Models.Import {
                                 if( shapeName == null ) { continue; }
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
+                                    _shapeBuilders[shapeName] = new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct );
+
+                                    /*
                                     if( !_shapeBuilders.ContainsKey( shapeName ) ) {
                                         _shapeBuilders[shapeName] = new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct );
 
-                                        _shapeBuilderList[shapeName] = new();
+                                        //_shapeBuilderList[shapeName] = new();
                                     }
                                     else {
                                         _shapeBuilders[shapeName].Add( primitive, i );
                                     }
-                                    _shapeBuilderList[shapeName].Add( new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct ) );
+                                    */
+                                    // _shapeBuilderList[shapeName].Add( new ShapeBuilder( this, shapeName, primitive, i, vertexDeclarationStruct ) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
                                     Attributes.Add( shapeName );
@@ -165,10 +168,18 @@ namespace Xande.Models.Import {
 
                 }
             }
+            //PluginLog.Debug( $"submesh has {_vertexCount} vertices" );
 
             VertexDataBuilder.AppliedShapePositions = AppliedShapes;
             VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
+        }
+
+        public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
+            VertexDataBuilder.BlendIndicesDict = dict;
+            foreach( var value in _shapeBuilders.Values ) {
+                value.SetBlendIndicesDict( dict );
+            }
         }
 
         public List<ushort> GetSubmeshBoneMap( List<string> bones ) {
@@ -180,7 +191,7 @@ namespace Xande.Models.Import {
             return ret;
         }
 
-        public int GetVertexCount( bool includeShapes, List<string>? strings = null ) {
+        public int GetVertexCount( bool includeShapes = false, List<string>? strings = null ) {
             //return _vertexCount + ( includeShapes ? SubmeshShapeBuilder.GetVertexCount( strings ) : 0 );
             var ret = _vertexCount;
             if( includeShapes ) {
@@ -191,6 +202,15 @@ namespace Xande.Models.Import {
                 }
             }
             return ret;
+        }
+
+        public int GetShapeVertexCount( string str ) {
+            foreach( var shapeName in _shapeBuilders.Keys ) {
+                if( str == shapeName ) {
+                    return _shapeBuilders[str].GetVertexCount();
+                }
+            }
+            return 0;
         }
 
         public uint GetAttributeIndexMask( List<string> attributes ) {
@@ -222,6 +242,14 @@ namespace Xande.Models.Import {
                 ret = ret + ".mtrl";
             }
             return ret;
+        }
+
+        public bool AddAttribute( string name ) {
+            if( !Attributes.Contains( name ) ) {
+                Attributes.Add( name );
+                return true;
+            }
+            return false;
         }
 
         // TODO: Do we actually need to calculate these values?
@@ -386,7 +414,7 @@ namespace Xande.Models.Import {
                     if( !binormalDict.ContainsKey( vIdx ) ) {
                         binormalDict.Add( vIdx, new Vector4( binormal, handedness ) );
                     }
-                    if (!tangentDict.ContainsKey(vIdx)) {
+                    if( !tangentDict.ContainsKey( vIdx ) ) {
                         tangentDict.Add( vIdx, tangent );
                     }
                 }
@@ -453,7 +481,7 @@ namespace Xande.Models.Import {
             return VertexDataBuilder.GetVertexData();
         }
 
-        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
+        public IDictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
 
             foreach( var shapeName in _shapeBuilders.Keys ) {

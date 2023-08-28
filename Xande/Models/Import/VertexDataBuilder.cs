@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 namespace Xande.Models.Import {
     internal class VertexDataBuilder {
         public Dictionary<int, int>? BlendIndicesDict = null;
-        public IReadOnlyDictionary<string, Accessor>? ShapeAccessor = null;
+        private Dictionary<string, IReadOnlyDictionary<string, Accessor>> ShapesAccessor = new();
         public List<Vector4>? Bitangents = null;
         public List<(List<Vector3> pos, float weight)> AppliedShapePositions = new();
         public List<(List<Vector3> nor, float weight)> AppliedShapeNormals = new();
-        public bool ApplyShapes = true;
+        public bool ApplyShapes = false;
 
         private List<Vector3>? _positions = null;
         private List<Vector4>? _blendWeights = null;
@@ -29,6 +29,11 @@ namespace Xande.Models.Import {
         private List<Vector4>? _colors = null;
 
         private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
+        private bool HasShared = false;
+
+        public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
+            ShapesAccessor.Add( shapeName, accessor );
+        }
 
         public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             _vertexDeclaration = vertexDeclaration;
@@ -41,11 +46,11 @@ namespace Xande.Models.Import {
             _colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
         }
 
-        public List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, bool getShapeData = false ) {
-            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, getShapeData ), ( Vertex.VertexType )ve.Type, (Vertex.VertexUsage)ve.Usage );
+        public List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {
+            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type, ( Vertex.VertexUsage )ve.Usage );
         }
 
-        public Dictionary<int, List<byte>> GetVertexData( bool getShapeData = false ) {
+        public Dictionary<int, List<byte>> GetVertexData() {
             var streams = new Dictionary<int, List<byte>>();
             for( var vertexId = 0; vertexId < _positions?.Count; vertexId++ ) {
                 foreach( var ve in _vertexDeclaration.VertexElements ) {
@@ -54,19 +59,20 @@ namespace Xande.Models.Import {
                         streams.Add( ve.Stream, new List<byte>() );
                     }
 
-                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve, getShapeData ) );
+                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve ) );
                 }
             }
 
             return streams;
         }
 
-        public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices ) {
+        public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, string? shapeName = null ) {
             var streams = new Dictionary<int, List<byte>>();
-            if (ShapeAccessor == null) {
-                PluginLog.Debug( $"Shape accessor was null" );
+            if( ShapesAccessor == null ) {
+                PluginLog.Error( $"Shape accessor was null" );
             }
 
+            PluginLog.Debug( $"size: {diffVertices.Count}" );
             foreach( var vertexId in diffVertices ) {
                 foreach( var ve in _vertexDeclaration.VertexElements ) {
                     if( ve.Stream == 255 ) { break; }
@@ -74,43 +80,51 @@ namespace Xande.Models.Import {
                         streams.Add( ve.Stream, new List<byte>() );
                     }
 
-                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve, true ) );
+                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve, shapeName ) );
                 }
             }
 
             return streams;
         }
 
-        private List<Vector3>? GetShapePositions() {
+        private List<Vector3> GetShapePositions( string shapeName ) {
+            //ShapesAccessor.TryGetValue( shapeName, out var dict );
+            /*
+            var dict = ShapesAccessor[shapeName];
             Accessor? accessor = null;
-            ShapeAccessor?.TryGetValue( "POSITION", out accessor );
+            dict?.TryGetValue( "POSITION", out accessor );
             return accessor?.AsVector3Array().ToList();
+            */
+            return ShapesAccessor[shapeName]["POSITION"].AsVector3Array().ToList();
         }
 
-        private List<Vector3>? GetShapeNormals() {
+        private List<Vector3> GetShapeNormals( string shapeName ) {
+            //ShapesAccessor.TryGetValue( shapeName, out var dict );
+            /*
+            var dict = ShapesAccessor[shapeName];
             Accessor? accessor = null;
-            ShapeAccessor?.TryGetValue( "NORMAL", out accessor );
+            dict?.TryGetValue( "NORMAL", out accessor );
             return accessor?.AsVector3Array().ToList();
+            */
+            return ShapesAccessor[shapeName]["NORMAL"].AsVector3Array().ToList();
         }
 
-        private Vector4 GetVector4( int index, Vertex.VertexUsage usage, bool getShapeData = false ) {
+        private Vector4 GetVector4( int index, Vertex.VertexUsage usage, string? shapeName = null ) {
             var vector4 = new Vector4( 0, 0, 0, 0 );
             switch( usage ) {
                 case Vertex.VertexUsage.Position:
-                    if( _positions != null ) {
-                        vector4 = new Vector4( _positions[index], 0 );
-                        var shapePositions = GetShapePositions();
-                        if( getShapeData && shapePositions != null ) {
-                            vector4 += new Vector4( shapePositions[index], 0 );
-                        }
-                        if (ApplyShapes) {
-                            foreach (var appliedShape in AppliedShapePositions) {
-                                var list = appliedShape.pos;
-                                var weight = appliedShape.weight;
+                    vector4 = new Vector4( _positions[index], 0 );
+                    if( shapeName != null ) {
+                        var shapePositions = GetShapePositions( shapeName );
+                        vector4 += new Vector4( shapePositions[index], 0 );
+                    }
+                    if( ApplyShapes ) {
+                        foreach( var appliedShape in AppliedShapePositions ) {
+                            var list = appliedShape.pos;
+                            var weight = appliedShape.weight;
 
-                                if (list.Count > index) {
-                                    vector4 += new Vector4( list[index] * weight, 0 );
-                                }
+                            if( list.Count > index ) {
+                                vector4 += new Vector4( list[index] * weight, 0 );
                             }
                         }
                     }
@@ -132,23 +146,19 @@ namespace Xande.Models.Import {
                 case Vertex.VertexUsage.Normal:
                     if( _normals != null ) {
                         vector4 = new Vector4( _normals[index], 0 );
-                        if (ApplyShapes) {
-                            foreach( var appliedShape in AppliedShapeNormals) {
+                        if( ApplyShapes ) {
+                            foreach( var appliedShape in AppliedShapeNormals ) {
                                 var list = appliedShape.nor;
                                 var weight = appliedShape.weight;
 
-                                if (list.Count > index) {
+                                if( list.Count > index ) {
                                     vector4 += new Vector4( list[index] * weight, 0 );
                                 }
                             }
                         }
-
-                        var shapeNormals = GetShapeNormals();
-                        if( getShapeData && shapeNormals != null ) {
-                            vector4 += new Vector4( shapeNormals[index], 0 );
-                        }
                     }
                     else {
+                        PluginLog.Error( $"normals were null" );
                         vector4 = new( 1, 1, 1, 1 );
                     }
                     break;
@@ -156,12 +166,13 @@ namespace Xande.Models.Import {
                     if( _texCoords != null ) {
                         vector4 = new( _texCoords[index], 0, 0 );
                     }
+                    else {
+                        PluginLog.Error( $"tex coordinates were null" );
+                    }
                     break;
                 case Vertex.VertexUsage.Tangent2:
                     break;
                 case Vertex.VertexUsage.Tangent1:
-                    // I Don't actually know how this matters...
-
                     //vector4 = _tangent1?[index] ?? vector4;
                     if( Bitangents != null && Bitangents.Count > index ) {
 
@@ -171,9 +182,9 @@ namespace Xande.Models.Import {
                         vec = Vector3.Normalize( vec );
                         //vector4 = Bitangents?[index] + new Vector4(1, 1, 1, 0) ?? vector4;    // maybe??
                         //vector4 = Bitangents[index];
-                        var val = (Vector3.One - vec) / 2;
+                        var val = ( Vector3.One - vec ) / 2;
 
-                        vector4 = new Vector4( val , Bitangents[index].W > 0 ? 0 : 1 );
+                        vector4 = new Vector4( val, Bitangents[index].W > 0 ? 0 : 1 );
 
                     }
                     else {

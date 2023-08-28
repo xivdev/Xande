@@ -1,3 +1,4 @@
+using Dalamud.Logging;
 using Lumina.Data.Parsing;
 using SharpGLTF.Schema2;
 using System;
@@ -11,25 +12,20 @@ namespace Xande.Models.Import {
     internal class ShapeBuilder {
         public readonly string ShapeName;
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();
-        public int VertexCount => ShapeValues.Count;
         public readonly SubmeshBuilder SubmeshBuilder;
 
         private List<int> _differentVertices = new();
-        private IReadOnlyDictionary<string, Accessor> _accessors = new Dictionary<string, Accessor>();
 
         private VertexDataBuilder _vertexDataBuilder;
 
-        public ShapeBuilder(SubmeshBuilder parent, string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+        public ShapeBuilder( SubmeshBuilder parent, string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+            PluginLog.Debug($"SHAPE: {name} - {morphTargetIndex}");
             SubmeshBuilder = parent;
             ShapeName = name;
             _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
-            Add( primitive, morphTargetIndex );
-        }
 
-        public void Add(MeshPrimitive primitive, int morphTargetIndex) {
             var shape = primitive.GetMorphTargetAccessors( morphTargetIndex );
-            _vertexDataBuilder.ShapeAccessor = shape;
-            _accessors = shape;
+            _vertexDataBuilder.AddShape( ShapeName, shape );
 
             var hasPositions = shape.TryGetValue( "POSITION", out var positionsAccessor );
             var hasNormals = shape.TryGetValue( "NORMAL", out var normalsAccessor );
@@ -38,30 +34,32 @@ namespace Xande.Models.Import {
             var shapeNormals = normalsAccessor?.AsVector3Array();
 
             // TOOD: Do we need to check shapeNormals?
-            if( shapePositions != null ) {
-                for( var i = 0; i < shapePositions.Count; i++ ) {
-                    if( shapePositions[i] != Vector3.Zero ) {
-                        _differentVertices.Add( i );
+            var indices = primitive.GetIndices();
+            PluginLog.Debug( $"Shape {name} indices size: {indices.Count}" );
+            if( indices != null ) {
+                for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
+                    var vertexIdx = indices[indexIdx];
+                    if( shapePositions[( int )vertexIdx] == Vector3.Zero ) {
+                        continue;
                     }
-                }
-                try {
-                    var indices = primitive.GetIndices();
-                    if( indices != null ) {
-                        for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
-                            var index = indices[indexIdx];
-                            if( _differentVertices.Contains( ( int )index ) ) {
-                                ShapeValues.Add( new() {
-                                    BaseIndicesIndex = ( ushort )indexIdx,
-                                    ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )index )
-                                } );
-                            }
-                        }
-                    }
-                }
-                catch( Exception ex ) {
 
+                    if( !_differentVertices.Contains( ( int )vertexIdx ) ) {
+                        _differentVertices.Add( ( int )vertexIdx );
+                    }
+                    ShapeValues.Add( new() {
+                        BaseIndicesIndex = ( ushort )indexIdx,
+                        ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
+                    } );
                 }
+                PluginLog.Debug( $"Shape {name} size = {_differentVertices.Count}" );
             }
+            else {
+                PluginLog.Error( $"Shape {name} had no indices." );
+            }
+        }
+
+        public void SetBlendIndicesDict(Dictionary<int, int> dict) {
+            _vertexDataBuilder.BlendIndicesDict = dict;
         }
 
         public int GetVertexCount() {
@@ -69,13 +67,7 @@ namespace Xande.Models.Import {
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
-            return _vertexDataBuilder.GetShapeVertexData( _differentVertices );
+            return _vertexDataBuilder.GetShapeVertexData( _differentVertices, ShapeName );
         }
-
-        /*
-        public Dictionary<int, List<byte>> GetVertexData(MdlStructs.VertexDeclarationStruct vertexDeclaration, Dictionary<int, int>? blendIndicesDict, List<Vector4>? bitangents = null) {
-            return VertexDataBuilder.GetShapeVertexData( SubmeshBuilder, vertexDeclaration, _accessors, _differentVertices, blendIndicesDict, bitangents );
-        }
-        */
     }
 }

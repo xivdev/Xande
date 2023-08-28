@@ -11,8 +11,6 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-using Mesh = SharpGLTF.Schema2.Mesh;
-
 namespace Xande.Models.Import {
     internal class LuminaMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
@@ -41,7 +39,7 @@ namespace Xande.Models.Import {
                 Submeshes.Add( sm );
                 TryAddBones( sm );
                 AddShapes( sm );
-                AddAttributes( sm );
+                AddSubmeshAttributes( sm );
 
                 IndexCount += sm.IndexCount;
 
@@ -90,6 +88,10 @@ namespace Xande.Models.Import {
         }
         */
 
+        public int GetVertexCount() {
+            return GetVertexCount( false );
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -136,9 +138,8 @@ namespace Xande.Models.Import {
             }
 
             foreach (var sm in Submeshes) {
-                sm.VertexDataBuilder.BlendIndicesDict = _blendIndicesDict;
+                sm.SetBlendIndicesDict( _blendIndicesDict );
             }
-
             return new() {
                 BoneIndex = boneTable.ToArray(),
                 BoneCount = ( byte )boneCount
@@ -195,6 +196,7 @@ namespace Xande.Models.Import {
                         ret.Add( submeshShapeName, submeshShapeVertexData );
                     }
                     else {
+                        PluginLog.Debug($"Getting shape data: {submeshShapeName}");
                         var shapeDict = ret[submeshShapeName];
                         foreach( var stream in shapeDict.Keys ) {
                             if( submeshShapeVertexData.ContainsKey( stream ) ) {
@@ -203,23 +205,6 @@ namespace Xande.Models.Import {
                         }
                     }
                 }
-            }
-            return ret;
-        }
-
-        public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {
-            var ret = new List<MdlStructs.ShapeValueStruct>();
-            var indexCount = 0;
-            foreach( var submesh in Submeshes ) {
-                var vals = submesh.GetShapeValues( str );
-                foreach (var v in vals) {
-                    ret.Add( new() {
-                        BaseIndicesIndex = (ushort)(v.BaseIndicesIndex + _startIndex + indexCount),
-                        ReplacingVertexIndex = v.ReplacingVertexIndex
-                    } );
-                }
-
-                indexCount += submesh.IndexCount;
             }
             return ret;
         }
@@ -239,12 +224,18 @@ namespace Xande.Models.Import {
             }
         }
 
-        private void AddAttributes( SubmeshBuilder submesh ) {
+        private void AddSubmeshAttributes( SubmeshBuilder submesh ) {
             foreach( var attr in submesh.Attributes ) {
-                if( !Attributes.Contains( attr ) ) {
-                    Attributes.Add( attr );
-                }
+                AddAttribute( attr );
             }
+        }
+
+        public bool AddAttribute(string s) {
+            if (!Attributes.Contains(s)) {
+                Attributes.Add( s );
+                return true;
+            }
+            return false;
         }
     }
 }
