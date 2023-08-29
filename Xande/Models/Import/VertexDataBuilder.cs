@@ -18,7 +18,7 @@ namespace Xande.Models.Import {
         public List<Vector4>? Bitangents = null;
         public List<(List<Vector3> pos, float weight)> AppliedShapePositions = new();
         public List<(List<Vector3> nor, float weight)> AppliedShapeNormals = new();
-        public bool ApplyShapes = false;
+        public bool ApplyShapes = true;
 
         private List<Vector3>? _positions = null;
         private List<Vector4>? _blendWeights = null;
