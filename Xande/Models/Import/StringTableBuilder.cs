@@ -12,12 +12,8 @@ public class StringTableBuilder {
     public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
 
-    public StringTableBuilder( ModelRoot root ) {
-        // TODO: is this a stable assumption to make?
-        var skelly = root.DefaultScene.FindNode( x => x.Name == "n_root" );
-        RecursiveSkeleton( skelly );
+    public StringTableBuilder() {
 
-        //Bones = Bones.Distinct().ToList();
     }
 
     public void AddAttribute( string attr ) {
@@ -67,12 +63,6 @@ public class StringTableBuilder {
     }
     public bool RemoveShape( string shape ) {
         return Shapes.Remove( shape );
-    }
-
-    private void RecursiveSkeleton( Node? node ) {
-        if( node is null ) return;
-        Bones.Add( node.Name );
-        foreach( var child in node.VisualChildren ) { RecursiveSkeleton( child ); }
     }
 
     internal int GetStringCount() {

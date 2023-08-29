@@ -12,47 +12,37 @@ namespace Xande.Models.Import {
     internal class ShapeBuilder {
         public readonly string ShapeName;
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();
-        public readonly SubmeshBuilder SubmeshBuilder;
 
         private List<int> _differentVertices = new();
-
         private VertexDataBuilder _vertexDataBuilder;
 
-        public ShapeBuilder(string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+        public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
             ShapeName = name;
             _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
 
             var shape = primitive.GetMorphTargetAccessors( morphTargetIndex );
             _vertexDataBuilder.AddShape( ShapeName, shape );
 
-            var hasPositions = shape.TryGetValue( "POSITION", out var positionsAccessor );
-            var hasNormals = shape.TryGetValue( "NORMAL", out var normalsAccessor );
-
+            shape.TryGetValue( "POSITION", out var positionsAccessor );
             var shapePositions = positionsAccessor?.AsVector3Array();
-            var shapeNormals = normalsAccessor?.AsVector3Array();
 
-            // TOOD: Do we need to check shapeNormals?
             var indices = primitive.GetIndices();
 
-            if( indices != null ) {
-                for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
-                    var vertexIdx = indices[indexIdx];
-                    if( shapePositions[( int )vertexIdx] == Vector3.Zero ) {
-                        continue;
-                    }
-
-                    if( !_differentVertices.Contains( ( int )vertexIdx ) ) {
-                        _differentVertices.Add( ( int )vertexIdx );
-                    }
-                    ShapeValues.Add( new() {
-                        BaseIndicesIndex = ( ushort )indexIdx,
-                        ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
-                    } );
+            for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
+                var vertexIdx = indices[indexIdx];
+                if( shapePositions[( int )vertexIdx] == Vector3.Zero ) {
+                    continue;
                 }
+
+                if( !_differentVertices.Contains( ( int )vertexIdx ) ) {
+                    _differentVertices.Add( ( int )vertexIdx );
+                }
+                ShapeValues.Add( new() {
+                    BaseIndicesIndex = ( ushort )indexIdx,
+                    ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
+                } );
             }
-            else {
-                PluginLog.Error( $"Shape {name} had no indices." );
-            }
+
         }
 
         public void SetBlendIndicesDict( Dictionary<int, int> dict ) {

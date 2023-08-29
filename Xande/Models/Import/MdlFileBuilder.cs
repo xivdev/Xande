@@ -28,7 +28,7 @@ public class MdlFileBuilder {
         _root = root;
         _origModel = model;
 
-        _stringTableBuilder = new StringTableBuilder( _root );
+        _stringTableBuilder = new StringTableBuilder();
 
         foreach( var mesh in root.LogicalMeshes ) {
             var name = mesh.Name;
@@ -90,16 +90,6 @@ public class MdlFileBuilder {
         }
 
         return ret;
-    }
-
-    public int CompareShapeValueStructs( MdlStructs.ShapeValueStruct a, MdlStructs.ShapeValueStruct b ) {
-        var replacingCompare = a.ReplacingVertexIndex.CompareTo( b.ReplacingVertexIndex );
-        if( replacingCompare == 0 ) {
-            return a.BaseIndicesIndex.CompareTo( b.BaseIndicesIndex );
-        }
-        else {
-            return replacingCompare;
-        }
     }
 
     private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct vds ) {
@@ -184,15 +174,12 @@ public class MdlFileBuilder {
 
         var indexCount = 0;
         foreach( var meshIdx in _meshes.Keys ) {
-            //var meshBuilder = new LuminaMeshBuilder( allBones, vertexDeclarations[meshIdx], indexCount );
-
             var submeshes = new List<SubmeshBuilder>();
             var submeshIndex = 0;
             foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
                 var vd = vertexDeclarations.Length > meshIdx ? vertexDeclarations[meshIdx] : vertexDeclarations[0];
 
                 var submesh = new SubmeshBuilder( _meshes[meshIdx][submeshIdx], allBones, vd );
-                submesh.RelativeIndex = submeshIndex;
                 if( _addedAttributes.ContainsKey( meshIdx ) && _addedAttributes[meshIdx].ContainsKey( submeshIdx ) ) {
                     foreach( var attr in _addedAttributes[meshIdx][submeshIdx] ) {
                         if( submesh.AddAttribute( attr ) ) {
@@ -328,9 +315,7 @@ public class MdlFileBuilder {
             var meshVertexCount = 0;
 
             for( var j = 0; j < mesh.Submeshes.Count; j++ ) {
-
                 var submesh = mesh.Submeshes[j];
-                var bitangents = submesh.CalculateBitangents();
                 var submeshIndexData = submesh.GetIndexData( meshVertexCount );
                 totalIndexCount += submesh.IndexCount;
                 var submeshIndexOffset = ( indexData.Count + meshIndexData.Count ) / 2;
@@ -375,7 +360,7 @@ public class MdlFileBuilder {
                     meshIndexOffsetDict[shapeName].Add( (( uint )meshIndexCount, ( uint )submeshShapeValues.Count, newShapeValues) );
                     /*
                      * Seems like we CAN have each ShapeStruct added individually
-                     * However, it seems that the original models have them grouped up by shape name
+                     * However, it also seems that the original models have them grouped up by shape name
                     shapeStructs.Add( new() {
                         StringOffset = _stringTableBuilder.GetShapeNameOffset( shapeName ),
                         ShapeMeshStartIndex = new ushort[] { ( ushort )shapeMeshStartIndex, 0, 0 },
@@ -402,7 +387,6 @@ public class MdlFileBuilder {
             vertexData.AddRange( mvd.GetBytes() );
             indexData.AddRange( meshIndexData );
         }
-
 
         var shapeMeshStartIndex = 0;
         uint shapeValueOffset = 0;

@@ -23,17 +23,16 @@ namespace Xande.Models.Import {
 
         private Dictionary<int, string> _originalBoneIndexToString = new();
         //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
-        private List<Vector4> Bitangents = new();
         private Dictionary<int, int> _blendIndicesDict;
 
         public int IndexCount { get; protected set; } = 0;
         public int _startIndex = 0;
 
-        public LuminaMeshBuilder(List<SubmeshBuilder> submeshes, int startIndex) {
+        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, int startIndex ) {
             //_vertexDeclarationStruct = vds;
             _startIndex = startIndex;
 
-            foreach (var sm in submeshes) {
+            foreach( var sm in submeshes ) {
                 Submeshes.Add( sm );
                 TryAddBones( sm );
                 AddShapes( sm );
@@ -51,7 +50,7 @@ namespace Xande.Models.Import {
                 }
             }
 
-            if (Bones.Count == 0) {
+            if( Bones.Count == 0 ) {
                 PluginLog.Warning( $" Mesh had zero bones. This can cause a game crash if a skeleton is expected." );
             }
         }
@@ -105,9 +104,10 @@ namespace Xande.Models.Import {
                 boneTable.Add( 0 );
             }
 
-            foreach (var sm in Submeshes) {
+            foreach( var sm in Submeshes ) {
                 sm.SetBlendIndicesDict( _blendIndicesDict );
             }
+
             return new() {
                 BoneIndex = boneTable.ToArray(),
                 BoneCount = ( byte )boneCount
@@ -126,8 +126,6 @@ namespace Xande.Models.Import {
         public Dictionary<int, List<byte>> GetVertexData() {
             var vertexDict = new Dictionary<int, List<byte>>();
             foreach( var submesh in Submeshes ) {
-                var bitangents = submesh.CalculateBitangents();
-                Bitangents.AddRange( bitangents);
                 var submeshVertexData = submesh.GetVertexData();
 
                 foreach( var stream in submeshVertexData.Keys ) {
@@ -151,40 +149,10 @@ namespace Xande.Models.Import {
             }
         }
 
-        public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData( List<string>? strings = null ) {
-            var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
-            foreach( var submesh in Submeshes ) {
-                var submeshShapeData = submesh.GetShapeVertexData( strings );
-                foreach( var submeshShapeName in submeshShapeData.Keys ) {
-                    var submeshShapeVertexData = submeshShapeData[submeshShapeName];
-                    if( !ret.ContainsKey( submeshShapeName ) ) {
-                        ret.Add( submeshShapeName, submeshShapeVertexData );
-                    }
-                    else {
-                        PluginLog.Debug($"Getting shape data: {submeshShapeName}");
-                        var shapeDict = ret[submeshShapeName];
-                        foreach( var stream in shapeDict.Keys ) {
-                            if( submeshShapeVertexData.ContainsKey( stream ) ) {
-                                shapeDict[stream].AddRange( submeshShapeVertexData[stream] );
-                            }
-                        }
-                    }
-                }
-            }
-            return ret;
-        }
-
         private void AddShapes( SubmeshBuilder submesh ) {
-            /*
-            foreach( var s in submesh.SubmeshShapeBuilder.Shapes.Keys ) {
+            foreach( var s in submesh.Shapes ) {
                 if( !Shapes.Contains( s ) ) {
                     Shapes.Add( s );
-                }
-            }
-            */
-            foreach (var s in submesh.Shapes) {
-                if (!Shapes.Contains(s)) {
-                    Shapes.Add(s);
                 }
             }
         }
@@ -195,8 +163,8 @@ namespace Xande.Models.Import {
             }
         }
 
-        public bool AddAttribute(string s) {
-            if (!Attributes.Contains(s)) {
+        public bool AddAttribute( string s ) {
+            if( !Attributes.Contains( s ) ) {
                 Attributes.Add( s );
                 return true;
             }
