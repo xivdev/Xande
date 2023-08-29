@@ -32,6 +32,7 @@ namespace Xande.Models.Import {
         private bool HasShared = false;
 
         public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
+
             ShapesAccessor.Add( shapeName, accessor );
         }
 
@@ -72,7 +73,6 @@ namespace Xande.Models.Import {
                 PluginLog.Error( $"Shape accessor was null" );
             }
 
-            PluginLog.Debug( $"size: {diffVertices.Count}" );
             foreach( var vertexId in diffVertices ) {
                 foreach( var ve in _vertexDeclaration.VertexElements ) {
                     if( ve.Stream == 255 ) { break; }
@@ -146,6 +146,10 @@ namespace Xande.Models.Import {
                 case Vertex.VertexUsage.Normal:
                     if( _normals != null ) {
                         vector4 = new Vector4( _normals[index], 0 );
+                        if (shapeName != null) {
+                            var shapeNormals = GetShapeNormals( shapeName );
+                            vector4 += new Vector4( shapeNormals[index], 0 );
+                        }
                         if( ApplyShapes ) {
                             foreach( var appliedShape in AppliedShapeNormals ) {
                                 var list = appliedShape.nor;

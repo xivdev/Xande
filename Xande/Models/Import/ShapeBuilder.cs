@@ -18,9 +18,7 @@ namespace Xande.Models.Import {
 
         private VertexDataBuilder _vertexDataBuilder;
 
-        public ShapeBuilder( SubmeshBuilder parent, string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
-            PluginLog.Debug($"SHAPE: {name} - {morphTargetIndex}");
-            SubmeshBuilder = parent;
+        public ShapeBuilder(string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
             ShapeName = name;
             _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
 
@@ -35,8 +33,9 @@ namespace Xande.Models.Import {
 
             // TOOD: Do we need to check shapeNormals?
             var indices = primitive.GetIndices();
-            PluginLog.Debug( $"Shape {name} indices size: {indices.Count}" );
+
             if( indices != null ) {
+                /*
                 for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
                     var vertexIdx = indices[indexIdx];
                     if( shapePositions[( int )vertexIdx] == Vector3.Zero ) {
@@ -51,19 +50,39 @@ namespace Xande.Models.Import {
                         ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
                     } );
                 }
+
                 PluginLog.Debug( $"Shape {name} size = {_differentVertices.Count}" );
+                */
+                for( var i = 0; i < shapePositions.Count; i++ ) {
+                    if( shapePositions[i] != Vector3.Zero ) {
+                        _differentVertices.Add( i );
+                    }
+                }
+                for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
+                    var vertexIdx = indices[indexIdx];
+                    if( _differentVertices.Contains( ( int )vertexIdx ) ) {
+                        ShapeValues.Add( new() {
+                            BaseIndicesIndex = ( ushort )indexIdx,
+                            ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
+                        } );
+                    }
+                }
             }
             else {
                 PluginLog.Error( $"Shape {name} had no indices." );
             }
         }
 
-        public void SetBlendIndicesDict(Dictionary<int, int> dict) {
+        public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
             _vertexDataBuilder.BlendIndicesDict = dict;
         }
 
         public int GetVertexCount() {
             return _differentVertices.Count;
+        }
+
+        public void SetBitangents( List<Vector4> list ) {
+            _vertexDataBuilder.Bitangents = list;
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
