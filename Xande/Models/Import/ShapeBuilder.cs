@@ -35,7 +35,6 @@ namespace Xande.Models.Import {
             var indices = primitive.GetIndices();
 
             if( indices != null ) {
-                /*
                 for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
                     var vertexIdx = indices[indexIdx];
                     if( shapePositions[( int )vertexIdx] == Vector3.Zero ) {
@@ -49,23 +48,6 @@ namespace Xande.Models.Import {
                         BaseIndicesIndex = ( ushort )indexIdx,
                         ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
                     } );
-                }
-
-                PluginLog.Debug( $"Shape {name} size = {_differentVertices.Count}" );
-                */
-                for( var i = 0; i < shapePositions.Count; i++ ) {
-                    if( shapePositions[i] != Vector3.Zero ) {
-                        _differentVertices.Add( i );
-                    }
-                }
-                for( var indexIdx = 0; indexIdx < indices.Count; indexIdx++ ) {
-                    var vertexIdx = indices[indexIdx];
-                    if( _differentVertices.Contains( ( int )vertexIdx ) ) {
-                        ShapeValues.Add( new() {
-                            BaseIndicesIndex = ( ushort )indexIdx,
-                            ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
-                        } );
-                    }
                 }
             }
             else {

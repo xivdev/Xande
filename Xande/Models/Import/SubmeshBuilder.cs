@@ -126,11 +126,6 @@ namespace Xande.Models.Import {
 
                                     var target = primitive.GetMorphTargetAccessors( i );
                                     if( target == null ) { continue; }
-                                    /*
-                                    foreach (var kvp in target) {
-                                        PluginLog.Debug( $"{kvp.Key} - {kvp.Value}" );
-                                    }
-                                    */
                                     target.TryGetValue( "POSITION", out var shapeAccessor );
                                     target.TryGetValue( "NORMAL", out var shapeNormalAccessor );
                                     var appliedPositions = shapeAccessor?.AsVector3Array();
@@ -156,8 +151,8 @@ namespace Xande.Models.Import {
 
                 }
             }
-            //VertexDataBuilder.AppliedShapePositions = AppliedShapes;
-            //VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
+            VertexDataBuilder.AppliedShapePositions = AppliedShapes;
+            VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
         }
 
@@ -178,7 +173,6 @@ namespace Xande.Models.Import {
         }
 
         public int GetVertexCount( bool includeShapes = false, List<string>? strings = null ) {
-            //return _vertexCount + ( includeShapes ? SubmeshShapeBuilder.GetVertexCount( strings ) : 0 );
             var ret = _vertexCount;
             if( includeShapes ) {
                 foreach( var shapeName in _shapeBuilders.Keys ) {

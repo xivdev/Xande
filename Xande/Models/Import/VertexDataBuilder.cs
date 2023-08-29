@@ -29,12 +29,6 @@ namespace Xande.Models.Import {
         private List<Vector4>? _colors = null;
 
         private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
-        private bool HasShared = false;
-
-        public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
-
-            ShapesAccessor.Add( shapeName, accessor );
-        }
 
         public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             _vertexDeclaration = vertexDeclaration;
@@ -45,6 +39,10 @@ namespace Xande.Models.Import {
             _texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
             _tangent1 = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array().ToList();
             _colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
+        }
+
+        public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
+            ShapesAccessor.Add( shapeName, accessor );
         }
 
         public List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {

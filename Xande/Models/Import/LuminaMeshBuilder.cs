@@ -21,8 +21,6 @@ namespace Xande.Models.Import {
         public string Material = String.Empty;
         public List<string> Shapes = new();
 
-        private List<string> _skeleton;
-
         private Dictionary<int, string> _originalBoneIndexToString = new();
         //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private List<Vector4> Bitangents = new();
@@ -57,36 +55,6 @@ namespace Xande.Models.Import {
                 PluginLog.Warning( $" Mesh had zero bones. This can cause a game crash if a skeleton is expected." );
             }
         }
-
-        /*
-        public LuminaMeshBuilder( List<string> skeleton, MdlStructs.VertexDeclarationStruct vds, int startIndex ) {
-            _skeleton = skeleton;
-            _vertexDeclarationStruct = vds;
-            _startIndex = startIndex;
-        }
-
-        public void AddSubmesh( Mesh mesh ) {
-            var submeshBuilder = new SubmeshBuilder( mesh, _skeleton );
-            Submeshes.Add( submeshBuilder );
-            TryAddBones( submeshBuilder );
-            AddShapes( submeshBuilder );
-            AddAttributes( submeshBuilder );
-
-            IndexCount += submeshBuilder.IndexCount;
-            if( String.IsNullOrEmpty( Material ) ) {
-                Material = submeshBuilder.MaterialPath;
-            }
-            else {
-                if( Material != submeshBuilder.MaterialPath ) {
-                    PluginLog.Error( $"Found multiple materials. Original \"{Material}\" vs \"{submeshBuilder.MaterialPath}\"" );
-                }
-            }
-
-            if (Bones.Count == 0) {
-                PluginLog.Warning( $" Mesh {mesh.Name} had zero bones. This can cause a game crash if a skeleton is expected." );
-            }
-        }
-        */
 
         public int GetVertexCount() {
             return GetVertexCount( false );
@@ -160,7 +128,6 @@ namespace Xande.Models.Import {
             foreach( var submesh in Submeshes ) {
                 var bitangents = submesh.CalculateBitangents();
                 Bitangents.AddRange( bitangents);
-                //var submeshVertexData = VertexDataBuilder.GetVertexData( submesh, _vertexDeclarationStruct, _blendIndicesDict, bitangents );
                 var submeshVertexData = submesh.GetVertexData();
 
                 foreach( var stream in submeshVertexData.Keys ) {
@@ -187,8 +154,6 @@ namespace Xande.Models.Import {
         public Dictionary<string, Dictionary<int, List<byte>>> GetShapeData( List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
             foreach( var submesh in Submeshes ) {
-                //var submeshShapeData = submesh.SubmeshShapeBuilder.GetVertexData( _vertexDeclarationStruct, strings, _blendIndicesDict );
-                //var submeshShapeData = submesh.GetVertexShapeData( _vertexDeclarationStruct, strings, _blendIndicesDict );
                 var submeshShapeData = submesh.GetShapeVertexData( strings );
                 foreach( var submeshShapeName in submeshShapeData.Keys ) {
                     var submeshShapeVertexData = submeshShapeData[submeshShapeName];

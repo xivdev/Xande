@@ -104,7 +104,7 @@ public class MdlFileBuilder {
 
     private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct vds ) {
         var ret = new List<MdlStructs.VertexDeclarationStruct>();
-
+        // Hard-coded or pull whatever the original model had?
         /*
         for( var i = 0; i < size; i++ ) {
             var ve = new List<MdlStructs.VertexElement>();
@@ -225,8 +225,6 @@ public class MdlFileBuilder {
         if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
             // TODO: ElementIds
         }
-
-        PluginLog.Debug( $"bonecount: {_stringTableBuilder.Bones.Count}" );
 
         // TODO: if skeleton == null?
         _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
@@ -376,6 +374,8 @@ public class MdlFileBuilder {
                     }
                     meshIndexOffsetDict[shapeName].Add( (( uint )meshIndexCount, ( uint )submeshShapeValues.Count, newShapeValues) );
                     /*
+                     * Seems like we CAN have each ShapeStruct added individually
+                     * However, it seems that the original models have them grouped up by shape name
                     shapeStructs.Add( new() {
                         StringOffset = _stringTableBuilder.GetShapeNameOffset( shapeName ),
                         ShapeMeshStartIndex = new ushort[] { ( ushort )shapeMeshStartIndex, 0, 0 },
@@ -407,7 +407,6 @@ public class MdlFileBuilder {
         var shapeMeshStartIndex = 0;
         uint shapeValueOffset = 0;
         foreach( var kvp in meshIndexOffsetDict ) {
-            PluginLog.Debug( $"key: {kvp.Key}" );
             var shapeMeshCount = meshIndexOffsetDict[kvp.Key].Count;
             shapeStructs.Add( new() {
                 StringOffset = _stringTableBuilder.GetShapeNameOffset( kvp.Key ),
@@ -426,10 +425,6 @@ public class MdlFileBuilder {
                 shapeValues.AddRange( svs );    // the shape values have to be placed in the same order as the corresponding ShapeMeshStruct
             }
         }
-
-        PluginLog.Debug( $"Shapes: {shapeStructs.Count}" );
-        PluginLog.Debug( $"Shapemeshes: {shapeMeshes.Count}" );
-        PluginLog.Debug( $"ShapeValues: {shapeValues.Count}" );
 
         var filledBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
             Min = new[] { min.X, min.Y, min.Z, min.W },
