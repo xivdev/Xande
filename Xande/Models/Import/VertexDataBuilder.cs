@@ -1,6 +1,7 @@
 using Dalamud.Logging;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
+using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
@@ -12,107 +13,199 @@ using System.Threading.Tasks;
 
 namespace Xande.Models.Import {
     internal class VertexDataBuilder {
+        public Dictionary<int, int>? BlendIndicesDict = null;
+        private Dictionary<string, IReadOnlyDictionary<string, Accessor>> ShapesAccessor = new();
+        public List<Vector4>? Bitangents = null;
+        public List<(List<Vector3> pos, float weight)> AppliedShapePositions = new();
+        public List<(List<Vector3> nor, float weight)> AppliedShapeNormals = new();
+        public bool ApplyShapes = true;
 
-        public static List<byte> GetVertexData( MeshPrimitive primitive, int index, MdlStructs.VertexElement ve, Dictionary<int, int>? blendIndicesDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null, List<Vector4>? bitangents = null ) {
-            var vector4 = GetVector4( primitive, index, ( Vertex.VertexUsage )ve.Usage, blendIndicesDict, shapeAccessor, bitangents );
-            return GetBytes( vector4, ( Vertex.VertexType )ve.Type );
+        private List<Vector3>? _positions = null;
+        private List<Vector4>? _blendWeights = null;
+        private List<Vector4>? _blendIndices = null;
+        private List<Vector3>? _normals = null;
+        private List<Vector2>? _texCoords = null;
+        private List<Vector4>? _tangent1 = null;
+        private List<Vector4>? _colors = null;
+
+        private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
+
+        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
+            _vertexDeclaration = vertexDeclaration;
+            _positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array().ToList();
+            _blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array().ToList();
+            _blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array().ToList();
+            _normals = primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
+            _texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+            _tangent1 = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array().ToList();
+            _colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
         }
-        private static Vector4 GetVector4( MeshPrimitive primitive, int index, Vertex.VertexUsage usage,
-            Dictionary<int, int>? blendIndexDict = null, IReadOnlyDictionary<string, Accessor>? shapeAccessor = null,
-            List<Vector4>? bitangents = null ) {
-            var vector4 = new Vector4( 0, 0, 0, 0 );
 
+        public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
+            ShapesAccessor.Add( shapeName, accessor );
+        }
+
+        public List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {
+            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type, ( Vertex.VertexUsage )ve.Usage );
+        }
+
+        public Dictionary<int, List<byte>> GetVertexData() {
+            var streams = new Dictionary<int, List<byte>>();
+            for( var vertexId = 0; vertexId < _positions?.Count; vertexId++ ) {
+                foreach( var ve in _vertexDeclaration.VertexElements ) {
+                    if( ve.Stream == 255 ) break;
+                    if( !streams.ContainsKey( ve.Stream ) ) {
+                        streams.Add( ve.Stream, new List<byte>() );
+                    }
+
+                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve ) );
+                }
+            }
+
+            return streams;
+        }
+
+        public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, string? shapeName = null ) {
+            var streams = new Dictionary<int, List<byte>>();
+            if( ShapesAccessor == null ) {
+                PluginLog.Error( $"Shape accessor was null" );
+            }
+
+            foreach( var vertexId in diffVertices ) {
+                foreach( var ve in _vertexDeclaration.VertexElements ) {
+                    if( ve.Stream == 255 ) { break; }
+                    if( !streams.ContainsKey( ve.Stream ) ) {
+                        streams.Add( ve.Stream, new List<byte>() );
+                    }
+
+                    streams[ve.Stream].AddRange( GetVertexData( vertexId, ve, shapeName ) );
+                }
+            }
+
+            return streams;
+        }
+
+        private List<Vector3> GetShapePositions( string shapeName ) {
+            //ShapesAccessor.TryGetValue( shapeName, out var dict );
+            /*
+            var dict = ShapesAccessor[shapeName];
+            Accessor? accessor = null;
+            dict?.TryGetValue( "POSITION", out accessor );
+            return accessor?.AsVector3Array().ToList();
+            */
+            return ShapesAccessor[shapeName]["POSITION"].AsVector3Array().ToList();
+        }
+
+        private List<Vector3> GetShapeNormals( string shapeName ) {
+            //ShapesAccessor.TryGetValue( shapeName, out var dict );
+            /*
+            var dict = ShapesAccessor[shapeName];
+            Accessor? accessor = null;
+            dict?.TryGetValue( "NORMAL", out accessor );
+            return accessor?.AsVector3Array().ToList();
+            */
+            return ShapesAccessor[shapeName]["NORMAL"].AsVector3Array().ToList();
+        }
+
+        private Vector4 GetVector4( int index, Vertex.VertexUsage usage, string? shapeName = null ) {
+            var vector4 = new Vector4( 0, 0, 0, 0 );
             switch( usage ) {
                 case Vertex.VertexUsage.Position:
-                    Accessor? positionAccessor = null;
-                    shapeAccessor?.TryGetValue( "POSITION", out positionAccessor );
-                    var shapePositions = positionAccessor?.AsVector3Array();
-                    var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-                    if( positions != null && positions.Count > index ) {
-                        vector4 = new Vector4( positions[index], 1 );
-                        if( shapePositions != null ) {
-                            var shapePos = new Vector4( shapePositions[index], 0 );
-                            vector4 += shapePos;
+                    vector4 = new Vector4( _positions[index], 0 );
+                    if( shapeName != null ) {
+                        var shapePositions = GetShapePositions( shapeName );
+                        vector4 += new Vector4( shapePositions[index], 0 );
+                    }
+                    if( ApplyShapes ) {
+                        foreach( var appliedShape in AppliedShapePositions ) {
+                            var list = appliedShape.pos;
+                            var weight = appliedShape.weight;
+
+                            if( list.Count > index ) {
+                                vector4 += new Vector4( list[index] * weight, 0 );
+                            }
                         }
                     }
                     break;
                 case Vertex.VertexUsage.BlendWeights:
-                    var blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array();
-                    if( blendWeights != null && blendWeights.Count > index ) {
-                        vector4 = blendWeights[index];
-                    }
+                    vector4 = _blendWeights?[index] ?? vector4;
                     break;
                 case Vertex.VertexUsage.BlendIndices:
-                    var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
-                    if( blendIndices != null && blendIndices.Count > index ) {
-                        vector4 = blendIndices[index];
-                        if( blendIndexDict != null ) {
-                            for( var i = 0; i < 4; i++ ) {
-                                if( blendIndexDict.ContainsKey( ( int )blendIndices[index][i] ) ) {
-                                    vector4[i] = blendIndexDict[( int )blendIndices[index][i]];
-                                }
+                    if( _blendIndices == null ) break;
+                    vector4 = _blendIndices[index];
+                    if( BlendIndicesDict != null ) {
+                        for( var i = 0; i < 4; i++ ) {
+                            if( BlendIndicesDict.ContainsKey( ( int )_blendIndices[index][i] ) ) {
+                                vector4[i] = BlendIndicesDict[( int )_blendIndices[index][i]];
                             }
                         }
                     }
                     break;
                 case Vertex.VertexUsage.Normal:
-                    Accessor? normalAccessor = null;
-                    shapeAccessor?.TryGetValue( "NORMAL", out normalAccessor );
-                    var shapeNormals = normalAccessor?.AsVector3Array();
-                    var normals = primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array();
-                    if( normals != null && normals.Count > index ) {
-                        vector4 = new Vector4( normals[index], 0 );
-                        if( shapeNormals != null ) {
-                            var shapeNor = new Vector4( shapeNormals[index], 0 );
-                            vector4 += shapeNor;
+                    if( _normals != null ) {
+                        vector4 = new Vector4( _normals[index], 0 );
+                        if (shapeName != null) {
+                            var shapeNormals = GetShapeNormals( shapeName );
+                            vector4 += new Vector4( shapeNormals[index], 0 );
                         }
+                        if( ApplyShapes ) {
+                            foreach( var appliedShape in AppliedShapeNormals ) {
+                                var list = appliedShape.nor;
+                                var weight = appliedShape.weight;
+
+                                if( list.Count > index ) {
+                                    vector4 += new Vector4( list[index] * weight, 0 );
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        PluginLog.Error( $"normals were null" );
+                        vector4 = new( 1, 1, 1, 1 );
                     }
                     break;
                 case Vertex.VertexUsage.UV:
-                    var texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array();
-                    if( texCoords?.Count > index ) {
-                        vector4 = new( texCoords[index].X, texCoords[index].Y, 0f, 0f );
+                    if( _texCoords != null ) {
+                        vector4 = new( _texCoords[index], 0, 0 );
+                    }
+                    else {
+                        PluginLog.Error( $"tex coordinates were null" );
                     }
                     break;
                 case Vertex.VertexUsage.Tangent2:
-                    // ??
-                    vector4 = new( 0, 0, 0, 0 );
                     break;
                 case Vertex.VertexUsage.Tangent1:
-                    /*
-                    if( bitangents != null ) {
-                        var vector3 = new Vector3( bitangents[index].X, bitangents[index].Y, bitangents[index].Z );
-                        vector3 = Vector3.Normalize( vector3 );
-                        vector3 += Vector3.One;
-                        vector3 /= 2.0f;
-                        vector3 -= Vector3.One;
-                        var handedness = bitangents[index].W > 0 ? 0 : 1;
-                        vector4 = new Vector4( vector3, handedness );
-                    }
-                    else {
+                    //vector4 = _tangent1?[index] ?? vector4;
+                    if( Bitangents != null && Bitangents.Count > index ) {
 
-                    }
-                    */
+                        // I don't know why this math sorta works
+                        // The values seem "close enough" (where I think the difference is due to floating point arithmetic)
+                        var vec = new Vector3( Bitangents[index].X, Bitangents[index].Y, Bitangents[index].Z );
+                        vec = Vector3.Normalize( vec );
+                        //vector4 = Bitangents?[index] + new Vector4(1, 1, 1, 0) ?? vector4;    // maybe??
+                        //vector4 = Bitangents[index];
+                        var val = ( Vector3.One - vec ) / 2;
 
-                    var tangents = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array();
-                    if( tangents?.Count > index ) {
-                        vector4 = tangents[index];
-                    }
-                    break;
-                case Vertex.VertexUsage.Color:
-                    var colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array();
-                    if( colors?.Count > index ) {
-                        vector4 = colors[index];
+                        vector4 = new Vector4( val, Bitangents[index].W > 0 ? 0 : 1 );
+
                     }
                     else {
                         vector4 = new Vector4( 1, 1, 1, 1 );
+                    }
+                    break;
+                case Vertex.VertexUsage.Color:
+                    if( _colors != null ) {
+                        vector4 = _colors[index];
+                    }
+                    else {
+                        vector4 = new( 1, 1, 1, 1 );
                     }
                     break;
             }
             return vector4;
         }
 
-        private static List<byte> GetBytes( Vector4 vector4, Vertex.VertexType type ) {
+        private static List<byte> GetBytes( Vector4 vector4, Vertex.VertexType type, Vertex.VertexUsage usage ) {
             var ret = new List<byte>();
             switch( type ) {
                 case Vertex.VertexType.Single3:
@@ -150,55 +243,6 @@ namespace Xande.Models.Import {
                     break;
             }
             return ret;
-
-        }
-
-        public static Dictionary<int, List<byte>> GetShapeVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, IReadOnlyDictionary<string, Accessor>? shapeAccessor, List<int> diffVertices, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
-            var streams = new Dictionary<int, List<byte>>();
-
-            foreach( var primitive in submesh.Mesh.Primitives ) {
-                var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-                if( positions != null ) {
-                    foreach( var vertexId in diffVertices ) {
-                        for( var declarationId = 0; declarationId < vertexDeclarations.VertexElements.Length; declarationId++ ) {
-                            var ve = vertexDeclarations.VertexElements[declarationId];
-                            if( ve.Stream == 255 ) { break; }
-                            if( !streams.ContainsKey( ve.Stream ) ) {
-                                streams.Add( ve.Stream, new List<byte>() );
-                            }
-                            var currStream = streams[ve.Stream];
-
-                            streams[ve.Stream].AddRange( GetVertexData( primitive, vertexId, ve, blendIndicesDict, shapeAccessor, bitangents ) );
-                        }
-                    }
-                }
-            }
-            return streams;
-        }
-
-        public static Dictionary<int, List<byte>> GetVertexData( SubmeshBuilder submesh, MdlStructs.VertexDeclarationStruct vertexDeclarations, Dictionary<int, int>? blendIndicesDict = null, List<Vector4>? bitangents = null ) {
-            var streams = new Dictionary<int, List<byte>>();
-
-            foreach( var primitive in submesh.Mesh.Primitives ) {
-                var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-
-                if( positions != null ) {
-                    for( var vertexId = 0; vertexId < positions.Count; vertexId++ ) {
-                        for( var declarationId = 0; declarationId < vertexDeclarations.VertexElements.Length; declarationId++ ) {
-                            var ve = vertexDeclarations.VertexElements[declarationId];
-                            if( ve.Stream == 255 ) { break; }
-                            if( !streams.ContainsKey( ve.Stream ) ) {
-                                streams.Add( ve.Stream, new List<byte>() );
-                            }
-                            var currStream = streams[ve.Stream];
-
-                            streams[ve.Stream].AddRange( GetVertexData( primitive, vertexId, ve, blendIndicesDict, null, bitangents ) );
-                        }
-                    }
-                }
-            }
-
-            return streams;
         }
     }
 }

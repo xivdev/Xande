@@ -6,10 +6,9 @@ namespace Xande.Models.Import;
 
 public class StringTableBuilder {
     public SortedSet<string> Attributes = new();
-    //public List<string> Bones = new();
     public SortedSet<string> Bones = new();
     public List<string> HierarchyBones = new();
-    public readonly List<string> Materials = new();
+    public readonly SortedSet<string> Materials = new();
     public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
 
@@ -121,7 +120,7 @@ public class StringTableBuilder {
     }
 
     internal uint[] GetMaterialNameOffsets() {
-        return GetOffsets( Materials ).ToArray();
+        return GetOffsets( Materials.ToList() ).ToArray();
     }
 
     internal uint[] GetBoneNameOffsets() {
@@ -132,7 +131,13 @@ public class StringTableBuilder {
         return GetOffsets( new List<string> { v } ).ToArray()[0];
     }
 
-    private List<uint> GetOffsets( List<string> strings ) {
+    public uint GetOffset(string input) {
+        var aggregator = GetStrings();
+        var str = string.Join( "\0", aggregator );
+        return (uint)str.IndexOf( input );
+    }
+
+    public List<uint> GetOffsets( List<string> strings ) {
         var ret = new List<uint>();
         var aggregator = GetStrings();
         var str = string.Join( "\0", aggregator );
