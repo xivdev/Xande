@@ -16,8 +16,8 @@ namespace Xande.Models.Import {
         public Dictionary<int, int>? BlendIndicesDict = null;
         private Dictionary<string, IReadOnlyDictionary<string, Accessor>> ShapesAccessor = new();
         public List<Vector4>? Bitangents = null;
-        public List<(List<Vector3> pos, float weight)> AppliedShapePositions = new();
-        public List<(List<Vector3> nor, float weight)> AppliedShapeNormals = new();
+        public List<(List<Vector3> pos, float weight)>? AppliedShapePositions;
+        public List<(List<Vector3> nor, float weight)>? AppliedShapeNormals;
         public bool ApplyShapes = true;
 
         private List<Vector3>? _positions = null;
@@ -43,10 +43,6 @@ namespace Xande.Models.Import {
 
         public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
             ShapesAccessor.Add( shapeName, accessor );
-        }
-
-        public List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {
-            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type, ( Vertex.VertexUsage )ve.Usage );
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
@@ -85,7 +81,11 @@ namespace Xande.Models.Import {
             return streams;
         }
 
-        private List<Vector3> GetShapePositions( string shapeName ) {
+        private List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {
+            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type, ( Vertex.VertexUsage )ve.Usage );
+        }
+
+        private IList<Vector3> GetShapePositions( string shapeName ) {
             //ShapesAccessor.TryGetValue( shapeName, out var dict );
             /*
             var dict = ShapesAccessor[shapeName];
@@ -93,10 +93,10 @@ namespace Xande.Models.Import {
             dict?.TryGetValue( "POSITION", out accessor );
             return accessor?.AsVector3Array().ToList();
             */
-            return ShapesAccessor[shapeName]["POSITION"].AsVector3Array().ToList();
+            return ShapesAccessor[shapeName]["POSITION"].AsVector3Array();
         }
 
-        private List<Vector3> GetShapeNormals( string shapeName ) {
+        private IList<Vector3> GetShapeNormals( string shapeName ) {
             //ShapesAccessor.TryGetValue( shapeName, out var dict );
             /*
             var dict = ShapesAccessor[shapeName];
@@ -104,7 +104,7 @@ namespace Xande.Models.Import {
             dict?.TryGetValue( "NORMAL", out accessor );
             return accessor?.AsVector3Array().ToList();
             */
-            return ShapesAccessor[shapeName]["NORMAL"].AsVector3Array().ToList();
+            return ShapesAccessor[shapeName]["NORMAL"].AsVector3Array();
         }
 
         private Vector4 GetVector4( int index, Vertex.VertexUsage usage, string? shapeName = null ) {
@@ -116,7 +116,7 @@ namespace Xande.Models.Import {
                         var shapePositions = GetShapePositions( shapeName );
                         vector4 += new Vector4( shapePositions[index], 0 );
                     }
-                    if( ApplyShapes ) {
+                    if( ApplyShapes && AppliedShapePositions != null ) {
                         foreach( var appliedShape in AppliedShapePositions ) {
                             var list = appliedShape.pos;
                             var weight = appliedShape.weight;
@@ -131,12 +131,13 @@ namespace Xande.Models.Import {
                     vector4 = _blendWeights?[index] ?? vector4;
                     break;
                 case Vertex.VertexUsage.BlendIndices:
-                    if( _blendIndices == null ) break;
-                    vector4 = _blendIndices[index];
-                    if( BlendIndicesDict != null ) {
-                        for( var i = 0; i < 4; i++ ) {
-                            if( BlendIndicesDict.ContainsKey( ( int )_blendIndices[index][i] ) ) {
-                                vector4[i] = BlendIndicesDict[( int )_blendIndices[index][i]];
+                    if( _blendIndices != null ) {
+                        vector4 = _blendIndices[index];
+                        if( BlendIndicesDict != null ) {
+                            for( var i = 0; i < 4; i++ ) {
+                                if( BlendIndicesDict.ContainsKey( ( int )_blendIndices[index][i] ) ) {
+                                    vector4[i] = BlendIndicesDict[( int )_blendIndices[index][i]];
+                                }
                             }
                         }
                     }
@@ -144,11 +145,11 @@ namespace Xande.Models.Import {
                 case Vertex.VertexUsage.Normal:
                     if( _normals != null ) {
                         vector4 = new Vector4( _normals[index], 0 );
-                        if (shapeName != null) {
+                        if( shapeName != null ) {
                             var shapeNormals = GetShapeNormals( shapeName );
                             vector4 += new Vector4( shapeNormals[index], 0 );
                         }
-                        if( ApplyShapes ) {
+                        if( ApplyShapes && AppliedShapeNormals != null ) {
                             foreach( var appliedShape in AppliedShapeNormals ) {
                                 var list = appliedShape.nor;
                                 var weight = appliedShape.weight;

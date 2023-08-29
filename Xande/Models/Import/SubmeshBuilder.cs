@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -17,13 +18,12 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 namespace Xande.Models.Import {
     internal class SubmeshBuilder {
         public int IndexCount => Indices.Count;
-        public List<uint> Indices = new List<uint>();
+        public List<uint> Indices = new();
         public int BoneCount { get; } = 0;
         public List<string> Attributes = new();
         public List<string> Shapes => _shapeBuilders.Keys.ToList();
-        //public SubmeshShapesBuilder SubmeshShapeBuilder;
         private Dictionary<string, ShapeBuilder> _shapeBuilders = new();
-        public Mesh Mesh;
+        private Mesh _mesh;
         public string MaterialPath = String.Empty;
         private string _material = String.Empty;
 
@@ -37,8 +37,9 @@ namespace Xande.Models.Import {
         public List<(List<Vector3>, float)> AppliedShapes = new();
         public List<(List<Vector3>, float)> AppliedShapesNormals = new();
 
-        public VertexDataBuilder VertexDataBuilder;
-        public int RelativeIndex = 0;
+        private List<Vector4>? _bitangents = null;
+
+        private VertexDataBuilder VertexDataBuilder;
 
         /// <summary>
         /// 
@@ -46,66 +47,78 @@ namespace Xande.Models.Import {
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
         public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
-            Mesh = mesh;
+            _mesh = mesh;
+            if( _mesh.Primitives.Count == 0 ) {
+                PluginLog.Error( $"Submesh had zero primitives" );
+            }
+            if( _mesh.Primitives.Count > 1 ) {
+                PluginLog.Warning( $"Submesh had more than one primitive." );
+            }
 
-            foreach( var primitive in Mesh.Primitives ) {
-                VertexDataBuilder = new( primitive, vertexDeclarationStruct );
-                Indices.AddRange( primitive.GetIndices() );
-                var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
-                var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
-                var material = primitive.Material?.Name;
+            var primitive = _mesh.Primitives[0];
+            //foreach( var primitive in _mesh.Primitives ) {
+            VertexDataBuilder = new( primitive, vertexDeclarationStruct );
+            Indices.AddRange( primitive.GetIndices() );
+            var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
+            var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
+            var material = primitive.Material?.Name;
 
-                if( String.IsNullOrEmpty( material ) ) {
-                    // TODO: Figure out what to do in this case
-                    // Have a Model as an argument and take the first material from that?
-                    PluginLog.Error( "Submesh had null material name" );
+            if( String.IsNullOrEmpty( material ) ) {
+                // TODO: Figure out what to do in this case
+                // Have a Model as an argument and take the first material from that?
+                PluginLog.Error( "Submesh had null material name" );
+            }
+            else {
+                if( String.IsNullOrEmpty( MaterialPath ) ) {
+                    _material = material;
+                    MaterialPath = AdjustMaterialPath( _material );
                 }
                 else {
-                    if( String.IsNullOrEmpty( MaterialPath ) ) {
-                        _material = material;
-                        MaterialPath = AdjustMaterialPath( _material );
+                    if( material != _material || material != MaterialPath ) {
+                        PluginLog.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
                     }
-                    else {
-                        if( material != _material || material != MaterialPath ) {
-                            PluginLog.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
+                }
+            }
+
+            if( positions != null ) {
+                _vertexCount += positions.Count;
+
+                foreach( var pos in positions ) {
+                    MinBoundingBox.X = MinBoundingBox.X < pos.X ? MinBoundingBox.X : pos.X;
+                    MinBoundingBox.Y = MinBoundingBox.Y < pos.Y ? MinBoundingBox.Y : pos.Y;
+                    MinBoundingBox.Z = MinBoundingBox.Z < pos.Z ? MinBoundingBox.Z : pos.Z;
+
+                    MaxBoundingBox.X = MaxBoundingBox.X > pos.X ? MaxBoundingBox.X : pos.X;
+                    MaxBoundingBox.Y = MaxBoundingBox.Y > pos.Y ? MaxBoundingBox.Y : pos.Y;
+                    MaxBoundingBox.Z = MaxBoundingBox.Z > pos.Z ? MaxBoundingBox.Z : pos.Z;
+                }
+            }
+            else {
+                PluginLog.Error( "This submesh had no positions." );
+            }
+
+            var includeNHara = skeleton.Where( x => x.StartsWith( "n_hara" ) ).Count() > 1;
+
+            if( blendIndices != null ) {
+                foreach( var blendIndex in blendIndices ) {
+                    for( var i = 0; i < 4; i++ ) {
+                        var index = ( int )blendIndex[i];
+                        if( !OriginalBoneIndexToStrings.ContainsKey( index ) && index < skeleton.Count &&
+                            skeleton[index] != "n_root" && ( skeleton[index] != "n_hara" || includeNHara ) ) {
+                            OriginalBoneIndexToStrings.Add( index, skeleton[index] );
                         }
                     }
                 }
+            }
+            else {
+                PluginLog.Error( $"This submesh had no blend indices." );
+            }
 
-                if( positions != null ) {
-                    _vertexCount += positions.Count;
-
-                    foreach( var pos in positions ) {
-                        MinBoundingBox.X = MinBoundingBox.X < pos.X ? MinBoundingBox.X : pos.X;
-                        MinBoundingBox.Y = MinBoundingBox.Y < pos.Y ? MinBoundingBox.Y : pos.Y;
-                        MinBoundingBox.Z = MinBoundingBox.Z < pos.Z ? MinBoundingBox.Z : pos.Z;
-
-                        MaxBoundingBox.X = MaxBoundingBox.X > pos.X ? MaxBoundingBox.X : pos.X;
-                        MaxBoundingBox.Y = MaxBoundingBox.Y > pos.Y ? MaxBoundingBox.Y : pos.Y;
-                        MaxBoundingBox.Z = MaxBoundingBox.Z > pos.Z ? MaxBoundingBox.Z : pos.Z;
-                    }
-                }
-                else {
-                    PluginLog.Error( "This submesh had no positions." );
-                }
-
-                var includeNHara = skeleton.Where( x => x.StartsWith( "n_hara" ) ).Count() > 1;
-
-                if( blendIndices != null ) {
-                    foreach( var blendIndex in blendIndices ) {
-                        for( var i = 0; i < 4; i++ ) {
-                            var index = ( int )blendIndex[i];
-                            if( !OriginalBoneIndexToStrings.ContainsKey( index ) && index < skeleton.Count &&
-                                skeleton[index] != "n_root" && ( skeleton[index] != "n_hara" || includeNHara ) ) {
-                                OriginalBoneIndexToStrings.Add( index, skeleton[index] );
-                            }
-                        }
-                    }
-                }
-
-                var shapeWeights = mesh.GetMorphWeights();
-                try {
-                    var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
+            var shapeWeights = mesh.GetMorphWeights();
+            try {
+                var json = mesh.Extras.Content;
+                if (json != null) {
+                var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
                     if( jsonNode != null ) {
                         var names = jsonNode["targetNames"]?.AsArray();
                         if( names != null && names.Any() ) {
@@ -130,27 +143,29 @@ namespace Xande.Models.Import {
                                     target.TryGetValue( "NORMAL", out var shapeNormalAccessor );
                                     var appliedPositions = shapeAccessor?.AsVector3Array();
                                     var appliedNormalPositions = shapeNormalAccessor?.AsVector3Array();
+
                                     if( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where( x => x != Vector3.Zero ).Any() ) {
-                                        PluginLog.Debug( $"Found applied shape: {shapeName} - {shapeWeight}" );
+                                        PluginLog.Debug( $"AppliedShape: {shapeName} with weight {shapeWeight}" );
                                         AppliedShapes.Add( (appliedPositions.ToList(), shapeWeight) );
                                     }
                                     if( appliedNormalPositions != null && appliedNormalPositions.Any() && appliedNormalPositions.Where( x => x != Vector3.Zero ).Any() ) {
                                         // Unsure if this actually matters
-                                        PluginLog.Debug( $"FOUND NORMAL SHAPES" );
                                         AppliedShapesNormals.Add( (appliedNormalPositions.ToList(), shapeWeight) );
                                     }
                                 }
                             }
                         }
                     }
-                    else {
-                        PluginLog.Debug( "Mesh contained no extras." );
-                    }
                 }
-                catch( Exception ex ) {
-
+                else {
+                    PluginLog.Debug( "Mesh contained no extras." );
                 }
             }
+            catch( Exception ex ) {
+                PluginLog.Error( "Could not add shapes." );
+                PluginLog.Error( ex.ToString() );
+            }
+            //}
             VertexDataBuilder.AppliedShapePositions = AppliedShapes;
             VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
@@ -233,14 +248,17 @@ namespace Xande.Models.Import {
         }
 
         // TODO: Do we actually need to calculate these values?
-        public List<Vector4> CalculateBitangents() {
-            var tris = Mesh.EvaluateTriangles();
-            var indices = Mesh.Primitives[0].GetIndices();
-            var ret = new List<Vector4>();
-            var positions = Mesh.Primitives[0].GetVertexAccessor( "POSITION" )?.AsVector3Array();
-            var uvs = Mesh.Primitives[0].GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
-            var normals = Mesh.Primitives[0].GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
-            var colors = Mesh.Primitives[0].GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
+        public void CalculateBitangents( bool forceRecalculate = false ) {
+            if( _bitangents != null && !forceRecalculate ) {
+                return;
+            }
+            var tris = _mesh.EvaluateTriangles();
+            var indices = _mesh.Primitives[0].GetIndices();
+            _bitangents = new List<Vector4>();
+            var positions = _mesh.Primitives[0].GetVertexAccessor( "POSITION" )?.AsVector3Array();
+            var uvs = _mesh.Primitives[0].GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+            var normals = _mesh.Primitives[0].GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
+            var colors = _mesh.Primitives[0].GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
 
             var binormalDict = new SortedDictionary<int, Vector4>();
             var tangentDict = new SortedDictionary<int, Vector3>();
@@ -388,7 +406,7 @@ namespace Xande.Models.Import {
                 var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
                 binormal *= handedness;
 
-                ret.Add( new Vector4( binormal, handedness ) );
+                _bitangents.Add( new Vector4( binormal, handedness ) );
 
                 foreach( var vIdx in oVertices ) {
                     if( !binormalDict.ContainsKey( vIdx ) ) {
@@ -400,7 +418,6 @@ namespace Xande.Models.Import {
                 }
             }
 
-            return binormalDict.Values.ToList();
             /*
             foreach( var tri in tris ) {
                 var vertex1Pos = tri.A.GetGeometry().GetPosition();
@@ -456,9 +473,10 @@ namespace Xande.Models.Import {
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
-            VertexDataBuilder.Bitangents = CalculateBitangents();
-            foreach (var s in _shapeBuilders.Values ) {
-                s.SetBitangents(VertexDataBuilder.Bitangents);
+            CalculateBitangents();
+            VertexDataBuilder.Bitangents = _bitangents;
+            foreach( var s in _shapeBuilders.Values ) {
+                s.SetBitangents( VertexDataBuilder.Bitangents );
             }
             return VertexDataBuilder.GetVertexData();
         }
