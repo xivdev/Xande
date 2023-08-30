@@ -111,14 +111,14 @@ namespace Xande.Models.Import {
                 }
             }
             else {
-                PluginLog.Error( $"This submesh had no blend indices." );
+                PluginLog.Warning( $"This submesh had no blend indices." );
             }
 
             var shapeWeights = mesh.GetMorphWeights();
             try {
                 var json = mesh.Extras.Content;
-                if (json != null) {
-                var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
+                if( json != null ) {
+                    var jsonNode = JsonNode.Parse( mesh.Extras.ToJson() );
                     if( jsonNode != null ) {
                         var names = jsonNode["targetNames"]?.AsArray();
                         if( names != null && names.Any() ) {
@@ -128,6 +128,7 @@ namespace Xande.Models.Import {
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
                                     _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct );
+                                    VertexDataBuilder.AddShape(shapeName, primitive.GetMorphTargetAccessors(i) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
                                     Attributes.Add( shapeName );
@@ -173,9 +174,11 @@ namespace Xande.Models.Import {
 
         public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
             VertexDataBuilder.BlendIndicesDict = dict;
+            /*
             foreach( var shapeBuilder in _shapeBuilders.Values ) {
                 shapeBuilder.SetBlendIndicesDict( dict );
             }
+            */
         }
 
         public List<ushort> GetSubmeshBoneMap( List<string> bones ) {
@@ -192,7 +195,7 @@ namespace Xande.Models.Import {
             if( includeShapes ) {
                 foreach( var shapeName in _shapeBuilders.Keys ) {
                     if( strings == null || strings.Contains( shapeName ) ) {
-                        ret += _shapeBuilders[shapeName].GetVertexCount();
+                        ret += _shapeBuilders[shapeName].VertexCount;
                     }
                 }
             }
@@ -202,7 +205,7 @@ namespace Xande.Models.Import {
         public int GetShapeVertexCount( string str ) {
             foreach( var shapeName in _shapeBuilders.Keys ) {
                 if( str == shapeName ) {
-                    return _shapeBuilders[str].GetVertexCount();
+                    return _shapeBuilders[str].VertexCount;
                 }
             }
             return 0;
@@ -252,170 +255,174 @@ namespace Xande.Models.Import {
             if( _bitangents != null && !forceRecalculate ) {
                 return;
             }
-            var tris = _mesh.EvaluateTriangles();
-            var indices = _mesh.Primitives[0].GetIndices();
-            _bitangents = new List<Vector4>();
-            var positions = _mesh.Primitives[0].GetVertexAccessor( "POSITION" )?.AsVector3Array();
-            var uvs = _mesh.Primitives[0].GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
-            var normals = _mesh.Primitives[0].GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
-            var colors = _mesh.Primitives[0].GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
+            try {
+                var tris = _mesh.EvaluateTriangles();
+                var indices = _mesh.Primitives[0].GetIndices();
+                _bitangents = new List<Vector4>();
+                var positions = _mesh.Primitives[0].GetVertexAccessor( "POSITION" )?.AsVector3Array();
+                var uvs = _mesh.Primitives[0].GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+                var normals = _mesh.Primitives[0].GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
+                var colors = _mesh.Primitives[0].GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
 
-            var binormalDict = new SortedDictionary<int, Vector4>();
-            var tangentDict = new SortedDictionary<int, Vector3>();
+                var binormalDict = new SortedDictionary<int, Vector4>();
+                var tangentDict = new SortedDictionary<int, Vector3>();
 
-            var indicesCounter = 0;
+                var indicesCounter = 0;
 
-            // https://github.com/TexTools/xivModdingFramework/blob/f8d442688e61851a90646e309b868783c47122be/xivModdingFramework/Models/Helpers/ModelModifiers.cs#L1575
-            var connectedVertices = new Dictionary<int, HashSet<int>>();
-            for( var i = 0; i < indices.Count; i += 3 ) {
-                var t0 = ( int )indices[i];
-                var t1 = ( int )indices[i + 1];
-                var t2 = ( int )indices[i + 2];
+                // https://github.com/TexTools/xivModdingFramework/blob/f8d442688e61851a90646e309b868783c47122be/xivModdingFramework/Models/Helpers/ModelModifiers.cs#L1575
+                var connectedVertices = new Dictionary<int, HashSet<int>>();
+                for( var i = 0; i < indices.Count; i += 3 ) {
+                    var t0 = ( int )indices[i];
+                    var t1 = ( int )indices[i + 1];
+                    var t2 = ( int )indices[i + 2];
 
-                if( !connectedVertices.ContainsKey( t0 ) ) {
-                    connectedVertices.Add( t0, new HashSet<int>() );
+                    if( !connectedVertices.ContainsKey( t0 ) ) {
+                        connectedVertices.Add( t0, new HashSet<int>() );
+                    }
+                    if( !connectedVertices.ContainsKey( t1 ) ) {
+                        connectedVertices.Add( t1, new HashSet<int>() );
+                    }
+                    if( !connectedVertices.ContainsKey( t2 ) ) {
+                        connectedVertices.Add( t2, new HashSet<int>() );
+                    }
+
+                    connectedVertices[t0].Add( t1 );
+                    connectedVertices[t0].Add( t2 );
+                    connectedVertices[t1].Add( t0 );
+                    connectedVertices[t1].Add( t2 );
+                    connectedVertices[t2].Add( t0 );
+                    connectedVertices[t2].Add( t1 );
                 }
-                if( !connectedVertices.ContainsKey( t1 ) ) {
-                    connectedVertices.Add( t1, new HashSet<int>() );
-                }
-                if( !connectedVertices.ContainsKey( t2 ) ) {
-                    connectedVertices.Add( t2, new HashSet<int>() );
-                }
 
-                connectedVertices[t0].Add( t1 );
-                connectedVertices[t0].Add( t2 );
-                connectedVertices[t1].Add( t0 );
-                connectedVertices[t1].Add( t2 );
-                connectedVertices[t2].Add( t0 );
-                connectedVertices[t2].Add( t1 );
-            }
+                var vertTranslation = new Dictionary<int, int>();
+                var weldedVerts = new Dictionary<int, List<int>>();
+                var tempVertices = new List<int>();
 
-            var vertTranslation = new Dictionary<int, int>();
-            var weldedVerts = new Dictionary<int, List<int>>();
-            var tempVertices = new List<int>();
-
-            for( var oIdx = 0; oIdx < positions.Count; oIdx++ ) {
-                var idx = -1;
-                for( var nIdx = 0; nIdx < tempVertices.Count; nIdx++ ) {
-                    if( positions[nIdx] == positions[oIdx]
-                        && uvs[nIdx] == uvs[oIdx]
-                        && normals[nIdx] == normals[oIdx]
-                        && colors[nIdx] != colors[oIdx] ) {
-                        var alreadyMergedVerts = weldedVerts[nIdx];
-                        var alreadyConnectedOldVerts = new HashSet<int>();
-                        foreach( var amIdx in alreadyMergedVerts ) {
-                            foreach( var cv in connectedVertices[amIdx] ) {
-                                alreadyConnectedOldVerts.Add( cv );
+                for( var oIdx = 0; oIdx < positions.Count; oIdx++ ) {
+                    var idx = -1;
+                    for( var nIdx = 0; nIdx < tempVertices.Count; nIdx++ ) {
+                        if( positions[nIdx] == positions[oIdx]
+                            && uvs[nIdx] == uvs[oIdx]
+                            && normals[nIdx] == normals[oIdx]
+                            && colors[nIdx] != colors[oIdx] ) {
+                            var alreadyMergedVerts = weldedVerts[nIdx];
+                            var alreadyConnectedOldVerts = new HashSet<int>();
+                            foreach( var amIdx in alreadyMergedVerts ) {
+                                foreach( var cv in connectedVertices[amIdx] ) {
+                                    alreadyConnectedOldVerts.Add( cv );
+                                }
                             }
-                        }
 
-                        var myConnectedVerts = connectedVertices[oIdx];
-                        var isMirror = false;
-                        foreach( var weldedConnection in alreadyConnectedOldVerts ) {
-                            foreach( var newConnection in myConnectedVerts ) {
-                                if( uvs[newConnection] == uvs[weldedConnection] &&
-                                    positions[newConnection] != positions[weldedConnection] ) {
-                                    isMirror = true;
+                            var myConnectedVerts = connectedVertices[oIdx];
+                            var isMirror = false;
+                            foreach( var weldedConnection in alreadyConnectedOldVerts ) {
+                                foreach( var newConnection in myConnectedVerts ) {
+                                    if( uvs[newConnection] == uvs[weldedConnection] &&
+                                        positions[newConnection] != positions[weldedConnection] ) {
+                                        isMirror = true;
+                                        break;
+                                    }
+                                }
+                                if( isMirror ) {
                                     break;
                                 }
                             }
-                            if( isMirror ) {
+
+                            if( !isMirror ) {
+                                idx = nIdx;
                                 break;
                             }
                         }
+                    }
+                    if( idx == -1 ) {
+                        tempVertices.Add( oIdx );
+                        idx = tempVertices.Count - 1;
+                        weldedVerts.Add( idx, new List<int>() );
+                    }
 
-                        if( !isMirror ) {
-                            idx = nIdx;
-                            break;
+                    weldedVerts[idx].Add( oIdx );
+                    vertTranslation.Add( oIdx, idx );
+                }
+
+                var tempIndices = new List<int>();
+                for( var i = 0; i < indices.Count; i++ ) {
+                    var oldVert = indices[i];
+                    var newVert = vertTranslation[( int )oldVert];
+                    tempIndices.Add( newVert );
+                }
+
+                var tangents = new List<Vector3>( tempVertices.Count );
+                tangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
+                var bitangents = new List<Vector3>( tempVertices.Count );
+                bitangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
+
+                for( var a = 0; a < tempIndices.Count; a += 3 ) {
+                    // applied shapes?
+                    var vertexId1 = tempIndices[a];
+                    var vertexId2 = tempIndices[a + 1];
+                    var vertexId3 = tempIndices[a + 2];
+
+                    var vertex1 = tempVertices[vertexId1];
+                    var vertex2 = tempVertices[vertexId2];
+                    var vertex3 = tempVertices[vertexId3];
+
+                    var deltaX1 = positions[vertex2].X - positions[vertex1].X;
+                    var deltaX2 = positions[vertex3].X - positions[vertex1].X;
+
+                    var deltaY1 = positions[vertex2].Y - positions[vertex1].Y;
+                    var deltaY2 = positions[vertex3].Y - positions[vertex1].Y;
+
+                    var deltaZ1 = positions[vertex2].Z - positions[vertex1].Z;
+                    var deltaZ2 = positions[vertex3].Z - positions[vertex1].Z;
+
+                    var deltaU1 = uvs[vertex2].X - uvs[vertex1].X;
+                    var deltaU2 = uvs[vertex3].X - uvs[vertex1].X;
+
+                    var deltaV1 = uvs[vertex2].Y - uvs[vertex1].Y;
+                    var deltaV2 = uvs[vertex3].Y - uvs[vertex1].Y;
+
+                    var r = 1.0f / ( deltaU1 * deltaV2 - deltaU2 * deltaV1 );
+                    var sdir = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
+                    var tdir = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
+
+                    tangents[vertexId1] += sdir;
+                    tangents[vertexId2] += sdir;
+                    tangents[vertexId3] += sdir;
+
+                    bitangents[vertexId1] += tdir;
+                    bitangents[vertexId2] += tdir;
+                    bitangents[vertexId3] += tdir;
+                }
+
+                for( var vertexId = 0; vertexId < tempVertices.Count; vertexId++ ) {
+                    var vertex = tempVertices[vertexId];
+                    var oVertices = vertTranslation.Where( x => x.Value == vertexId ).Select( x => x.Key ).ToList();
+
+                    var n = normals[vertex];
+                    var t = tangents[vertexId];
+                    var b = bitangents[vertexId];
+
+                    var tangent = t - ( n * Vector3.Dot( n, t ) );
+                    tangent = Vector3.Normalize( tangent );
+
+                    var binormal = Vector3.Cross( n, tangent );
+                    binormal = Vector3.Normalize( binormal );
+                    var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
+                    binormal *= handedness;
+
+                    _bitangents.Add( new Vector4( binormal, handedness ) );
+
+                    foreach( var vIdx in oVertices ) {
+                        if( !binormalDict.ContainsKey( vIdx ) ) {
+                            binormalDict.Add( vIdx, new Vector4( binormal, handedness ) );
+                        }
+                        if( !tangentDict.ContainsKey( vIdx ) ) {
+                            tangentDict.Add( vIdx, tangent );
                         }
                     }
                 }
-                if( idx == -1 ) {
-                    tempVertices.Add( oIdx );
-                    idx = tempVertices.Count - 1;
-                    weldedVerts.Add( idx, new List<int>() );
-                }
+            } catch (Exception ex) {
 
-                weldedVerts[idx].Add( oIdx );
-                vertTranslation.Add( oIdx, idx );
-            }
-
-            var tempIndices = new List<int>();
-            for( var i = 0; i < indices.Count; i++ ) {
-                var oldVert = indices[i];
-                var newVert = vertTranslation[( int )oldVert];
-                tempIndices.Add( newVert );
-            }
-
-            var tangents = new List<Vector3>( tempVertices.Count );
-            tangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
-            var bitangents = new List<Vector3>( tempVertices.Count );
-            bitangents.AddRange( Enumerable.Repeat( Vector3.Zero, tempVertices.Count ) );
-
-            for( var a = 0; a < tempIndices.Count; a += 3 ) {
-                // applied shapes?
-                var vertexId1 = tempIndices[a];
-                var vertexId2 = tempIndices[a + 1];
-                var vertexId3 = tempIndices[a + 2];
-
-                var vertex1 = tempVertices[vertexId1];
-                var vertex2 = tempVertices[vertexId2];
-                var vertex3 = tempVertices[vertexId3];
-
-                var deltaX1 = positions[vertex2].X - positions[vertex1].X;
-                var deltaX2 = positions[vertex3].X - positions[vertex1].X;
-
-                var deltaY1 = positions[vertex2].Y - positions[vertex1].Y;
-                var deltaY2 = positions[vertex3].Y - positions[vertex1].Y;
-
-                var deltaZ1 = positions[vertex2].Z - positions[vertex1].Z;
-                var deltaZ2 = positions[vertex3].Z - positions[vertex1].Z;
-
-                var deltaU1 = uvs[vertex2].X - uvs[vertex1].X;
-                var deltaU2 = uvs[vertex3].X - uvs[vertex1].X;
-
-                var deltaV1 = uvs[vertex2].Y - uvs[vertex1].Y;
-                var deltaV2 = uvs[vertex3].Y - uvs[vertex1].Y;
-
-                var r = 1.0f / ( deltaU1 * deltaV2 - deltaU2 * deltaV1 );
-                var sdir = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
-                var tdir = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
-
-                tangents[vertexId1] += sdir;
-                tangents[vertexId2] += sdir;
-                tangents[vertexId3] += sdir;
-
-                bitangents[vertexId1] += tdir;
-                bitangents[vertexId2] += tdir;
-                bitangents[vertexId3] += tdir;
-            }
-
-            for( var vertexId = 0; vertexId < tempVertices.Count; vertexId++ ) {
-                var vertex = tempVertices[vertexId];
-                var oVertices = vertTranslation.Where( x => x.Value == vertexId ).Select( x => x.Key ).ToList();
-
-                var n = normals[vertex];
-                var t = tangents[vertexId];
-                var b = bitangents[vertexId];
-
-                var tangent = t - ( n * Vector3.Dot( n, t ) );
-                tangent = Vector3.Normalize( tangent );
-
-                var binormal = Vector3.Cross( n, tangent );
-                binormal = Vector3.Normalize( binormal );
-                var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
-                binormal *= handedness;
-
-                _bitangents.Add( new Vector4( binormal, handedness ) );
-
-                foreach( var vIdx in oVertices ) {
-                    if( !binormalDict.ContainsKey( vIdx ) ) {
-                        binormalDict.Add( vIdx, new Vector4( binormal, handedness ) );
-                    }
-                    if( !tangentDict.ContainsKey( vIdx ) ) {
-                        tangentDict.Add( vIdx, tangent );
-                    }
-                }
             }
 
             /*
@@ -475,9 +482,6 @@ namespace Xande.Models.Import {
         public Dictionary<int, List<byte>> GetVertexData() {
             CalculateBitangents();
             VertexDataBuilder.Bitangents = _bitangents;
-            foreach( var s in _shapeBuilders.Values ) {
-                s.SetBitangents( VertexDataBuilder.Bitangents );
-            }
             return VertexDataBuilder.GetVertexData();
         }
 
@@ -486,7 +490,8 @@ namespace Xande.Models.Import {
 
             foreach( var shapeName in _shapeBuilders.Keys ) {
                 if( strings == null || strings.Contains( shapeName ) ) {
-                    ret.Add( shapeName, _shapeBuilders[shapeName].GetVertexData() );
+                    ret.Add(shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
+                    //ret.Add( shapeName, _shapeBuilders[shapeName].GetVertexData() );
                 }
             }
             return ret;

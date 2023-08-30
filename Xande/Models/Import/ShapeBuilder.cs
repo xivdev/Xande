@@ -12,16 +12,17 @@ namespace Xande.Models.Import {
     internal class ShapeBuilder {
         public readonly string ShapeName;
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();
+        public readonly List<int> DifferentVertices = new();
+        //private VertexDataBuilder _vertexDataBuilder;
 
-        private List<int> _differentVertices = new();
-        private VertexDataBuilder _vertexDataBuilder;
+        public int VertexCount => DifferentVertices.Count;
 
         public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
             ShapeName = name;
-            _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
+            //_vertexDataBuilder = new( primitive, vertexDeclarationStruct );
 
             var shape = primitive.GetMorphTargetAccessors( morphTargetIndex );
-            _vertexDataBuilder.AddShape( ShapeName, shape );
+            //_vertexDataBuilder.AddShape( ShapeName, shape );
 
             shape.TryGetValue( "POSITION", out var positionsAccessor );
             var shapePositions = positionsAccessor?.AsVector3Array();
@@ -34,31 +35,15 @@ namespace Xande.Models.Import {
                     continue;
                 }
 
-                if( !_differentVertices.Contains( ( int )vertexIdx ) ) {
-                    _differentVertices.Add( ( int )vertexIdx );
+                if( !DifferentVertices.Contains( ( int )vertexIdx ) ) {
+                    DifferentVertices.Add( ( int )vertexIdx );
                 }
                 ShapeValues.Add( new() {
                     BaseIndicesIndex = ( ushort )indexIdx,
-                    ReplacingVertexIndex = ( ushort )_differentVertices.IndexOf( ( int )vertexIdx )
+                    ReplacingVertexIndex = ( ushort )DifferentVertices.IndexOf( ( int )vertexIdx )
                 } );
             }
 
-        }
-
-        public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
-            _vertexDataBuilder.BlendIndicesDict = dict;
-        }
-
-        public int GetVertexCount() {
-            return _differentVertices.Count;
-        }
-
-        public void SetBitangents( List<Vector4> list ) {
-            _vertexDataBuilder.Bitangents = list;
-        }
-
-        public Dictionary<int, List<byte>> GetVertexData() {
-            return _vertexDataBuilder.GetShapeVertexData( _differentVertices, ShapeName );
         }
     }
 }
