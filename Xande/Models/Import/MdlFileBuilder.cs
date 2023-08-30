@@ -148,28 +148,31 @@ public class MdlFileBuilder {
         var allBones = new List<string>();
         var bonesToNodes = new Dictionary<string, Node>();
         var eidNodes = new Dictionary<string, Node>();
+
+        Skin? skeleton = null;
         if( _root.LogicalSkins.Count == 0 ) {
-            PluginLog.Error( $"There was no skeleton/armature in the file." );
-            return (null, new List<byte>(), new List<byte>());
+            PluginLog.Warning( $"There was no skeleton/armature in the file." );
         }
-        var skeleton = _root.LogicalSkins?[0];
-        if( skeleton != null ) {
-            for( var id = 0; id < skeleton.JointsCount; id++ ) {
-                var (joint, InverseBindMatrix) = skeleton.GetJoint( id );
+        else {
+            skeleton = _root.LogicalSkins?[0];
+            if( skeleton != null ) {
+                for( var id = 0; id < skeleton.JointsCount; id++ ) {
+                    var (joint, InverseBindMatrix) = skeleton.GetJoint( id );
 
-                var boneString = joint.Name;
-                if( !String.IsNullOrEmpty( boneString ) ) {
-                    allBones.Add( boneString );
-                    bonesToNodes.Add( boneString, joint );
+                    var boneString = joint.Name;
+                    if( !String.IsNullOrEmpty( boneString ) ) {
+                        allBones.Add( boneString );
+                        bonesToNodes.Add( boneString, joint );
 
-                    if( boneString.StartsWith( "eid_" ) ) {
-                        eidNodes.Add( boneString, joint );
+                        if( boneString.StartsWith( "eid_" ) ) {
+                            eidNodes.Add( boneString, joint );
+                        }
                     }
                 }
             }
-        }
-        else {
-            PluginLog.Error( $"Skeleton was null" );
+            else {
+                PluginLog.Error( $"Skeleton was null" );
+            }
         }
 
         var indexCount = 0;
@@ -192,7 +195,7 @@ public class MdlFileBuilder {
                 }
 
                 if( submesh.BoneCount == 0 ) {
-                    PluginLog.Debug( $"Mesh {meshIdx}-{submeshIdx} had zero bones. This can cause a game crash if animations are expected." );
+                    PluginLog.Warning( $"Mesh {meshIdx}-{submeshIdx}: {_meshes[meshIdx][submeshIdx].Name} had zero bones. This can cause a game crash if animations are expected." );
                 }
 
                 submeshes.Add( submesh );
@@ -214,7 +217,9 @@ public class MdlFileBuilder {
         }
 
         // TODO: if skeleton == null?
-        _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
+        if( skeleton != null ) {
+            _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
+        }
 
         var strings = _stringTableBuilder.GetStrings();
 
