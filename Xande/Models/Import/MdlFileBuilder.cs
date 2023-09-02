@@ -294,7 +294,7 @@ public class MdlFileBuilder {
 
             meshStructs.Add( new() {
                 VertexCount = ( ushort )vertexCount,
-                IndexCount = ( ushort )mesh.IndexCount,
+                IndexCount = ( uint ) mesh.IndexCount,
                 MaterialIndex = ( ushort )mesh.GetMaterialIndex( _stringTableBuilder.Materials.ToList() ),
                 SubMeshIndex = ( ushort )submeshCounter,
                 SubMeshCount = ( ushort )mesh.Submeshes.Count,
