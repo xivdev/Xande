@@ -25,12 +25,11 @@ namespace Xande.Models.Import {
         //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private Dictionary<int, int> _blendIndicesDict;
 
+        // TODO: Should probably change this to uint...
         public int IndexCount { get; protected set; } = 0;
-        public int _startIndex = 0;
 
-        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, int startIndex ) {
+        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes ) {
             //_vertexDeclarationStruct = vds;
-            _startIndex = startIndex;
 
             foreach( var sm in submeshes ) {
                 Submeshes.Add( sm );
@@ -135,6 +134,31 @@ namespace Xande.Models.Import {
                     vertexDict[stream].AddRange( submeshVertexData[stream] );
                 }
             }
+            return vertexDict;
+        }
+
+        public async Task<Dictionary<int, List<byte>>> GetVertexDataAsync() {
+            var vertexDict = new Dictionary<int, List<byte >> ();
+            var tasks = new Task<Dictionary<int, List<byte>>>[ Submeshes.Count ];
+            for (var i = 0; i < Submeshes.Count; i++) {
+                var j = i;
+                tasks[j] = Task.Run( () => Task.FromResult( Submeshes[j].GetVertexData() ) );
+            }
+
+            Task.WaitAll( tasks );
+
+            for (var i = 0; i < Submeshes.Count; i++ ) {
+                var t = await tasks[i];
+                foreach (var stream in t.Keys ) {
+                    if (!vertexDict.ContainsKey(stream)) {
+                        vertexDict.Add( stream, new() );
+
+                    }
+                    vertexDict[stream].AddRange( t[stream] );
+
+                }
+            }
+
             return vertexDict;
         }
 

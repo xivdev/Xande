@@ -121,10 +121,10 @@ public class StringTableBuilder {
         return GetOffsets( new List<string> { v } ).ToArray()[0];
     }
 
-    public uint GetOffset(string input) {
+    public uint GetOffset( string input ) {
         var aggregator = GetStrings();
         var str = string.Join( "\0", aggregator );
-        return (uint)str.IndexOf( input );
+        return ( uint )str.IndexOf( input );
     }
 
     public List<uint> GetOffsets( List<string> strings ) {
