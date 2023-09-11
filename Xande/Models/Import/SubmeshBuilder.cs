@@ -2,6 +2,8 @@ using Dalamud.Logging;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
+using Microsoft.VisualBasic;
+using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
@@ -59,6 +61,7 @@ namespace Xande.Models.Import {
             //foreach( var primitive in _mesh.Primitives ) {
             VertexDataBuilder = new( primitive, vertexDeclarationStruct );
             Indices.AddRange( primitive.GetIndices() );
+
             var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
             var positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array();
             var material = primitive.Material?.Name;
@@ -110,9 +113,6 @@ namespace Xande.Models.Import {
                     }
                 }
             }
-            else {
-                PluginLog.Warning( $"This submesh had no blend indices." );
-            }
 
             var shapeWeights = mesh.GetMorphWeights();
             try {
@@ -128,13 +128,12 @@ namespace Xande.Models.Import {
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
                                     _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct );
-                                    VertexDataBuilder.AddShape(shapeName, primitive.GetMorphTargetAccessors(i) );
+                                    VertexDataBuilder.AddShape( shapeName, primitive.GetMorphTargetAccessors( i ) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
                                     Attributes.Add( shapeName );
                                 }
                                 else {
-                                    //TODO: "applied shapes" ?
                                     var shapeWeight = shapeWeights[i];
                                     if( shapeWeight == 0 ) { continue; }
 
@@ -174,11 +173,6 @@ namespace Xande.Models.Import {
 
         public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
             VertexDataBuilder.BlendIndicesDict = dict;
-            /*
-            foreach( var shapeBuilder in _shapeBuilders.Values ) {
-                shapeBuilder.SetBlendIndicesDict( dict );
-            }
-            */
         }
 
         public List<ushort> GetSubmeshBoneMap( List<string> bones ) {
@@ -221,6 +215,11 @@ namespace Xande.Models.Import {
             return ( uint )ret;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="indexOffset">The value to add to all index values</param>
+        /// <returns></returns>
         public List<byte> GetIndexData( int indexOffset = 0 ) {
             var ret = new List<byte>();
             foreach( var index in Indices ) {
@@ -237,7 +236,7 @@ namespace Xande.Models.Import {
                 ret = "/" + ret;
             }
             if( !mat.EndsWith( ".mtrl" ) ) {
-                ret = ret + ".mtrl";
+                ret += ".mtrl";
             }
             return ret;
         }
@@ -255,6 +254,7 @@ namespace Xande.Models.Import {
             if( _bitangents != null && !forceRecalculate ) {
                 return;
             }
+
             try {
                 var tris = _mesh.EvaluateTriangles();
                 var indices = _mesh.Primitives[0].GetIndices();
@@ -266,8 +266,6 @@ namespace Xande.Models.Import {
 
                 var binormalDict = new SortedDictionary<int, Vector4>();
                 var tangentDict = new SortedDictionary<int, Vector3>();
-
-                var indicesCounter = 0;
 
                 // https://github.com/TexTools/xivModdingFramework/blob/f8d442688e61851a90646e309b868783c47122be/xivModdingFramework/Models/Helpers/ModelModifiers.cs#L1575
                 var connectedVertices = new Dictionary<int, HashSet<int>>();
@@ -420,68 +418,18 @@ namespace Xande.Models.Import {
                             tangentDict.Add( vIdx, tangent );
                         }
                     }
-                }
-            } catch (Exception ex) {
 
-            }
-
-            /*
-            foreach( var tri in tris ) {
-                var vertex1Pos = tri.A.GetGeometry().GetPosition();
-                var vertex2Pos = tri.B.GetGeometry().GetPosition();
-                var vertex3Pos = tri.C.GetGeometry().GetPosition();
-
-                var vertex1UV = tri.A.GetMaterial().GetTexCoord( 0 );
-                var vertex2UV = tri.B.GetMaterial().GetTexCoord( 0 );
-                var vertex3UV = tri.C.GetMaterial().GetTexCoord( 0 );
-
-                var deltaX1 = vertex2Pos.X - vertex1Pos.X;
-                var deltaX2 = vertex3Pos.X - vertex1Pos.X;
-                var deltaY1 = vertex2Pos.Y - vertex1Pos.Y;
-                var deltaY2 = vertex3Pos.Y - vertex1Pos.Y;
-                var deltaZ1 = vertex2Pos.Z - vertex1Pos.Z;
-                var deltaZ2 = vertex3Pos.Z - vertex1Pos.Z;
-
-                var deltaU1 = vertex2UV.X - vertex1UV.X;
-                var deltaU2 = vertex3UV.X - vertex1UV.X;
-                var deltaV1 = vertex2UV.Y - vertex1UV.Y;
-                var deltaV2 = vertex3UV.Y - vertex1UV.Y;
-
-                var r = 1.0f / ( deltaU1 * deltaV2 - deltaU2 * deltaV1 );
-                var t = new Vector3( ( deltaV2 * deltaX1 - deltaV1 * deltaX2 ) * r, ( deltaV2 * deltaY1 - deltaV1 * deltaY2 ) * r, ( deltaV2 * deltaZ1 - deltaV1 * deltaZ2 ) * r );
-                var b = new Vector3( ( deltaU1 * deltaX2 - deltaU2 * deltaX1 ) * r, ( deltaU1 * deltaY2 - deltaU2 * deltaY1 ) * r, ( deltaU1 * deltaZ2 - deltaU2 * deltaZ1 ) * r );
-
-                tri.A.GetGeometry().TryGetNormal( out var n1 );
-                tri.B.GetGeometry().TryGetNormal( out var n2 );
-                tri.C.GetGeometry().TryGetNormal( out var n3 );
-
-                var narr = new List<Vector3>() { n1, n2, n3 };
-                foreach( var n in narr ) {
-                    var tangent = t - ( n * Vector3.Dot( n, t ) );
-                    tangent = Vector3.Normalize( tangent );
-
-                    var binormal = Vector3.Cross( n, tangent );
-                    binormal = Vector3.Normalize( binormal );
-
-                    var handedness = Vector3.Dot( Vector3.Cross( t, b ), n ) > 0 ? 1 : -1;
-                    binormal *= handedness;
-
-                    var val = new Vector4( binormal, handedness );
-
-                    if( !dict.ContainsKey( indices[indicesCounter] )) {
-                        dict.Add( indices[indicesCounter], new Vector4( 0, 0, 0, 0 ) );
-                    }
-                    dict[indices[indicesCounter]] += val;
-                    indicesCounter++;
                 }
             }
-            return dict.Values.ToList();
-            */
+            catch( Exception ex ) {
+                PluginLog.Error( $"Could not calculate bitangents. {ex.Message}" );
+            }
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
             CalculateBitangents();
-            VertexDataBuilder.Bitangents = _bitangents;
+            //VertexDataBuilder.Bitangents = _bitangents;
+            VertexDataBuilder.SetBitangents( _bitangents );
             return VertexDataBuilder.GetVertexData();
         }
 
@@ -490,11 +438,18 @@ namespace Xande.Models.Import {
 
             foreach( var shapeName in _shapeBuilders.Keys ) {
                 if( strings == null || strings.Contains( shapeName ) ) {
-                    ret.Add(shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
-                    //ret.Add( shapeName, _shapeBuilders[shapeName].GetVertexData() );
+                    ret.Add( shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
                 }
             }
             return ret;
+        }
+
+        public Dictionary<int, List<byte>> GetShapeVertexData( string shapeName ) {
+            if( _shapeBuilders.ContainsKey( shapeName ) ) {
+                return VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices );
+            }
+            return new Dictionary<int, List<byte>>();
+
         }
 
         public List<MdlStructs.ShapeValueStruct> GetShapeValues( string str ) {

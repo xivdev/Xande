@@ -15,7 +15,7 @@ namespace Xande.Models.Import {
     internal class VertexDataBuilder {
         public Dictionary<int, int>? BlendIndicesDict = null;
         private Dictionary<string, IReadOnlyDictionary<string, Accessor>> ShapesAccessor = new();
-        public List<Vector4>? Bitangents = null;
+        public IReadOnlyList<Vector4>? Bitangents = null;
         public List<(List<Vector3> pos, float weight)>? AppliedShapePositions;
         public List<(List<Vector3> nor, float weight)>? AppliedShapeNormals;
         public bool ApplyShapes = true;
@@ -39,6 +39,16 @@ namespace Xande.Models.Import {
             _texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
             _tangent1 = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array().ToList();
             _colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
+        }
+
+        public void SetBitangents( IReadOnlyList<Vector4> values ) {
+            Bitangents = values;
+            /*
+            var bitans = _primitive.GetVertexAccessor( "BITANS" )?.AsVector4Array();
+            if( bitans == null ) {
+                _primitive = _primitive.WithVertexAccessor( "BITANS", values );
+            }
+            */
         }
 
         public void AddShape( string shapeName, IReadOnlyDictionary<string, Accessor> accessor ) {
@@ -82,7 +92,7 @@ namespace Xande.Models.Import {
         }
 
         private List<byte> GetVertexData( int index, MdlStructs.VertexElement ve, string? shapeName = null ) {
-            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type, ( Vertex.VertexUsage )ve.Usage );
+            return GetBytes( GetVector4( index, ( Vertex.VertexUsage )ve.Usage, shapeName ), ( Vertex.VertexType )ve.Type );
         }
 
         private IList<Vector3> GetShapePositions( string shapeName ) {
@@ -206,7 +216,7 @@ namespace Xande.Models.Import {
             return vector4;
         }
 
-        private static List<byte> GetBytes( Vector4 vector4, Vertex.VertexType type, Vertex.VertexUsage usage ) {
+        private static List<byte> GetBytes( Vector4 vector4, Vertex.VertexType type ) {
             var ret = new List<byte>();
             switch( type ) {
                 case Vertex.VertexType.Single3:
