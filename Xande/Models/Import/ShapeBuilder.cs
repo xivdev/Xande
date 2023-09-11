@@ -43,7 +43,6 @@ namespace Xande.Models.Import {
                     ReplacingVertexIndex = ( ushort )DifferentVertices.IndexOf( ( int )vertexIdx )
                 } );
             }
-
         }
     }
 }
