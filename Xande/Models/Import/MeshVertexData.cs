@@ -10,6 +10,16 @@ namespace Xande.Models.Import {
         private Dictionary<int, List<byte>> _vertexData = new();
         private Dictionary<int, List<byte>> _shapeVertexData = new();
 
+        private List<Task<Dictionary<int, List<byte>>>> _vertexDataTasks = new();
+        private List<Task<Dictionary<int, List<byte>>>> _shapeVertexDataTasks = new();
+
+        public void AddVertexData(Task<Dictionary<int, List<byte>>> task) {
+            _vertexDataTasks.Add(task);
+        }
+
+        public void AddShapeVertexData( Task<Dictionary<int, List<byte>>> task ) {
+            _shapeVertexDataTasks.Add( task );
+        }
         public void AddVertexData( Dictionary<int, List<byte>> vertexData ) {
             foreach( var (stream, data) in vertexData ) {
                 if( !_vertexData.ContainsKey( stream ) ) {
@@ -26,6 +36,20 @@ namespace Xande.Models.Import {
                 }
                 _shapeVertexData[stream].AddRange( data );
             }
+        }
+
+        public async Task<List<byte>> GetBytesAsync() {
+            var ret = new List<byte>();
+            await Task.WhenAll( _vertexDataTasks );
+            await Task.WhenAll(_shapeVertexDataTasks );
+            foreach (var v in _vertexDataTasks ) {
+                AddVertexData( await v );
+            }
+            foreach (var s in _shapeVertexDataTasks) {
+                AddShapeVertexData( await s );
+            }
+
+            return GetBytes();
         }
 
         public List<byte> GetBytes() {
