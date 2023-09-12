@@ -240,7 +240,7 @@ namespace Xande.Models.Import {
             }
             return ret;
         }
-      
+
         public bool AddAttribute( string name ) {
             if( !Attributes.Contains( name ) ) {
                 Attributes.Add( name );

@@ -57,7 +57,7 @@ namespace Xande.Models.Import {
         public int GetVertexCount() {
             return GetVertexCount( false );
         }
-      
+
         /// <summary>
         /// 
         /// </summary>

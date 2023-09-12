@@ -409,7 +409,7 @@ public class MdlFileBuilder {
                 meshVertexCount += submesh.GetVertexCount();
                 submeshIndexCount += submesh.IndexCount;
             }
-        }
+
             meshIndexCount += mesh.IndexCount;
             //vertexData.AddRange( mvd.GetBytes() );
             indexData.AddRange( meshIndexData );
@@ -636,16 +636,13 @@ public class MdlFileBuilder {
                             eidNodes.Add( boneString, joint );
                         }
                     }
-                    //newShapeValues.Sort( CompareShapeValueStructs );
-                    shapeValues.AddRange( newShapeValues );
-                    verticesFromShapes += meshShapeValues.Count;
-                    shapeCount++;
                 }
             }
             else {
                 PluginLog.Error( $"Skeleton was somehow null" );
                 PluginLog.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
+
             }
         }
 
@@ -857,6 +854,7 @@ public class MdlFileBuilder {
                 meshVertexCount += submesh.GetVertexCount();
                 submeshIndexCount += submesh.IndexCount;
             }
+
             meshIndexCount += mesh.IndexCount;
             vertexData.AddRange( mvd.GetBytes() );
             indexData.AddRange( meshIndexData );
@@ -883,7 +881,7 @@ public class MdlFileBuilder {
                 shapeValues.AddRange( svs );    // the shape values have to be placed in the same order as the corresponding ShapeMeshStruct
             }
         }
-      
+
         var filledBoundingBoxStruct = new MdlStructs.BoundingBoxStruct() {
             Min = new[] { min.X, min.Y, min.Z, min.W },
             Max = new[] { max.X, max.Y, max.Z, max.W }
@@ -985,6 +983,7 @@ public class MdlFileBuilder {
             + 8 // PaddingAmount and Padding
             + ( 4 * 32 )  // 4 BoundingBoxes
             + ( file.ModelHeader.BoneCount * 32 );
+
         var vertexOffset0 = runtimeSize
             + 68    // ModelFileHeader
             + stackSize;
@@ -1078,6 +1077,7 @@ public class MdlFileBuilder {
                 _ => throw new ArgumentOutOfRangeException( $"Unknown VertexType: {( Vertex.VertexType )lastEle.Type}" )
             } + lastEle.Offset;
         }
+
         return vertexDeclarationSizes;
     }
 }

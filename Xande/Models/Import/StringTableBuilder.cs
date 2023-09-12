@@ -13,7 +13,7 @@ public class StringTableBuilder {
     public readonly List<string> Extras = new();
 
     public StringTableBuilder() {
-      
+
     }
 
     public void AddAttribute( string attr ) {
@@ -128,88 +128,6 @@ public class StringTableBuilder {
     }
 
     public List<uint> GetOffsets( List<string> strings ) {
-        var ret = new List<uint>();
-        var aggregator = GetStrings();
-        var str = string.Join( "\0", aggregator );
-        foreach( var s in strings ) {
-            var index = str.IndexOf( s );
-            if( index >= 0 ) {
-                ret.Add( ( uint )index );
-            }
-            else {
-                PluginLog.Error( $"Could not locate index for {s}" );
-            }
-        }
-        return ret;
-    }
-
-    internal List<string> GetStrings() {
-        var aggregator = new List<string>();
-        aggregator.AddRange( Attributes );
-        aggregator.AddRange( Bones );
-        aggregator.AddRange( Materials );
-        aggregator.AddRange( Shapes );
-        aggregator.AddRange( Extras );
-        return aggregator;
-    }
-
-    internal int GetStringCount() {
-        return Attributes.Count + Bones.Count + Materials.Count + Shapes.Count + Extras.Count;
-    }
-
-    internal List<char> GetChars() {
-        var str = String.Join( ' ', Attributes, Bones, Materials, Shapes, Extras );
-        PluginLog.Debug( $"Getting chars: {str}" );
-        return str.ToCharArray().ToList();
-    }
-
-    internal byte[] GetBytes() {
-        var aggregator = GetStrings();
-
-        var str = String.Join( "\0", aggregator );
-
-        // I don't know if this is actually necessary
-        if( Attributes.Count == 0 ) {
-            str += "\0";
-        }
-        if( Bones.Count == 0 ) {
-            str += "\0";
-        }
-        if( Materials.Count == 0 ) {
-            str += "\0";
-        }
-        if( Shapes.Count == 0 ) {
-            str += "\0";
-        }
-        if( Extras.Count == 0 ) {
-            str += "\0";
-        }
-
-        // This one is required, though
-        if( !str.EndsWith( "\0" ) ) {
-            str += "\0";
-        }
-
-        return Encoding.UTF8.GetBytes( str );
-    }
-
-    internal uint[] GetAttributeNameOffsets() {
-        return GetOffsets( Attributes.ToList() ).ToArray();
-    }
-
-    internal uint[] GetMaterialNameOffsets() {
-        return GetOffsets( Materials ).ToArray();
-    }
-
-    internal uint[] GetBoneNameOffsets() {
-        return GetOffsets( Bones.ToList() ).ToArray();
-    }
-
-    internal uint GetShapeNameOffset( string v ) {
-        return GetOffsets( new List<string> { v } ).ToArray()[0];
-    }
-
-    private List<uint> GetOffsets( List<string> strings ) {
         var ret = new List<uint>();
         var aggregator = GetStrings();
         var str = string.Join( "\0", aggregator );
