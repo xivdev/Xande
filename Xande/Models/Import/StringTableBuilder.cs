@@ -6,19 +6,14 @@ namespace Xande.Models.Import;
 
 public class StringTableBuilder {
     public SortedSet<string> Attributes = new();
-    //public List<string> Bones = new();
     public SortedSet<string> Bones = new();
     public List<string> HierarchyBones = new();
-    public readonly List<string> Materials = new();
+    public readonly SortedSet<string> Materials = new();
     public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
 
-    public StringTableBuilder( ModelRoot root ) {
-        // TODO: is this a stable assumption to make?
-        var skelly = root.DefaultScene.FindNode( x => x.Name == "n_root" );
-        RecursiveSkeleton( skelly );
+    public StringTableBuilder() {
 
-        //Bones = Bones.Distinct().ToList();
     }
 
     public void AddAttribute( string attr ) {
@@ -70,12 +65,6 @@ public class StringTableBuilder {
         return Shapes.Remove( shape );
     }
 
-    private void RecursiveSkeleton( Node? node ) {
-        if( node is null ) return;
-        Bones.Add( node.Name );
-        foreach( var child in node.VisualChildren ) { RecursiveSkeleton( child ); }
-    }
-
     internal int GetStringCount() {
         return Attributes.Count + Bones.Count + Materials.Count + Shapes.Count + Extras.Count;
     }
@@ -121,7 +110,7 @@ public class StringTableBuilder {
     }
 
     internal uint[] GetMaterialNameOffsets() {
-        return GetOffsets( Materials ).ToArray();
+        return GetOffsets( Materials.ToList() ).ToArray();
     }
 
     internal uint[] GetBoneNameOffsets() {
@@ -132,7 +121,13 @@ public class StringTableBuilder {
         return GetOffsets( new List<string> { v } ).ToArray()[0];
     }
 
-    private List<uint> GetOffsets( List<string> strings ) {
+    public uint GetOffset( string input ) {
+        var aggregator = GetStrings();
+        var str = string.Join( "\0", aggregator );
+        return ( uint )str.IndexOf( input );
+    }
+
+    public List<uint> GetOffsets( List<string> strings ) {
         var ret = new List<uint>();
         var aggregator = GetStrings();
         var str = string.Join( "\0", aggregator );
