@@ -17,7 +17,7 @@ namespace Xande.Models.Import;
 // https://github.com/NotAdam/Lumina/blob/master/src/Lumina/Data/Files/MdlFile.cs
 public class MdlFileBuilder {
     private ModelRoot _root;
-    private Model _origModel;
+    private Model? _origModel;
 
     private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
@@ -25,7 +25,7 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
-    public MdlFileBuilder( ModelRoot root, Model model ) {
+    public MdlFileBuilder( ModelRoot root, Model? model ) {
         _root = root;
         _origModel = model;
 
@@ -94,7 +94,7 @@ public class MdlFileBuilder {
         return ret;
     }
 
-    private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct vds ) {
+    private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct? vds = null) {
         var ret = new List<MdlStructs.VertexDeclarationStruct>();
         // Hard-coded or pull whatever the original model had?
         /*
@@ -146,7 +146,7 @@ public class MdlFileBuilder {
 
     public (MdlFile? file, List<byte> vertexData, List<byte> indexData) Build() {
         var start = DateTime.Now;
-        var vertexDeclarations = GetVertexDeclarationStructs( _meshes.Keys.Count, _origModel.File.VertexDeclarations[0] );
+        var vertexDeclarations = GetVertexDeclarationStructs( _meshes.Keys.Count, _origModel?.File?.VertexDeclarations[0] );
 
         var allBones = new List<string>();
         var bonesToNodes = new Dictionary<string, Node>();
@@ -154,7 +154,7 @@ public class MdlFileBuilder {
 
         Skin? skeleton = null;
         if( _root.LogicalSkins.Count == 0 ) {
-            if( _origModel.File.ModelHeader.BoneCount > 0 ) {
+            if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
                 PluginLog.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
             }
@@ -433,7 +433,7 @@ public class MdlFileBuilder {
         var file = new MdlFile();
 
         file.FileHeader = new() {
-            Version = _origModel.File?.FileHeader.Version ?? 16777220,
+            Version = _origModel?.File?.FileHeader.Version ?? 16777220,
             StackSize = 0,   // To-be filled in later
             RuntimeSize = 0,    // To be filled later
             VertexDeclarationCount = ( ushort )vertexDeclarations.Length,
@@ -444,13 +444,13 @@ public class MdlFileBuilder {
             IndexBufferSize = new uint[] { ( uint )indexData.Count, 0, 0 },
             LodCount = 1,
             EnableIndexBufferStreaming = true,
-            EnableEdgeGeometry = _origModel.File?.FileHeader.EnableEdgeGeometry ?? false
+            EnableEdgeGeometry = _origModel?.File?.FileHeader.EnableEdgeGeometry ?? false
         };
         file.VertexDeclarations = vertexDeclarations.ToArray();
         file.StringCount = ( ushort )_stringTableBuilder.GetStringCount();
         file.Strings = _stringTableBuilder.GetBytes();
         file.ModelHeader = new() {
-            Radius = _origModel.File.ModelHeader.Radius,
+            Radius = _origModel?.File.ModelHeader.Radius ?? 0,
             MeshCount = ( ushort )meshStructs.Count,
             AttributeCount = ( ushort )_stringTableBuilder.Attributes.Count,
             SubmeshCount = ( ushort )submeshStructs.Count,
@@ -465,18 +465,18 @@ public class MdlFileBuilder {
 
             ElementIdCount = ( ushort )elementIds.Count,
 
-            TerrainShadowMeshCount = _origModel.File?.ModelHeader.TerrainShadowMeshCount ?? 0,
+            TerrainShadowMeshCount = _origModel?.File?.ModelHeader.TerrainShadowMeshCount ?? 0,
 
-            ModelClipOutDistance = _origModel.File?.ModelHeader.ModelClipOutDistance ?? 0,
-            ShadowClipOutDistance = _origModel.File?.ModelHeader.ShadowClipOutDistance ?? 0,
-            Unknown4 = _origModel.File?.ModelHeader.Unknown4 ?? 0,
-            TerrainShadowSubmeshCount = _origModel.File?.ModelHeader.TerrainShadowSubmeshCount ?? 0,
-            BGChangeMaterialIndex = _origModel.File?.ModelHeader.BGChangeMaterialIndex ?? 0,
-            BGCrestChangeMaterialIndex = _origModel.File?.ModelHeader.BGCrestChangeMaterialIndex ?? 0,
-            Unknown6 = _origModel.File?.ModelHeader.Unknown6 ?? 0,
-            Unknown7 = _origModel.File?.ModelHeader.Unknown7 ?? 0,
-            Unknown8 = _origModel.File?.ModelHeader.Unknown8 ?? 0,
-            Unknown9 = _origModel.File?.ModelHeader.Unknown9 ?? 0,
+            ModelClipOutDistance = _origModel?.File?.ModelHeader.ModelClipOutDistance ?? 0,
+            ShadowClipOutDistance = _origModel?.File?.ModelHeader.ShadowClipOutDistance ?? 0,
+            Unknown4 = _origModel?.File?.ModelHeader.Unknown4 ?? 0,
+            TerrainShadowSubmeshCount = _origModel?.File?.ModelHeader.TerrainShadowSubmeshCount ?? 0,
+            BGChangeMaterialIndex = _origModel?.File?.ModelHeader.BGChangeMaterialIndex ?? 0,
+            BGCrestChangeMaterialIndex = _origModel?.File?.ModelHeader.BGCrestChangeMaterialIndex ?? 0,
+            Unknown6 = _origModel?.File?.ModelHeader.Unknown6 ?? 0,
+            Unknown7 = _origModel?.File?.ModelHeader.Unknown7 ?? 0,
+            Unknown8 = _origModel?.File?.ModelHeader.Unknown8 ?? 0,
+            Unknown9 = _origModel?.File?.ModelHeader.Unknown9 ?? 0,
         };
         file.ElementIds = elementIds.ToArray();
 

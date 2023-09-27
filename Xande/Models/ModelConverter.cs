@@ -313,7 +313,6 @@ public class ModelConverter {
         }
         catch (FileNotFoundException) {
             PluginLog.Error($"Could not find original model: \"{origModel}\"");
-            return Array.Empty<byte>();
         }
 
         var modelFileBuilder = new MdlFileBuilder( root, orig );
