@@ -31,37 +31,35 @@ public class MdlFileBuilder {
 
         _stringTableBuilder = new StringTableBuilder();
 
-        foreach( var mesh in root.LogicalMeshes ) {
-            var name = mesh.Name;
-            var index = mesh.LogicalIndex;
-            // TODO: Consider MeshIndex > 9 ?
-            // TODO: What to do if it already exists
-            // TODO: What to do if match does not exist - skip probably.
-            var match = Regex.Match( name, @"([0-9]*\.[0-9]*)" );
+        foreach( var node in root.LogicalNodes ) {
+            if( node.Mesh != null ) {
+                var mesh = node.Mesh;
+                var name = node.Name;
+                var match = Regex.Match( name, @"([0-9]+\.[0-9]+)" );
+                if( match.Success ) {
+                    var str = match.Groups[1].Value;
 
-            if( match.Success ) {
-                var str = match.Groups[1].Value;
-                PluginLog.Debug( $"Adding \"{name}\"" );
-                var isSubmesh = str.Contains( '.' );
-                if( isSubmesh ) {
-                    var parts = str.Split( '.' );
-                    var meshIdx = int.Parse( parts[0] );
-                    var submeshIdx = int.Parse( parts[1] );
-                    if( !_meshes.ContainsKey( meshIdx ) ) {
-                        _meshes[meshIdx] = new();
+                    var isSubmesh = str.Contains( '.' );
+                    if( isSubmesh ) {
+                        var parts = str.Split( '.' );
+                        var meshIdx = int.Parse( parts[0] );
+                        var submeshIdx = int.Parse( parts[1] );
+                        if( !_meshes.ContainsKey( meshIdx ) ) {
+                            _meshes[meshIdx] = new();
+                        }
+
+                        _meshes[meshIdx][submeshIdx] = mesh;
                     }
+                    else {
+                        var meshIdx = int.Parse( str );
 
-                    _meshes[meshIdx][submeshIdx] = mesh;
+                        if( !_meshes.ContainsKey( meshIdx ) ) _meshes[meshIdx] = new();
+                        _meshes[meshIdx][-1] = mesh;
+                    }
                 }
                 else {
-                    var meshIdx = int.Parse( str );
-
-                    if( !_meshes.ContainsKey( meshIdx ) ) _meshes[meshIdx] = new();
-                    _meshes[meshIdx][-1] = mesh;
+                    PluginLog.Debug( $"Skipping \"{name}\"" );
                 }
-            }
-            else {
-                PluginLog.Debug( $"Skipping \"{name}\"" );
             }
         }
     }
