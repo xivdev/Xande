@@ -1,4 +1,4 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
@@ -18,6 +18,7 @@ namespace Xande.Models.Import;
 public class MdlFileBuilder {
     private ModelRoot _root;
     private Model? _origModel;
+    private ILogger? _logger;
 
     private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
@@ -25,11 +26,11 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
-    public MdlFileBuilder( ModelRoot root, Model? model ) {
+    public MdlFileBuilder( ModelRoot root, Model? model, ILogger? logger = null ) {
         _root = root;
         _origModel = model;
-
-        _stringTableBuilder = new StringTableBuilder();
+        _logger = logger;
+        _stringTableBuilder = new StringTableBuilder(_logger);
 
         foreach( var node in root.LogicalNodes ) {
             if( node.Mesh != null ) {
@@ -58,7 +59,7 @@ public class MdlFileBuilder {
                     }
                 }
                 else {
-                    PluginLog.Debug( $"Skipping \"{name}\"" );
+                    _logger?.Debug($"Skipping \"{name}\"");
                 }
             }
         }
@@ -155,7 +156,7 @@ public class MdlFileBuilder {
         Skin? skeleton = null;
         if( _root.LogicalSkins.Count == 0 ) {
             if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
-                PluginLog.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
+                _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
             }
         }
@@ -177,8 +178,8 @@ public class MdlFileBuilder {
                 }
             }
             else {
-                PluginLog.Error( $"Skeleton was somehow null" );
-                PluginLog.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
+                _logger?.Error( $"Skeleton was somehow null" );
+                _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
 
             }
@@ -190,22 +191,22 @@ public class MdlFileBuilder {
             foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
                 var vd = vertexDeclarations.Length > meshIdx ? vertexDeclarations[meshIdx] : vertexDeclarations[0];
 
-                var submesh = new SubmeshBuilder( _meshes[meshIdx][submeshIdx], allBones, vd );
+                var submesh = new SubmeshBuilder( _meshes[meshIdx][submeshIdx], allBones, vd, _logger );
                 if( _addedAttributes.ContainsKey( meshIdx ) && _addedAttributes[meshIdx].ContainsKey( submeshIdx ) ) {
                     foreach( var attr in _addedAttributes[meshIdx][submeshIdx] ) {
                         if( submesh.AddAttribute( attr ) ) {
 
                         }
                         else {
-                            PluginLog.Warning( $"Could not add attribute: \"{attr}\" at mesh {meshIdx}, submesh {submeshIdx}" );
+                            _logger?.Warning( $"Could not add attribute: \"{attr}\" at mesh {meshIdx}, submesh {submeshIdx}" );
                         }
                     }
                 }
 
                 submeshes.Add( submesh );
-                PluginLog.Debug( $"submesh {meshIdx}-{submeshIdx} has {submesh.IndexCount} indices and {submesh.GetVertexCount()} vertices." );
+                _logger?.Debug( $"submesh {meshIdx}-{submeshIdx} has {submesh.IndexCount} indices and {submesh.GetVertexCount()} vertices." );
             }
-            var meshBuilder = new LuminaMeshBuilder( submeshes );
+            var meshBuilder = new LuminaMeshBuilder( submeshes, _logger );
 
             indexCount += meshBuilder.IndexCount;
 
@@ -309,7 +310,7 @@ public class MdlFileBuilder {
                 submeshBoneMap.Add( ( ushort )j );
             }
 
-            var mvd = new MeshVertexData();
+            var mvd = new MeshVertexData(_logger);
             //var meshVertexDict = mesh.GetVertexData();
             mvd.AddVertexData( mesh.GetVertexData() );
             totalIndexCount = 0;
@@ -353,10 +354,10 @@ public class MdlFileBuilder {
 
                     foreach( var svs in submeshShapeValues ) {
                         if( svs.BaseIndicesIndex + submeshIndexCount > ushort.MaxValue ) {
-                            PluginLog.Error( $"Shape {shapeName} in submesh {i}-{j} has too many indices." );
+                            _logger?.Error( $"Shape {shapeName} in submesh {i}-{j} has too many indices." );
                         }
                         if( svs.ReplacingVertexIndex + mesh.GetVertexCount() + shapeVertices > ushort.MaxValue ) {
-                            PluginLog.Error( $"Shape {shapeName} in submesh {i}-{j} has too many vertices." );
+                            _logger?.Error( $"Shape {shapeName} in submesh {i}-{j} has too many vertices." );
                         }
                         var newShapeValue = new MdlStructs.ShapeValueStruct() {
                             BaseIndicesIndex = ( ushort )( svs.BaseIndicesIndex + submeshIndexCount ),
@@ -580,7 +581,7 @@ public class MdlFileBuilder {
         file.FileHeader.VertexOffset[0] = ( uint )vertexOffset0;
         file.FileHeader.IndexOffset[0] = ( uint )indexOffset0;
 
-        PluginLog.Debug( $"Ending. REGULAR took: {DateTime.Now - start}" );
+        _logger?.Debug( $"Ending. REGULAR took: {DateTime.Now - start}" );
         return (file, vertexData, indexData);
     }
 

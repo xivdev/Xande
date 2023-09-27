@@ -1,4 +1,4 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
 using SharpGLTF.Memory;
@@ -28,9 +28,12 @@ namespace Xande.Models.Import {
         private List<Vector4>? _tangent1 = null;
         private List<Vector4>? _colors = null;
 
+        private ILogger? _logger;
+
         private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
 
-        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
+        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration, ILogger? logger = null ) {
+            _logger = logger;
             _vertexDeclaration = vertexDeclaration;
             _positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array().ToList();
             _blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array().ToList();
@@ -74,7 +77,7 @@ namespace Xande.Models.Import {
         public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, string? shapeName = null ) {
             var streams = new Dictionary<int, List<byte>>();
             if( ShapesAccessor == null ) {
-                PluginLog.Error( $"Shape accessor was null" );
+                _logger?.Error( $"Shape accessor was null" );
             }
 
             foreach( var vertexId in diffVertices ) {
@@ -171,7 +174,7 @@ namespace Xande.Models.Import {
                         }
                     }
                     else {
-                        PluginLog.Error( $"normals were null" );
+                        _logger?.Error( $"normals were null" );
                         vector4 = new( 1, 1, 1, 1 );
                     }
                     break;
@@ -180,7 +183,7 @@ namespace Xande.Models.Import {
                         vector4 = new( _texCoords[index], _texCoords[index].X, _texCoords[index].Y );
                     }
                     else {
-                        PluginLog.Error( $"tex coordinates were null" );
+                        _logger?.Error( $"tex coordinates were null" );
                     }
                     break;
                 case Vertex.VertexUsage.Tangent2:

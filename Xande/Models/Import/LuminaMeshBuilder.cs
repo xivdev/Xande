@@ -1,4 +1,4 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
@@ -20,6 +20,7 @@ namespace Xande.Models.Import {
         public List<string> Bones => _originalBoneIndexToString.Values.ToList();
         public string Material = String.Empty;
         public List<string> Shapes = new();
+        private readonly ILogger? _logger;
 
         private Dictionary<int, string> _originalBoneIndexToString = new();
         //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
@@ -28,9 +29,9 @@ namespace Xande.Models.Import {
         // TODO: Should probably change this to uint...
         public int IndexCount { get; protected set; } = 0;
 
-        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes ) {
+        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
             //_vertexDeclarationStruct = vds;
-
+            _logger = logger;
             foreach( var sm in submeshes ) {
                 Submeshes.Add( sm );
                 TryAddBones( sm );
@@ -44,13 +45,13 @@ namespace Xande.Models.Import {
                 }
                 else {
                     if( Material != sm.MaterialPath ) {
-                        PluginLog.Error( $"Found multiple materials. Original \"{Material}\" vs \"{sm.MaterialPath}\"" );
+                        _logger?.Error( $"Found multiple materials. Original \"{Material}\" vs \"{sm.MaterialPath}\"" );
                     }
                 }
             }
 
             if( Bones.Count == 0 ) {
-                PluginLog.Warning( $" Mesh had zero bones. This can cause a game crash if a skeleton is expected." );
+                _logger?.Warning( $" Mesh had zero bones. This can cause a game crash if a skeleton is expected." );
             }
         }
 
@@ -169,7 +170,7 @@ namespace Xande.Models.Import {
                 }
             }
             if( _originalBoneIndexToString.Keys.Count > 64 ) {
-                PluginLog.Error( $"There are currently {_originalBoneIndexToString.Keys.Count} bones, which is over the allowed 64." );
+                _logger?.Error( $"There are currently {_originalBoneIndexToString.Keys.Count} bones, which is over the allowed 64." );
             }
         }
 
