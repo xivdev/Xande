@@ -158,7 +158,8 @@ public class MeshBuilder {
     private IVertexBuilder BuildVertex( Vertex vertex ) {
         ClearCaches();
 
-        if( _skinningT != typeof( VertexEmpty ) ) {
+        var skinningIsEmpty = _skinningT == typeof( VertexEmpty );
+        if( !skinningIsEmpty ) {
             for( var k = 0; k < 4; k++ ) {
                 var boneIndex       = vertex.BlendIndices[ k ];
                 var mappedBoneIndex = _jointMap[ boneIndex ];
@@ -208,7 +209,9 @@ public class MeshBuilder {
 
         _vertexBuilderParams[ 0 ] = Activator.CreateInstance( _geometryT, _geometryParamCache.ToArray() )!;
         _vertexBuilderParams[ 1 ] = Activator.CreateInstance( _materialT, _materialParamCache.ToArray() )!;
-        _vertexBuilderParams[ 2 ] = Activator.CreateInstance( _skinningT, _skinningParamCache.ToArray() )!;
+        _vertexBuilderParams[ 2 ] = skinningIsEmpty
+                                        ? Activator.CreateInstance( _skinningT )!
+                                        : Activator.CreateInstance( _skinningT, _skinningParamCache.ToArray() )!;
 
         return ( IVertexBuilder )Activator.CreateInstance( _vertexBuilderT, _vertexBuilderParams )!;
     }
@@ -222,7 +225,7 @@ public class MeshBuilder {
     /// <summary>Obtain the correct geometry type for a given set of vertices.</summary>
     private static Type GetVertexGeometryType( Vertex[] vertex )
         => vertex[ 0 ].Tangent1 != null ? typeof( VertexPositionNormalTangent ) :
-            vertex[ 0 ].Normal != null  ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
+           vertex[ 0 ].Normal != null   ? typeof( VertexPositionNormal ) : typeof( VertexPosition );
 
     /// <summary>Obtain the correct material type for a set of vertices.</summary>
     private static Type GetVertexMaterialType( Vertex[] vertex ) {
