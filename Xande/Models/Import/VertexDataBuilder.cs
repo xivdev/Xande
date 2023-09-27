@@ -177,7 +177,7 @@ namespace Xande.Models.Import {
                     break;
                 case Vertex.VertexUsage.UV:
                     if( _texCoords != null ) {
-                        vector4 = new( _texCoords[index], 0, 0 );
+                        vector4 = new( _texCoords[index], _texCoords[index].X, _texCoords[index].Y );
                     }
                     else {
                         PluginLog.Error( $"tex coordinates were null" );
