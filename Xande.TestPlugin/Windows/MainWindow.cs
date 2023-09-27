@@ -246,8 +246,10 @@ public class MainWindow : Window, IDisposable {
 
                 var tempDir = await DoTheThingWithTheModels( new[] { model }, skellies );
                 var file    = Path.Combine( tempDir, "mesh.glb" );
-                var bytes   = _modelConverter.ImportModel( file, model );
+                PluginLog.Log( "Importing model..." );
+                var bytes = _modelConverter.ImportModel( file, model );
                 File.WriteAllBytes( Path.Combine( tempDir, "mesh.mdl" ), bytes );
+                PluginLog.Log( "Imported rountrip to {Dir}", tempDir );
             } );
         }
     }
