@@ -35,7 +35,7 @@ public class MainWindow : Window, IDisposable {
 
     private ExportStatus _exportStatus = ExportStatus.Idle;
 
-    private string _modelPaths    = string.Empty;
+    private string _modelPaths    = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
     private string _skeletonPaths = string.Empty;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
@@ -369,6 +369,11 @@ public class MainWindow : Window, IDisposable {
     }
 
     private void DrawPathsTab() {
+        ImGui.TextUnformatted( "Chuck paths into the bottom text boxes below.\n"
+                               + "Use the first box for model paths and the second path for skeleton paths.\n"
+                               + "When importing a model, put the original path in the models textbox."
+        );
+
         var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
 
@@ -377,7 +382,15 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Export (create glTF)" ) ) {
             Task.Run( async () => {
-                var tempDir = await DoTheThingWithTheModels( _modelPaths.Trim().Split( '\n' ), _skeletonPaths.Trim().Split( '\n' ) );
+                var models = _modelPaths.Trim().Split( '\n' )
+                    .Where( x => x.Trim() != string.Empty ).ToArray();
+                var skeletons = _skeletonPaths.Trim().Split( '\n' )
+                    .Where( x => x.Trim() != string.Empty ).ToArray();
+
+                var tempDir = skeletons.Length == 0
+                                  ? await DoTheThingWithTheModels( models )
+                                  : await DoTheThingWithTheModels( models, skeletons );
+
                 Process.Start( "explorer.exe", tempDir );
             } );
         }
@@ -386,15 +399,16 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Import (create MDL)" ) ) {
             OpenFileDialog( "Select glTF", GltfFilter, path => {
-                var data = _modelConverter.ImportModel( path, _modelPaths.Trim().Split( '\n' )[ 0 ] );
+                var firstModel = _modelPaths.Trim().Split( '\n' )[ 0 ];
+                var data       = _modelConverter.ImportModel( path, firstModel );
 
                 var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
                 Directory.CreateDirectory( tempDir );
                 var tempPath = Path.Combine( tempDir, $"model-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}" );
                 Directory.CreateDirectory( tempPath );
                 var tempFile = Path.Combine( tempPath, "model.mdl" );
-
                 File.WriteAllBytes( tempFile, data );
+
                 Process.Start( "explorer.exe", tempPath );
             } );
         }

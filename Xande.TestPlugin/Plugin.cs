@@ -22,7 +22,7 @@ public class Plugin : IDalamudPlugin {
         WindowSystem.AddWindow( _mainWindow );
 
         Service.CommandManager.AddHandler( "/xande", new CommandInfo( OnCommand ) {
-            HelpMessage = "Open the test menu",
+            HelpMessage = "Open the test menu"
         } );
 
         Service.PluginInterface.UiBuilder.Draw         += DrawUi;

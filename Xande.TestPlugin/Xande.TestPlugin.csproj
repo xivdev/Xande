@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>1.0.0.0</Version>
         <TargetFramework>net7.0-windows</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -19,7 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="2.1.11" />
+        <PackageReference Include="DalamudPackager" Version="2.1.11"/>
         <Reference Include="Dalamud">
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
             <Private>false</Private>
@@ -35,7 +36,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Xande\Xande.csproj" />
-      <ProjectReference Include="..\Lumina\src\Lumina\LuminaX.csproj" />
+        <ProjectReference Include="..\Xande\Xande.csproj"/>
+        <ProjectReference Include="..\Lumina\src\Lumina\LuminaX.csproj"/>
     </ItemGroup>
 </Project>
