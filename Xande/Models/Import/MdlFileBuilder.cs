@@ -30,7 +30,7 @@ public class MdlFileBuilder {
         _root = root;
         _origModel = model;
         _logger = logger;
-        _stringTableBuilder = new StringTableBuilder(_logger);
+        _stringTableBuilder = new StringTableBuilder( _logger );
 
         foreach( var node in root.LogicalNodes ) {
             if( node.Mesh != null ) {
@@ -59,7 +59,7 @@ public class MdlFileBuilder {
                     }
                 }
                 else {
-                    _logger?.Debug($"Skipping \"{name}\"");
+                    _logger?.Debug( $"Skipping \"{name}\"" );
                 }
             }
         }
@@ -95,53 +95,56 @@ public class MdlFileBuilder {
         return ret;
     }
 
-    private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct? vds = null) {
+    private MdlStructs.VertexDeclarationStruct[] GetVertexDeclarationStructs( int size, MdlStructs.VertexDeclarationStruct? vds = null ) {
         var ret = new List<MdlStructs.VertexDeclarationStruct>();
         // Hard-coded or pull whatever the original model had?
         /*
-        for( var i = 0; i < size; i++ ) {
-            var ve = new List<MdlStructs.VertexElement>();
-            for( var j = 0; j < vds.VertexElements.Length; j++ ) {
-                ve.Add( vds.VertexElements[j] );
+        if( vds != null ) {
+            for( var i = 0; i < size; i++ ) {
+                var ve = new List<MdlStructs.VertexElement>();
+                for( var j = 0; j < vds.Value.VertexElements.Length; j++ ) {
+                    ve.Add( vds.Value.VertexElements[j] );
+                }
+                if( ve.Last().Stream != 255 ) {
+                    ve.Add( new() {
+                        Stream = 255
+                    } );
+                }
+                while( ve.Count < 17 ) {
+                    ve.Add( new() {
+                        Stream = 0,
+                        Offset = 0,
+                        Usage = 0,
+                        Type = 0,
+                        UsageIndex = 0
+                    } );
+                }
+                var dec = new MdlStructs.VertexDeclarationStruct() {
+                    VertexElements = ve.ToArray()
+                };
+                ret.Add( dec );
             }
-            if( ve.Last().Stream != 255 ) {
-                ve.Add( new() {
-                    Stream = 255
-                } );
-            }
-            while( ve.Count < 17 ) {
-                ve.Add( new() {
-                    Stream = 0,
-                    Offset = 0,
-                    Usage = 0,
-                    Type = 0,
-                    UsageIndex = 0
-                } );
-            }
-            var dec = new MdlStructs.VertexDeclarationStruct() {
-                VertexElements = ve.ToArray()
-            };
-            ret.Add( dec );
         }
-        */
+        else {
+            */
+            var declaration = new MdlStructs.VertexDeclarationStruct();
+            declaration.VertexElements = new MdlStructs.VertexElement[17];
+            declaration.VertexElements[0] = new() { Stream = 0, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Position, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
+            declaration.VertexElements[1] = new() { Stream = 0, Offset = 12, Usage = ( byte )Vertex.VertexUsage.BlendWeights, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+            declaration.VertexElements[2] = new() { Stream = 0, Offset = 16, Usage = ( byte )Vertex.VertexUsage.BlendIndices, Type = ( byte )Vertex.VertexType.UInt, UsageIndex = 0 };
 
-        var declaration = new MdlStructs.VertexDeclarationStruct();
-        declaration.VertexElements = new MdlStructs.VertexElement[17];
-        declaration.VertexElements[0] = new() { Stream = 0, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Position, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
-        declaration.VertexElements[1] = new() { Stream = 0, Offset = 12, Usage = ( byte )Vertex.VertexUsage.BlendWeights, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-        declaration.VertexElements[2] = new() { Stream = 0, Offset = 16, Usage = ( byte )Vertex.VertexUsage.BlendIndices, Type = ( byte )Vertex.VertexType.UInt, UsageIndex = 0 };
-
-        declaration.VertexElements[3] = new() { Stream = 1, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Normal, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
-        declaration.VertexElements[4] = new() { Stream = 1, Offset = 12, Usage = ( byte )Vertex.VertexUsage.Tangent1, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-        declaration.VertexElements[5] = new() { Stream = 1, Offset = 16, Usage = ( byte )Vertex.VertexUsage.Color, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-        declaration.VertexElements[6] = new() { Stream = 1, Offset = 20, Usage = ( byte )Vertex.VertexUsage.UV, Type = ( byte )Vertex.VertexType.Single4, UsageIndex = 0 };
-        declaration.VertexElements[7] = new() { Stream = 255, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
-        for( var i = 8; i < 17; i++ ) {
-            declaration.VertexElements[i] = new() { Stream = 0, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
-        }
-        for( var i = 0; i < size; i++ ) {
-            ret.Add( declaration );
-        }
+            declaration.VertexElements[3] = new() { Stream = 1, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Normal, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
+            declaration.VertexElements[4] = new() { Stream = 1, Offset = 12, Usage = ( byte )Vertex.VertexUsage.Tangent1, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+            declaration.VertexElements[5] = new() { Stream = 1, Offset = 16, Usage = ( byte )Vertex.VertexUsage.Color, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+            declaration.VertexElements[6] = new() { Stream = 1, Offset = 20, Usage = ( byte )Vertex.VertexUsage.UV, Type = ( byte )Vertex.VertexType.Single4, UsageIndex = 0 };
+            declaration.VertexElements[7] = new() { Stream = 255, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
+            for( var i = 8; i < 17; i++ ) {
+                declaration.VertexElements[i] = new() { Stream = 0, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
+            }
+            for( var i = 0; i < size; i++ ) {
+                ret.Add( declaration );
+            }
+        //}
         return ret.ToArray();
     }
 
@@ -151,7 +154,7 @@ public class MdlFileBuilder {
 
         var allBones = new List<string>();
         var bonesToNodes = new Dictionary<string, Node>();
-        var eidNodes = new Dictionary<string, Node>();
+        var eidNodes = new SortedDictionary<string, Node>();
 
         Skin? skeleton = null;
         if( _root.LogicalSkins.Count == 0 ) {
@@ -171,7 +174,7 @@ public class MdlFileBuilder {
                         allBones.Add( boneString );
                         bonesToNodes.Add( boneString, joint );
 
-                        if( boneString.StartsWith( "eid_" ) ) {
+                        if( boneString.StartsWith( "EID_" ) ) {
                             eidNodes.Add( boneString, joint );
                         }
                     }
@@ -181,11 +184,9 @@ public class MdlFileBuilder {
                 _logger?.Error( $"Skeleton was somehow null" );
                 _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
-
             }
         }
 
-        var indexCount = 0;
         foreach( var meshIdx in _meshes.Keys ) {
             var submeshes = new List<SubmeshBuilder>();
             foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
@@ -204,24 +205,38 @@ public class MdlFileBuilder {
                 }
 
                 submeshes.Add( submesh );
-                _logger?.Debug( $"submesh {meshIdx}-{submeshIdx} has {submesh.IndexCount} indices and {submesh.GetVertexCount()} vertices." );
             }
             var meshBuilder = new LuminaMeshBuilder( submeshes, _logger );
-
-            indexCount += meshBuilder.IndexCount;
-
             _meshBuilders.Add( meshBuilder );
             _stringTableBuilder.AddBones( meshBuilder.Bones );
             _stringTableBuilder.AddMaterial( meshBuilder.Material );
             _stringTableBuilder.AddShapes( meshBuilder.Shapes );
             _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
         }
+        var inputMaterials = _stringTableBuilder.Materials.Where( m => m.StartsWith( '/' ) );
 
-        if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
-            // TODO: ElementIds
+        if( _origModel != null ) {
+            if( inputMaterials.Any() ^ _origModel.Materials.Where( m => m.MaterialPath.StartsWith( '/' ) ).Any() ) {
+                if( inputMaterials.Any() ) {
+                    _logger?.Warning( $"Input model has a material starting with / while the original model does not." );
+                }
+                else {
+                    _logger?.Warning( $"Input model materials do not start with / while the original model does." );
+                }
+                _logger?.Warning( $"This will likely crash the game if left unchanged." );
+            }
+        }
+        else if( inputMaterials.Any() ^ _stringTableBuilder.Bones.Count > 0 ) {
+            // Not strictly true
+            // But equipment seems to expect a material starting with / and equipment needs a skeleton
+            _logger?.Warning( $"Input model has materials starting with / while a skeleton is active." );
+            _logger?.Warning( $"This may crash the game." );
         }
 
-        // TODO: if skeleton == null?
+        if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
+            // TODO: ?
+        }
+
         if( skeleton != null ) {
             _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
         }
@@ -240,31 +255,49 @@ public class MdlFileBuilder {
         var shapeStructs = new List<MdlStructs.ShapeStruct>();
         var shapeMeshes = new List<MdlStructs.ShapeMeshStruct>();
         var shapeValues = new List<MdlStructs.ShapeValueStruct>();
-        // TODO: elementIds
+        // TODO: elementIds?
         var elementIds = new List<MdlStructs.ElementIdStruct>();
         var terrainShadowMeshStructs = new List<MdlStructs.TerrainShadowMeshStruct>();
         var terrainShadowSubmeshStructs = new List<MdlStructs.TerrainShadowSubmeshStruct>();
         var boneTableStructs = new List<MdlStructs.BoneTableStruct>();
         var submeshBoneMap = new List<ushort>();
 
-        var eidCounter = 0;
-        foreach( var (boneName, joint) in eidNodes ) {
+        var eidCounter = 3;
+
+        /*
+        // unsure if we can produce ElementIds solely from an external model
+        // I don't think reversing is the actual answer, as, based on the names they have a certain hierarchy
+        // ex: EID_W_EDGE_END,  EID_W_EDGE_MD,  EID_W_EDGE_ST denoting end, middle, start respectively
+        var reverseEidNodes = eidNodes.Reverse();
+        foreach( var (boneName, joint) in reverseEidNodes ) {
             var transform = joint.LocalTransform;
             var translate = transform.Translation;
             var rotation = transform.Rotation;
             var parent = joint.VisualParent;
             var parentName = parent.Name;
 
+            if( !_stringTableBuilder.Bones.Contains( parentName ) ) {
+                _stringTableBuilder.AddBone( parentName );
+            }
+
             var parentNameOffset = _stringTableBuilder.GetOffset( parentName );
 
             var eid = new MdlStructs.ElementIdStruct() {
                 ElementId = ( uint )eidCounter,
                 ParentBoneName = parentNameOffset,
-                Translate = new float[] { translate.X, translate.Y, translate.Z },
+                // probably not actually accurate
+                Translate = new float[] { -translate.Y, translate.X, translate.Z },
                 Rotate = new float[] { rotation.X, rotation.Y, rotation.Z }
             };
             eidCounter++;
             elementIds.Add( eid );
+        }
+        */
+
+        if( eidNodes.Count == 0 && _origModel?.File?.ElementIds != null) {
+            foreach( var eid in _origModel.File.ElementIds ) {
+                elementIds.Add( eid );
+            }
         }
 
         var min = new Vector4( 9999f, 9999f, 9999f, 1 );
@@ -310,7 +343,7 @@ public class MdlFileBuilder {
                 submeshBoneMap.Add( ( ushort )j );
             }
 
-            var mvd = new MeshVertexData(_logger);
+            var mvd = new MeshVertexData( _logger );
             //var meshVertexDict = mesh.GetVertexData();
             mvd.AddVertexData( mesh.GetVertexData() );
             totalIndexCount = 0;
