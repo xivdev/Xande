@@ -24,7 +24,8 @@ namespace Xande.Models.Import {
         private List<Vector4>? _blendWeights = null;
         private List<Vector4>? _blendIndices = null;
         private List<Vector3>? _normals = null;
-        private List<Vector2>? _texCoords = null;
+        private List<Vector2>? _texCoords1 = null;
+        private List<Vector2>? _texCoords2 = null;
         private List<Vector4>? _tangent1 = null;
         private List<Vector4>? _colors = null;
 
@@ -39,7 +40,8 @@ namespace Xande.Models.Import {
             _blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array().ToList();
             _blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array().ToList();
             _normals = primitive.GetVertexAccessor( "NORMAL" )?.AsVector3Array().ToList();
-            _texCoords = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+            _texCoords1 = primitive.GetVertexAccessor( "TEXCOORD_0" )?.AsVector2Array().ToList();
+            _texCoords2 = primitive.GetVertexAccessor( "TEXCOORD_1" )?.AsVector2Array().ToList();
             _tangent1 = primitive.GetVertexAccessor( "TANGENT" )?.AsVector4Array().ToList();
             _colors = primitive.GetVertexAccessor( "COLOR_0" )?.AsVector4Array().ToList();
         }
@@ -99,24 +101,10 @@ namespace Xande.Models.Import {
         }
 
         private IList<Vector3> GetShapePositions( string shapeName ) {
-            //ShapesAccessor.TryGetValue( shapeName, out var dict );
-            /*
-            var dict = ShapesAccessor[shapeName];
-            Accessor? accessor = null;
-            dict?.TryGetValue( "POSITION", out accessor );
-            return accessor?.AsVector3Array().ToList();
-            */
             return ShapesAccessor[shapeName]["POSITION"].AsVector3Array();
         }
 
         private IList<Vector3> GetShapeNormals( string shapeName ) {
-            //ShapesAccessor.TryGetValue( shapeName, out var dict );
-            /*
-            var dict = ShapesAccessor[shapeName];
-            Accessor? accessor = null;
-            dict?.TryGetValue( "NORMAL", out accessor );
-            return accessor?.AsVector3Array().ToList();
-            */
             return ShapesAccessor[shapeName]["NORMAL"].AsVector3Array();
         }
 
@@ -179,8 +167,13 @@ namespace Xande.Models.Import {
                     }
                     break;
                 case Vertex.VertexUsage.UV:
-                    if( _texCoords != null ) {
-                        vector4 = new( _texCoords[index], _texCoords[index].X, _texCoords[index].Y );
+                    if( _texCoords1 != null ) {
+                        if( _texCoords2 != null ) {
+                            vector4 = new Vector4( _texCoords1[index].X, _texCoords1[index].Y, _texCoords2[index].X, _texCoords2[index].Y );
+                        }
+                        else {
+                            vector4 = new Vector4( _texCoords1[index], -1, 2 );
+                        }
                     }
                     else {
                         _logger?.Error( $"tex coordinates were null" );
