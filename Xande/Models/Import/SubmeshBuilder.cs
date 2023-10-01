@@ -19,7 +19,7 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 
 namespace Xande.Models.Import {
     internal class SubmeshBuilder {
-        public int IndexCount => Indices.Count;
+        public uint IndexCount => ( uint )Indices.LongCount();
         public List<uint> Indices = new();
         public int BoneCount { get; } = 0;
         public List<string> Attributes = new();
@@ -48,7 +48,7 @@ namespace Xande.Models.Import {
         /// </summary>
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
-        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null) {
+        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
             _logger = logger;
             _mesh = mesh;
             if( _mesh.Primitives.Count == 0 ) {
@@ -75,7 +75,8 @@ namespace Xande.Models.Import {
             else {
                 if( String.IsNullOrEmpty( MaterialPath ) ) {
                     _material = material;
-                    MaterialPath = AdjustMaterialPath( _material );
+                    //MaterialPath = AdjustMaterialPath( _material );
+                    MaterialPath = _material;
                 }
                 else {
                     if( material != _material || material != MaterialPath ) {
@@ -169,6 +170,7 @@ namespace Xande.Models.Import {
             //}
             VertexDataBuilder.AppliedShapePositions = AppliedShapes;
             VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
+
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
         }
 
@@ -297,13 +299,13 @@ namespace Xande.Models.Import {
                 var weldedVerts = new Dictionary<int, List<int>>();
                 var tempVertices = new List<int>();
 
-                for( var oIdx = 0; oIdx < positions.Count; oIdx++ ) {
+                for( var oIdx = 0; oIdx < positions?.Count; oIdx++ ) {
                     var idx = -1;
                     for( var nIdx = 0; nIdx < tempVertices.Count; nIdx++ ) {
                         if( positions[nIdx] == positions[oIdx]
-                            && uvs[nIdx] == uvs[oIdx]
-                            && normals[nIdx] == normals[oIdx]
-                            && colors[nIdx] != colors[oIdx] ) {
+                            && uvs?[nIdx] == uvs?[oIdx]
+                            && normals?[nIdx] == normals?[oIdx]
+                            && colors?[nIdx] != colors?[oIdx] ) {
                             var alreadyMergedVerts = weldedVerts[nIdx];
                             var alreadyConnectedOldVerts = new HashSet<int>();
                             foreach( var amIdx in alreadyMergedVerts ) {
@@ -423,7 +425,7 @@ namespace Xande.Models.Import {
                 }
             }
             catch( Exception ex ) {
-                _logger?.Error( $"Could not calculate bitangents. {ex.Message}" );
+                _logger?.Error( $"Could not calculate bitangents. {ex}" );
             }
         }
 
