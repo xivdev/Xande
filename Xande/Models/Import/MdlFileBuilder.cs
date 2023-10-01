@@ -127,23 +127,23 @@ public class MdlFileBuilder {
         }
         else {
             */
-            var declaration = new MdlStructs.VertexDeclarationStruct();
-            declaration.VertexElements = new MdlStructs.VertexElement[17];
-            declaration.VertexElements[0] = new() { Stream = 0, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Position, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
-            declaration.VertexElements[1] = new() { Stream = 0, Offset = 12, Usage = ( byte )Vertex.VertexUsage.BlendWeights, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-            declaration.VertexElements[2] = new() { Stream = 0, Offset = 16, Usage = ( byte )Vertex.VertexUsage.BlendIndices, Type = ( byte )Vertex.VertexType.UInt, UsageIndex = 0 };
+        var declaration = new MdlStructs.VertexDeclarationStruct();
+        declaration.VertexElements = new MdlStructs.VertexElement[17];
+        declaration.VertexElements[0] = new() { Stream = 0, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Position, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
+        declaration.VertexElements[1] = new() { Stream = 0, Offset = 12, Usage = ( byte )Vertex.VertexUsage.BlendWeights, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+        declaration.VertexElements[2] = new() { Stream = 0, Offset = 16, Usage = ( byte )Vertex.VertexUsage.BlendIndices, Type = ( byte )Vertex.VertexType.UInt, UsageIndex = 0 };
 
-            declaration.VertexElements[3] = new() { Stream = 1, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Normal, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
-            declaration.VertexElements[4] = new() { Stream = 1, Offset = 12, Usage = ( byte )Vertex.VertexUsage.Tangent1, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-            declaration.VertexElements[5] = new() { Stream = 1, Offset = 16, Usage = ( byte )Vertex.VertexUsage.Color, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
-            declaration.VertexElements[6] = new() { Stream = 1, Offset = 20, Usage = ( byte )Vertex.VertexUsage.UV, Type = ( byte )Vertex.VertexType.Single4, UsageIndex = 0 };
-            declaration.VertexElements[7] = new() { Stream = 255, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
-            for( var i = 8; i < 17; i++ ) {
-                declaration.VertexElements[i] = new() { Stream = 0, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
-            }
-            for( var i = 0; i < size; i++ ) {
-                ret.Add( declaration );
-            }
+        declaration.VertexElements[3] = new() { Stream = 1, Offset = 0, Usage = ( byte )Vertex.VertexUsage.Normal, Type = ( byte )Vertex.VertexType.Single3, UsageIndex = 0 };
+        declaration.VertexElements[4] = new() { Stream = 1, Offset = 12, Usage = ( byte )Vertex.VertexUsage.Tangent1, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+        declaration.VertexElements[5] = new() { Stream = 1, Offset = 16, Usage = ( byte )Vertex.VertexUsage.Color, Type = ( byte )Vertex.VertexType.ByteFloat4, UsageIndex = 0 };
+        declaration.VertexElements[6] = new() { Stream = 1, Offset = 20, Usage = ( byte )Vertex.VertexUsage.UV, Type = ( byte )Vertex.VertexType.Single4, UsageIndex = 0 };
+        declaration.VertexElements[7] = new() { Stream = 255, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
+        for( var i = 8; i < 17; i++ ) {
+            declaration.VertexElements[i] = new() { Stream = 0, Offset = 0, Usage = 0, Type = 0, UsageIndex = 0 };
+        }
+        for( var i = 0; i < size; i++ ) {
+            ret.Add( declaration );
+        }
         //}
         return ret.ToArray();
     }
@@ -294,7 +294,7 @@ public class MdlFileBuilder {
         }
         */
 
-        if( eidNodes.Count == 0 && _origModel?.File?.ElementIds != null) {
+        if( eidNodes.Count == 0 && _origModel?.File?.ElementIds != null ) {
             foreach( var eid in _origModel.File.ElementIds ) {
                 elementIds.Add( eid );
             }
@@ -304,9 +304,9 @@ public class MdlFileBuilder {
         var max = new Vector4( -9999f, -9999f, -9999f, 1 );
 
         var vertexBufferOffset = 0;
-        var totalIndexCount = 0;
+        uint totalIndexCount = 0;
         var meshIndexOffsetDict = new SortedDictionary<string, List<(uint, uint, List<MdlStructs.ShapeValueStruct>)>>();
-        var meshIndexCount = 0;
+        uint meshIndexCount = 0;
 
         for( var i = 0; i < _meshBuilders.Count; i++ ) {
             var mesh = _meshBuilders[i];
@@ -323,6 +323,9 @@ public class MdlFileBuilder {
                 if( vertexBufferStride[j] > 0 ) {
                     vertexBufferOffsets[j] = vertexBufferOffset;
                 }
+            }
+            if (vertexCount > ushort.MaxValue) {
+                _logger?.Error( $"There are too many vertices ({vertexCount}) in mesh {i}. Limit of {ushort.MaxValue}" );
             }
 
             meshStructs.Add( new() {
@@ -349,7 +352,7 @@ public class MdlFileBuilder {
             totalIndexCount = 0;
 
             var shapeVertices = 0;
-            var submeshIndexCount = 0;
+            uint submeshIndexCount = 0;
             var meshVertexCount = 0;
 
             for( var j = 0; j < mesh.Submeshes.Count; j++ ) {
