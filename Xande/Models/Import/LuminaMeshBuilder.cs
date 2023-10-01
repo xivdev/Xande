@@ -26,8 +26,7 @@ namespace Xande.Models.Import {
         //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
         private Dictionary<int, int> _blendIndicesDict;
 
-        // TODO: Should probably change this to uint...
-        public int IndexCount { get; protected set; } = 0;
+        public uint IndexCount { get; protected set; } = 0;
 
         public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
             //_vertexDeclarationStruct = vds;
@@ -88,7 +87,10 @@ namespace Xande.Models.Import {
             }
 
             foreach( var v in _originalBoneIndexToString ) {
-                _blendIndicesDict.Add( v.Key, newValues.IndexOf( v.Value ) );
+                var value = newValues.IndexOf( v.Value );
+                if( value != -1 ) {
+                    _blendIndicesDict.Add( v.Key, value );
+                }
             }
 
             foreach( var v in newValues ) {
