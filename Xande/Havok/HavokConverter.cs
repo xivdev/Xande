@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Dalamud.Plugin;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.Havok;
 
@@ -56,8 +57,8 @@ public unsafe class HavokConverter {
     private readonly hkBuiltinTypeRegistry* hkBuiltinTypeRegistrySingleton;
 
     /// <exception cref="KeyNotFoundException">Thrown if signatures fail to match. Signatures were last checked on game version 2023.03.24.0000.0000.</exception>
-    public HavokConverter() {
-        SignatureHelper.Initialise( this );
+    public HavokConverter( DalamudPluginInterface pi ) {
+        pi.Create< Service >()!.GameInteropProvider.InitializeFromAttributes( this );
         hkBuiltinTypeRegistrySingleton = *hkBuiltinTypeRegistrySingletonPtr;
     }
 
@@ -84,8 +85,8 @@ public unsafe class HavokConverter {
         if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-            | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
-            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+                      | hkSerializeUtil_SaveOptionBits.SAVE_TEXT_FORMAT
+                      | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
@@ -111,7 +112,7 @@ public unsafe class HavokConverter {
         if( resource == null ) throw new Exceptions.HavokReadException();
 
         var options = hkSerializeUtil_SaveOptionBits.SAVE_SERIALIZE_IGNORED_MEMBERS
-            | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
+                      | hkSerializeUtil_SaveOptionBits.SAVE_WRITE_ATTRIBUTES;
 
         var file = Write( resource, options );
         file.Close();
