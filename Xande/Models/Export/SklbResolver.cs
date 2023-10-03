@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Dalamud.Plugin;
 using Dalamud.Utility.Signatures;
 using Xande.Enums;
 
@@ -14,7 +15,9 @@ public class SklbResolver {
 
     // SklbResolver
 
-    public SklbResolver() => SignatureHelper.Initialise( this );
+    public SklbResolver( DalamudPluginInterface pi ) {
+        pi.Create< Service >()!.GameInteropProvider.InitializeFromAttributes( this );
+    }
 
     // Path resolver
 

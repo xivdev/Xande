@@ -7,8 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xande", "Xande\Xande.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xande.TestPlugin", "Xande.TestPlugin\Xande.TestPlugin.csproj", "{D55C2DEE-6341-4CD6-B2B2-9D45A0C27318}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LuminaX", "Lumina\src\Lumina\LuminaX.csproj", "{B275CE49-EA4F-4C17-A342-9C0DE6FDE003}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,10 +21,6 @@ Global
 		{D55C2DEE-6341-4CD6-B2B2-9D45A0C27318}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D55C2DEE-6341-4CD6-B2B2-9D45A0C27318}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D55C2DEE-6341-4CD6-B2B2-9D45A0C27318}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B275CE49-EA4F-4C17-A342-9C0DE6FDE003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B275CE49-EA4F-4C17-A342-9C0DE6FDE003}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B275CE49-EA4F-4C17-A342-9C0DE6FDE003}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B275CE49-EA4F-4C17-A342-9C0DE6FDE003}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

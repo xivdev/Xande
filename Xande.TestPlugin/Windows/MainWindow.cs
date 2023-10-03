@@ -40,7 +40,7 @@ public class MainWindow : Window, IDisposable {
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
-        _converter         = new HavokConverter();
+        _converter         = new HavokConverter( Service.PluginInterface );
 
         SizeConstraints = new WindowSizeConstraints {
             MinimumSize = new Vector2( 375, 350 ),
@@ -49,7 +49,7 @@ public class MainWindow : Window, IDisposable {
 
         _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
         _modelConverter = new ModelConverter( _luminaManager );
-        _sklbResolver   = new SklbResolver();
+        _sklbResolver   = new SklbResolver( Service.PluginInterface );
         IsOpen          = Plugin.Configuration.AutoOpen;
     }
 

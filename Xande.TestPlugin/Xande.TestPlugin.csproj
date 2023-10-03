@@ -20,7 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="2.1.11"/>
+        <PackageReference Include="DalamudPackager" Version="2.1.12"/>
         <Reference Include="Dalamud">
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
             <Private>false</Private>
@@ -33,10 +33,13 @@
             <HintPath>$(DalamudLibPath)ImGui.NET.dll</HintPath>
             <Private>false</Private>
         </Reference>
+        <Reference Include="Lumina">
+            <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Xande\Xande.csproj"/>
-        <ProjectReference Include="..\Lumina\src\Lumina\LuminaX.csproj"/>
     </ItemGroup>
 </Project>
