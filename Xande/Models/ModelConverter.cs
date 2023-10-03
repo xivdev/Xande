@@ -11,6 +11,10 @@ using Xande.Havok;
 using Xande.Models.Export;
 using Xande.Models.Import;
 using Mesh = Lumina.Models.Models.Mesh;
+using Lumina.Data.Files;
+using Lumina.Data;
+using SharpGLTF.Geometry;
+using SharpGLTF.Geometry.VertexTypes;
 
 // ReSharper disable InconsistentNaming
 
@@ -18,23 +22,32 @@ namespace Xande.Models;
 
 public static class ModelExtensions {
     public static string[]? BoneTable( this Mesh mesh ) {
-        var rawMesh = mesh.Parent.File!.Meshes[ mesh.MeshIndex ];
+        var rawMesh = mesh.Parent.File!.Meshes[mesh.MeshIndex];
         if( rawMesh.BoneTableIndex == 255 ) { return null; }
 
-        var rawTable = mesh.Parent.File!.BoneTables[ rawMesh.BoneTableIndex ];
-        return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[ ( int )mesh.Parent.File!.BoneNameOffsets[ b ] ] ).ToArray();
+        var rawTable = mesh.Parent.File!.BoneTables[rawMesh.BoneTableIndex];
+        return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[( int )mesh.Parent.File!.BoneNameOffsets[b]] ).ToArray();
     }
 
-    public static Vertex VertexByIndex( this Mesh mesh, int index ) => mesh.Vertices[ mesh.Indices[ index ] ];
+    public static Vertex VertexByIndex( this Mesh mesh, int index ) => mesh.Vertices[mesh.Indices[index]];
 }
 
 public class ModelConverter {
     private readonly LuminaManager _lumina;
-    private readonly PbdFile       _pbd;
+    private readonly PbdFile _pbd;
+    private readonly IPathResolver? _pathResolver;
+    private readonly HavokConverter _havokConverter;
 
-    public ModelConverter( LuminaManager lumina ) {
+    private Dictionary<string, Lumina.Models.Materials.Material> _materials = new();
+    private Dictionary<string, Texture> _textures = new();
+
+    private DalamudLogger _logger = new();
+
+    public ModelConverter( LuminaManager lumina, IPathResolver? pathResolver = null ) {
         _lumina = lumina;
-        _pbd    = lumina.GetPbdFile();
+        _pbd = lumina.GetPbdFile();
+        _pathResolver = pathResolver;
+        _havokConverter = new HavokConverter();
     }
 
     /*
@@ -66,17 +79,18 @@ public class ModelConverter {
 
 
     private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir ) {
-        var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
+        var xivTextureMap = new Dictionary<TextureUsage, Bitmap>();
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
 
+            var resolvedTexturePath = _pathResolver?.ResolvePlayerPath( xivTexture.TexturePath ) ?? xivTexture.TexturePath;
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
         }
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
             if( xivTextureMap.TryGetValue( TextureUsage.SamplerNormal, out var normal ) ) {
-                var diffuse  = ( Bitmap )normal.Clone();
+                var diffuse = ( Bitmap )normal.Clone();
                 var specular = ( Bitmap )normal.Clone();
                 var emission = ( Bitmap )normal.Clone();
 
@@ -86,10 +100,10 @@ public class ModelConverter {
 
                         //var b = (Math.Clamp(normalPixel.B, (byte)0, (byte)128) * 255) / 128;
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
-                        var colorSetBlend  = normalPixel.A % 17 / 17.0;
+                        var colorSetBlend = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
                         var colorSetIndexT2 = normalPixel.A / 17;
-                        var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
+                        var colorSetIndex2 = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
 
@@ -117,7 +131,7 @@ public class ModelConverter {
 
                 for( var x = 0; x < mask.Width; x++ ) {
                     for( var y = 0; y < mask.Height; y++ ) {
-                        var maskPixel     = mask.GetPixel( x, y );
+                        var maskPixel = mask.GetPixel( x, y );
                         var specularPixel = specularMap.GetPixel( x, y );
 
                         specularMap.SetPixel( x, y, Color.FromArgb(
@@ -196,30 +210,31 @@ public class ModelConverter {
     /// <param name="skeletons">A list of HavokXml instances.</param>
     /// <param name="root">The root bone node.</param>
     /// <returns>A mapping of bone name to node in the scene.</returns>
-    private Dictionary< string, NodeBuilder > GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
-        Dictionary< string, NodeBuilder > boneMap = new();
+    private Dictionary<string, NodeBuilder> GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
+        Dictionary<string, NodeBuilder> boneMap = new();
         root = null;
 
         foreach( var xml in skeletons ) {
-            var skeleton      = xml.GetMainSkeleton();
-            var boneNames     = skeleton.BoneNames;
-            var refPose       = skeleton.ReferencePose;
+            var skeleton = xml.GetMainSkeleton();
+            var boneNames = skeleton.BoneNames;
+            var refPose = skeleton.ReferencePose;
             var parentIndices = skeleton.ParentIndices;
 
             for( var j = 0; j < boneNames.Length; j++ ) {
-                var name = boneNames[ j ];
+                var name = boneNames[j];
                 if( boneMap.ContainsKey( name ) ) continue;
 
                 var bone = new NodeBuilder( name );
-                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[ j ] ), false );
+                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[j] ), false );
 
-                var boneRootId = parentIndices[ j ];
+                var boneRootId = parentIndices[j];
                 if( boneRootId != -1 ) {
-                    var parent = boneMap[ boneNames[ boneRootId ] ];
+                    var parent = boneMap[boneNames[boneRootId]];
                     parent.AddNode( bone );
-                } else { root = bone; }
+                }
+                else { root = bone; }
 
-                boneMap[ name ] = bone;
+                boneMap[name] = bone;
             }
         }
 
@@ -231,40 +246,46 @@ public class ModelConverter {
     /// <param name="models">A list of .mdl paths.</param>
     /// <param name="skeletons">A list of HavokXml instances, obtained from .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
-    public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null ) {
-        var boneMap      = GetBoneMap( skeletons, out var root );
-        var joints       = boneMap.Values.ToArray();
+    public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, string? characterName = null ) {
+        var boneMap = GetBoneMap( skeletons, out var root );
+        var joints = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
-        var glTFScene    = new SceneBuilder( models.Length > 0 ? models[ 0 ] : "scene" );
+        var glTFScene = new SceneBuilder( models.Length > 0 ? models[0] : "scene" );
         if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
-            var xivModel = _lumina.GetModel( path );
+            var resolvedMdlPath = !string.IsNullOrWhiteSpace( characterName ) ? _pathResolver?.ResolveCharacterPath( path, characterName ) : _pathResolver?.ResolvePlayerPath( path ) ?? path;
+            var xivModel = _lumina.GetModel( resolvedMdlPath );
             //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
-            var name     = Path.GetFileNameWithoutExtension( path );
+            var name = Path.GetFileNameWithoutExtension( path );
             var raceCode = raceDeformer.RaceCodeFromPath( path );
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
-                var xivMaterial = _lumina.GetMaterial( xivMesh.Material );
+                var resolvedMtrlPath = xivMesh.Material.ResolvedPath == null ? null : _pathResolver?.ResolvePlayerPath( xivMesh.Material.ResolvedPath );
+                var xivMaterial = string.IsNullOrEmpty( resolvedMtrlPath ) ? _lumina.GetMaterial( xivMesh.Material.MaterialPath ) : _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
+                try {
+                    ComposeTextures( glTFMaterial, xivMaterial, outputDir );
+                }
+                catch { }
 
-                ComposeTextures( glTFMaterial, xivMaterial, outputDir );
-
-                var boneSet       = xivMesh.BoneTable();
-                var boneSetJoints = boneSet?.Select( n => boneMap[ n ] ).ToArray();
-                var useSkinning   = boneSet != null;
+                var boneSet = xivMesh.BoneTable();
+                var boneSetJoints = boneSet?.Select( n => boneMap[n] ).ToArray();
+                var useSkinning = boneSet != null;
 
                 // Mapping between ID referenced in the mesh and in Havok
-                Dictionary< int, int > jointIDMapping = new();
+                Dictionary<int, int> jointIDMapping = new();
                 for( var i = 0; i < boneSetJoints?.Length; i++ ) {
-                    var joint = boneSetJoints[ i ];
-                    var idx   = joints.ToList().IndexOf( joint );
-                    jointIDMapping[ i ] = idx;
+                    var joint = boneSetJoints[i];
+                    var idx = joints.ToList().IndexOf( joint );
+                    jointIDMapping[i] = idx;
                 }
-
+                if( xivMesh.Vertices.Length == 0 ) {
+                    continue;
+                }
                 // Handle submeshes and the main mesh
                 var meshBuilder = new MeshBuilder(
                     xivMesh,
@@ -281,14 +302,15 @@ public class ModelConverter {
 
                 if( xivMesh.Submeshes.Length > 0 ) {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
-                        var xivSubmesh = xivMesh.Submeshes[ i ];
-                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh );
+                        var xivSubmesh = xivMesh.Submeshes[i];
+                        var subMesh = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                         meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
                             ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); } else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
-                } else {
+                }
+                else {
                     var mesh = meshBuilder.BuildMesh();
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
                     meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, 0, xivMesh.Indices.Length );
@@ -304,29 +326,62 @@ public class ModelConverter {
     }
 
     public byte[] ImportModel( string gltfPath, string origModel ) {
+        PluginLog.Debug( $"Importing model" );
         var root = ModelRoot.Load( gltfPath );
 
         Model? orig = null;
-
         try {
             orig = _lumina.GetModel( origModel );
         }
-        catch (FileNotFoundException) {
-            PluginLog.Error($"Could not find original model: \"{origModel}\"");
+        catch( FileNotFoundException ) {
+            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
+            //return Array.Empty<byte>();
         }
 
-        var modelFileBuilder = new MdlFileBuilder( root, orig );
+        var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
         var (file, vertexData, indexData) = modelFileBuilder.Build();
 
-        if (file == null) {
+        if( file == null ) {
             PluginLog.Debug( "Could not build MdlFile" );
             return Array.Empty<byte>();
         }
 
-        using var stream      = new MemoryStream();
+        using var stream = new MemoryStream();
         using var modelWriter = new MdlFileWriter( file, stream );
 
-        modelWriter.WriteAll(vertexData, indexData);
+        modelWriter.WriteAll( vertexData, indexData );
         return stream.ToArray();
+    }
+
+    public async Task<byte[]> ImportModelAsync( string gltfPath, string origModel ) {
+        throw new Exception();
+        /*
+        PluginLog.Warning( $"Importing Async. Shapes are incorrect." );
+        PluginLog.Debug( $"Importing model" );
+        var root = ModelRoot.Load( gltfPath );
+
+        Model? orig = null;
+        try {
+            orig = _lumina.GetModel( origModel );
+        }
+        catch( FileNotFoundException ) {
+            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
+            //return Array.Empty<byte>();
+        }
+
+        var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
+        //var (file, vertexData, indexData) = await modelFileBuilder.BuildAsync();
+
+        if( file == null ) {
+            PluginLog.Debug( "Could not build MdlFile" );
+            return Array.Empty<byte>();
+        }
+
+        using var stream = new MemoryStream();
+        using var modelWriter = new MdlFileWriter( file, stream );
+
+        modelWriter.WriteAll( vertexData, indexData );
+        return stream.ToArray();
+        */
     }
 }

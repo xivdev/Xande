@@ -39,10 +39,10 @@ public class LuminaManager {
 
     public LuminaManager( Func< string, string? > fileResolver ) : this() => FileResolver = fileResolver;
 
-    public T? GetFile< T >( string path ) where T : FileResource {
+    public T? GetFile< T >( string path, string? origPath = null ) where T : FileResource {
         var actualPath = FileResolver?.Invoke( path ) ?? path;
         return Path.IsPathRooted( actualPath )
-            ? GameData.GetFileFromDisk< T >( actualPath )
+            ? GameData.GetFileFromDisk< T >( actualPath, origPath ) // this will be present in the next dalamud update, until then, we have to use LuminaX
             : GameData.GetFile< T >( actualPath );
     }
 
@@ -55,8 +55,8 @@ public class LuminaManager {
     }
 
     /// <summary>Obtain and parse a material structure.</summary>
-    public Material GetMaterial( string path ) {
-        var mtrlFile = GetFile< MtrlFile >( path );
+    public Material GetMaterial( string path, string? origPath = null) {
+        var mtrlFile = GetFile< MtrlFile >( path, origPath );
         return mtrlFile != null
             ? new Material( mtrlFile )
             : throw new FileNotFoundException();
@@ -78,8 +78,8 @@ public class LuminaManager {
     }
 
     /// <summary>Obtain and parse a texture to a Bitmap.</summary>
-    public unsafe Bitmap GetTextureBuffer( string path ) {
-        var texFile = GetFile< TexFile >( path );
+    public unsafe Bitmap GetTextureBuffer( string path, string? origPath = null ) {
+        var texFile = GameData.GetFile< TexFile >( path, origPath );
         if( texFile == null ) throw new Exception( $"Lumina was unable to fetch a .tex file from {path}." );
         var texBuffer = texFile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
         fixed( byte* raw = texBuffer.RawData ) { return new Bitmap( texBuffer.Width, texBuffer.Height, texBuffer.Width * 4, PixelFormat.Format32bppArgb, ( nint )raw ); }

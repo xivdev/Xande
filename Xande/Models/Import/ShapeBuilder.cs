@@ -1,4 +1,4 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Parsing;
 using SharpGLTF.Schema2;
 using System;
@@ -14,10 +14,10 @@ namespace Xande.Models.Import {
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();
         public readonly List<int> DifferentVertices = new();
         //private VertexDataBuilder _vertexDataBuilder;
-
+        private ILogger? _logger;
         public int VertexCount => DifferentVertices.Count;
 
-        public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+        public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
             ShapeName = name;
             //_vertexDataBuilder = new( primitive, vertexDeclarationStruct );
 
