@@ -15,6 +15,7 @@ using Lumina.Data.Files;
 using Lumina.Data;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
+using Lumina;
 
 // ReSharper disable InconsistentNaming
 
@@ -36,18 +37,17 @@ public class ModelConverter {
     private readonly LuminaManager _lumina;
     private readonly PbdFile _pbd;
     private readonly IPathResolver? _pathResolver;
-    private readonly HavokConverter _havokConverter;
 
     private Dictionary<string, Lumina.Models.Materials.Material> _materials = new();
     private Dictionary<string, Texture> _textures = new();
 
-    private DalamudLogger _logger = new();
+    private ILogger? _logger;
 
-    public ModelConverter( LuminaManager lumina, IPathResolver? pathResolver = null ) {
+    public ModelConverter( LuminaManager lumina, IPathResolver? pathResolver = null, ILogger? logger = null ) {
+        _logger = logger;
         _lumina = lumina;
         _pbd = lumina.GetPbdFile();
         _pathResolver = pathResolver;
-        _havokConverter = new HavokConverter();
     }
 
     /*
