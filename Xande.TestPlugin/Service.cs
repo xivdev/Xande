@@ -15,4 +15,7 @@ public class Service {
 
     [PluginService]
     public static ICommandManager CommandManager { get; private set; } = null!;
+
+    [PluginService]
+    public static IPluginLog Logger { get; private set; } = null!;
 }
