@@ -38,4 +38,8 @@
         <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0-alpha0028" />
         <PackageReference Include="System.Drawing.Common" Version="8.0.0-preview.2.23128.3" />
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Xande.GltfImporter\Xande.GltfImporter.csproj" />
+    </ItemGroup>
 </Project>

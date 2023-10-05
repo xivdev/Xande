@@ -8,10 +8,9 @@ using System.Collections.Immutable;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Xande.Models.Export;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
-namespace Xande.Models.Import;
+namespace Xande.GltfImporter;
 
 // https://github.com/xivdev/Penumbra/blob/master/Penumbra.GameData/Files/MdlFile.Write.cs
 // https://github.com/NotAdam/Lumina/blob/master/src/Lumina/Data/Files/MdlFile.cs
@@ -227,6 +226,10 @@ public class MdlFileBuilder {
 
         if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
             // TODO: ?
+        }
+
+        if (_stringTableBuilder.Bones.Count == 0) {
+            _stringTableBuilder.AddBone( "n_hara" );
         }
 
         if( skeleton != null ) {

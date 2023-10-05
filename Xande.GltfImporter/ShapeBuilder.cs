@@ -8,7 +8,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class ShapeBuilder {
         public readonly string ShapeName;
         public readonly List<MdlStructs.ShapeValueStruct> ShapeValues = new();

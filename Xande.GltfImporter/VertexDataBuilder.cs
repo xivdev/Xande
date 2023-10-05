@@ -11,7 +11,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class VertexDataBuilder {
         public Dictionary<int, int>? BlendIndicesDict = null;
         private Dictionary<string, IReadOnlyDictionary<string, Accessor>> ShapesAccessor = new();

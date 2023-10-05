@@ -2,7 +2,7 @@ using Lumina;
 using SharpGLTF.Schema2;
 using System.Text;
 
-namespace Xande.Models.Import;
+namespace Xande.GltfImporter;
 
 public class StringTableBuilder {
     public SortedSet<string> Attributes = new();

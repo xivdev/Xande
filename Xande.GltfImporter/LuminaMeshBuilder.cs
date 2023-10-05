@@ -11,7 +11,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class LuminaMeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
         public Dictionary<int, List<byte>> VertexData = new();

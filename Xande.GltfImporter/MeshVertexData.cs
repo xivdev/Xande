@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class MeshVertexData {
         private Dictionary<int, List<byte>> _vertexData = new();
         private Dictionary<int, List<byte>> _shapeVertexData = new();

@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class SubmeshBuilder {
         public uint IndexCount => ( uint )Indices.LongCount();
         public List<uint> Indices = new();

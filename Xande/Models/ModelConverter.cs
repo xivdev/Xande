@@ -9,13 +9,13 @@ using SharpGLTF.Schema2;
 using Xande.Files;
 using Xande.Havok;
 using Xande.Models.Export;
-using Xande.Models.Import;
 using Mesh = Lumina.Models.Models.Mesh;
 using Lumina.Data.Files;
 using Lumina.Data;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using Lumina;
+using Xande.GltfImporter;
 
 // ReSharper disable InconsistentNaming
 
