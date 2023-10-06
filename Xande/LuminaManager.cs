@@ -42,7 +42,7 @@ public class LuminaManager {
     public T? GetFile< T >( string path, string? origPath = null ) where T : FileResource {
         var actualPath = FileResolver?.Invoke( path ) ?? path;
         return Path.IsPathRooted( actualPath )
-            ? GameData.GetFileFromDisk< T >( actualPath, origPath ) // this will be present in the next dalamud update, until then, we have to use LuminaX
+            ? GameData.GetFileFromDisk< T >( actualPath, origPath )
             : GameData.GetFile< T >( actualPath );
     }
 
