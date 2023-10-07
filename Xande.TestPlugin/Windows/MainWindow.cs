@@ -162,7 +162,7 @@ public class MainWindow : Window, IDisposable {
                     try {
                         _exportStatus = ExportStatus.ExportingModel;
                         var data = _modelConverter.ImportModel( _gltfPath, _modelPaths );
-                        SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model", ".mdl", path2 => {
+                        SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model.mdl", ".mdl", path2 => {
                             PluginLog.Debug( $"Writing file to: {path2}" );
                             File.WriteAllBytes( path2, data );
                             Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
