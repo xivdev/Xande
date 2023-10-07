@@ -33,6 +33,12 @@ public static class ModelExtensions {
     public static Vertex VertexByIndex( this Mesh mesh, int index ) => mesh.Vertices[mesh.Indices[index]];
 }
 
+public enum ExportModelType {
+    UNMODDED,
+    DEFAULT,
+    CHARACTER
+}
+
 public class ModelConverter {
     private readonly LuminaManager _lumina;
     private readonly PbdFile _pbd;
@@ -83,8 +89,6 @@ public class ModelConverter {
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
-
-            var resolvedTexturePath = _pathResolver?.ResolvePlayerPath( xivTexture.TexturePath ) ?? xivTexture.TexturePath;
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
         }
 
@@ -246,7 +250,9 @@ public class ModelConverter {
     /// <param name="models">A list of .mdl paths.</param>
     /// <param name="skeletons">A list of HavokXml instances, obtained from .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
-    public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, string? characterName = null ) {
+    public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, ExportModelType exportType = ExportModelType.DEFAULT ) {
+        // TT-exported mdls have incorrect SubmeshBoneMaps (or at least, incompatible with standard Lumina)
+        // TODO: Try to correct the submeshbonemap to enable exporting modded models?
         var boneMap = GetBoneMap( skeletons, out var root );
         var joints = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
@@ -254,7 +260,7 @@ public class ModelConverter {
         if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
-            var resolvedMdlPath = !string.IsNullOrWhiteSpace( characterName ) ? _pathResolver?.ResolveCharacterPath( path, characterName ) : _pathResolver?.ResolvePlayerPath( path ) ?? path;
+            var resolvedMdlPath = ResolvePath( path, exportType );
             var xivModel = _lumina.GetModel( resolvedMdlPath );
             //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
             var name = Path.GetFileNameWithoutExtension( path );
@@ -262,8 +268,9 @@ public class ModelConverter {
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
-                var resolvedMtrlPath = xivMesh.Material.ResolvedPath == null ? null : _pathResolver?.ResolvePlayerPath( xivMesh.Material.ResolvedPath );
-                var xivMaterial = string.IsNullOrEmpty( resolvedMtrlPath ) ? _lumina.GetMaterial( xivMesh.Material.MaterialPath ) : _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
+                var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
+                var resolvedMtrlPath = ResolvePath( mtrlPath );
+                var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
@@ -300,6 +307,7 @@ public class ModelConverter {
 
                 meshBuilder.BuildVertices();
 
+                _logger?.Debug( $"{xivMesh.Submeshes.Length}" );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[i];
@@ -325,6 +333,18 @@ public class ModelConverter {
         glTFModel.SaveGLTF( Path.Combine( outputDir, "mesh.gltf" ) );
     }
 
+    private string ResolvePath(string path, ExportModelType type = ExportModelType.DEFAULT) {
+        switch( type ) {
+            case ExportModelType.UNMODDED:
+                return path;
+            case ExportModelType.DEFAULT:
+                return _pathResolver?.ResolveDefaultPath( path ) ?? path;
+            case ExportModelType.CHARACTER:
+                return _pathResolver?.ResolvePlayerPath( path ) ?? path;
+        }
+        return path;
+    }
+
     public byte[] ImportModel( string gltfPath, string origModel ) {
         PluginLog.Debug( $"Importing model" );
         var root = ModelRoot.Load( gltfPath );
@@ -339,6 +359,7 @@ public class ModelConverter {
         }
 
         var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
+
         var (file, vertexData, indexData) = modelFileBuilder.Build();
 
         if( file == null ) {
