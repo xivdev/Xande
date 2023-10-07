@@ -182,7 +182,10 @@ public class MainWindow : Window, IDisposable {
     private void DrawExportTab() {
         var cra = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
+
+        ImGui.Text( $"Model file" );
         ImGui.InputTextMultiline( ".mdl file", ref _inputMdl, 1024 * 4, textSize );
+        ImGui.Text( $".sklb file(s)" );
         ImGui.InputTextMultiline( ".sklb file", ref _skeletonPaths, 1024 * 4, textSize );
 
         if( ImGui.Button( "Export .gltf" ) ) {
@@ -211,6 +214,8 @@ public class MainWindow : Window, IDisposable {
             }
         }
         ImGui.SameLine();
+        /*
+        Currently, some model parsing will be needed before we can export modded models
         if( ImGui.BeginCombo( "ExportType", $"{_exportModelType}" ) ) {
             if( ImGui.Selectable( $"{ExportModelType.UNMODDED}" ) ) {
                 _exportModelType = ExportModelType.UNMODDED;
@@ -223,6 +228,7 @@ public class MainWindow : Window, IDisposable {
             }
             ImGui.EndCombo();
         }
+        */
     }
     private void DrawStatus() {
         var status = _exportStatus switch {
@@ -268,7 +274,8 @@ public class MainWindow : Window, IDisposable {
                 _exportStatus = ExportStatus.ExportingModel;
 
                 try {
-                    _modelConverter.ExportModel( tempPath, models, skellies, deform, _exportModelType );
+                    //_modelConverter.ExportModel( tempPath, models, skellies, deform, _exportModelType );
+                    _modelConverter.ExportModel( tempPath, models, skellies, deform, ExportModelType.UNMODDED );
                     PluginLog.Information( "Exported model to {0}", tempPath );
                     _exportStatus = ExportStatus.Done;
                 }
