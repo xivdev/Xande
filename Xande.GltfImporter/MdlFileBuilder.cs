@@ -25,7 +25,8 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
-
+    // files exported via Xande don't have the node names set to work with this parsing
+    // i think it has the mesh names...
     public MdlFileBuilder( ModelRoot root, Model? model, ILogger? logger = null ) {
         _root = root;
         _origModel = model;
@@ -231,10 +232,6 @@ public class MdlFileBuilder {
 
         if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
             // TODO: ?
-        }
-
-        if( _stringTableBuilder.Bones.Count == 0 ) {
-            _stringTableBuilder.AddBone( "n_hara" );
         }
 
         if( skeleton != null ) {
