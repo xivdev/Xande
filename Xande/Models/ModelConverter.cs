@@ -36,7 +36,7 @@ public static class ModelExtensions {
 public enum ExportModelType {
     UNMODDED,
     DEFAULT,
-    CHARACTER
+    PLAYER
 }
 
 public class ModelConverter {
@@ -339,7 +339,7 @@ public class ModelConverter {
                 return path;
             case ExportModelType.DEFAULT:
                 return _pathResolver?.ResolveDefaultPath( path ) ?? path;
-            case ExportModelType.CHARACTER:
+            case ExportModelType.PLAYER:
                 return _pathResolver?.ResolvePlayerPath( path ) ?? path;
         }
         return path;
