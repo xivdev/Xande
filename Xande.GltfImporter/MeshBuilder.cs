@@ -12,7 +12,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace Xande.GltfImporter {
-    internal class LuminaMeshBuilder {
+    internal class MeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
         public Dictionary<int, List<byte>> VertexData = new();
         public SortedSet<string> Attributes = new();
@@ -27,7 +27,7 @@ namespace Xande.GltfImporter {
 
         public uint IndexCount { get; protected set; } = 0;
 
-        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
+        public MeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
             _logger = logger;
             foreach( var sm in submeshes ) {
                 Submeshes.Add( sm );

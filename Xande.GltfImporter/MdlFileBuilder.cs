@@ -21,7 +21,7 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
-    private List<LuminaMeshBuilder> _meshBuilders = new();
+    private List<MeshBuilder> _meshBuilders = new();
 
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
@@ -203,7 +203,7 @@ public class MdlFileBuilder {
 
                 submeshes.Add( submesh );
             }
-            var meshBuilder = new LuminaMeshBuilder( submeshes, _logger );
+            var meshBuilder = new MeshBuilder( submeshes, _logger );
             _meshBuilders.Add( meshBuilder );
             _stringTableBuilder.AddBones( meshBuilder.Bones );
             _stringTableBuilder.AddMaterial( meshBuilder.Material );
