@@ -39,10 +39,10 @@ public class LuminaManager {
 
     public LuminaManager( Func< string, string? > fileResolver ) : this() => FileResolver = fileResolver;
 
-    public T? GetFile< T >( string path ) where T : FileResource {
+    public T? GetFile< T >( string path, string? originalPath = null ) where T : FileResource {
         var actualPath = FileResolver?.Invoke( path ) ?? path;
         return Path.IsPathRooted( actualPath )
-            ? GameData.GetFileFromDisk< T >( actualPath )
+            ? GameData.GetFileFromDisk< T >( actualPath, originalPath )
             : GameData.GetFile< T >( actualPath );
     }
 
@@ -55,8 +55,8 @@ public class LuminaManager {
     }
 
     /// <summary>Obtain and parse a material structure.</summary>
-    public Material GetMaterial( string path ) {
-        var mtrlFile = GetFile< MtrlFile >( path );
+    public Material GetMaterial( string path, string? originalPath = null ) {
+        var mtrlFile = GetFile< MtrlFile >( path, originalPath );
         return mtrlFile != null
             ? new Material( mtrlFile )
             : throw new FileNotFoundException();
