@@ -8,7 +8,7 @@ public class StringTableBuilder {
     public SortedSet<string> Attributes = new();
     public SortedSet<string> Bones = new();
     public List<string> HierarchyBones = new();
-    public readonly SortedSet<string> Materials = new();
+    public readonly List<string> Materials = new();
     public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
     private ILogger? _logger;
