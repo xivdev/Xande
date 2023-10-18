@@ -20,7 +20,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DalamudPackager" Version="2.1.12"/>
+        <PackageReference Include="DalamudPackager" Version="2.1.12" />
+        <PackageReference Include="Penumbra.Api" Version="1.0.11" />
         <Reference Include="Dalamud">
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
             <Private>false</Private>
@@ -40,6 +41,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Xande\Xande.csproj"/>
+        <ProjectReference Include="..\Xande\Xande.csproj" />
     </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Xande.TestPlugin.Windows;
 
 namespace Xande.TestPlugin;
@@ -10,6 +11,7 @@ public class Plugin : IDalamudPlugin {
 
     public static Configuration Configuration { get; set; } = null!;
     private static readonly WindowSystem WindowSystem = new("Xande.TestPlugin");
+    public static IPluginLog Logger { get; set; }
     private readonly        MainWindow   _mainWindow;
 
     public Plugin( DalamudPluginInterface pluginInterface ) {
@@ -27,6 +29,7 @@ public class Plugin : IDalamudPlugin {
 
         Service.PluginInterface.UiBuilder.Draw         += DrawUi;
         Service.PluginInterface.UiBuilder.OpenConfigUi += OpenUi;
+        Logger = Service.Logger;
     }
 
     public void Dispose() {

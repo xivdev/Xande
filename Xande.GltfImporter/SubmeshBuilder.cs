@@ -1,4 +1,4 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
@@ -17,9 +17,9 @@ using System.Threading.Tasks;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
 
-namespace Xande.Models.Import {
+namespace Xande.GltfImporter {
     internal class SubmeshBuilder {
-        public int IndexCount => Indices.Count;
+        public uint IndexCount => ( uint )Indices.LongCount();
         public List<uint> Indices = new();
         public int BoneCount { get; } = 0;
         public List<string> Attributes = new();
@@ -40,7 +40,7 @@ namespace Xande.Models.Import {
         public List<(List<Vector3>, float)> AppliedShapesNormals = new();
 
         private List<Vector4>? _bitangents = null;
-
+        private ILogger? _logger;
         private VertexDataBuilder VertexDataBuilder;
 
         /// <summary>
@@ -48,18 +48,19 @@ namespace Xande.Models.Import {
         /// </summary>
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
-        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
+            _logger = logger;
             _mesh = mesh;
             if( _mesh.Primitives.Count == 0 ) {
-                PluginLog.Error( $"Submesh had zero primitives" );
+                _logger?.Error( $"Submesh had zero primitives" );
             }
             if( _mesh.Primitives.Count > 1 ) {
-                PluginLog.Warning( $"Submesh had more than one primitive." );
+                _logger?.Warning( $"Submesh had more than one primitive." );
             }
 
             var primitive = _mesh.Primitives[0];
             //foreach( var primitive in _mesh.Primitives ) {
-            VertexDataBuilder = new( primitive, vertexDeclarationStruct );
+            VertexDataBuilder = new( primitive, vertexDeclarationStruct, _logger );
             Indices.AddRange( primitive.GetIndices() );
 
             var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
@@ -69,16 +70,17 @@ namespace Xande.Models.Import {
             if( String.IsNullOrEmpty( material ) ) {
                 // TODO: Figure out what to do in this case
                 // Have a Model as an argument and take the first material from that?
-                PluginLog.Error( "Submesh had null material name" );
+                _logger?.Error( "Submesh had null material name" );
             }
             else {
                 if( String.IsNullOrEmpty( MaterialPath ) ) {
                     _material = material;
-                    MaterialPath = AdjustMaterialPath( _material );
+                    //MaterialPath = AdjustMaterialPath( _material );
+                    MaterialPath = _material;
                 }
                 else {
                     if( material != _material || material != MaterialPath ) {
-                        PluginLog.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
+                        _logger?.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
                     }
                 }
             }
@@ -97,7 +99,7 @@ namespace Xande.Models.Import {
                 }
             }
             else {
-                PluginLog.Error( "This submesh had no positions." );
+                _logger?.Error( "This submesh had no positions." );
             }
 
             var includeNHara = skeleton.Where( x => x.StartsWith( "n_hara" ) ).Count() > 1;
@@ -127,7 +129,7 @@ namespace Xande.Models.Import {
                                 if( shapeName == null ) { continue; }
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
-                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct );
+                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct, _logger );
                                     VertexDataBuilder.AddShape( shapeName, primitive.GetMorphTargetAccessors( i ) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
@@ -145,7 +147,7 @@ namespace Xande.Models.Import {
                                     var appliedNormalPositions = shapeNormalAccessor?.AsVector3Array();
 
                                     if( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where( x => x != Vector3.Zero ).Any() ) {
-                                        PluginLog.Debug( $"AppliedShape: {shapeName} with weight {shapeWeight}" );
+                                        _logger?.Debug( $"AppliedShape: {shapeName} with weight {shapeWeight}" );
                                         AppliedShapes.Add( (appliedPositions.ToList(), shapeWeight) );
                                     }
                                     if( appliedNormalPositions != null && appliedNormalPositions.Any() && appliedNormalPositions.Where( x => x != Vector3.Zero ).Any() ) {
@@ -158,16 +160,17 @@ namespace Xande.Models.Import {
                     }
                 }
                 else {
-                    PluginLog.Debug( "Mesh contained no extras." );
+                    _logger?.Debug( "Mesh contained no extras." );
                 }
             }
             catch( Exception ex ) {
-                PluginLog.Error( "Could not add shapes." );
-                PluginLog.Error( ex.ToString() );
+                _logger?.Error( "Could not add shapes." );
+                _logger?.Error( ex.ToString() );
             }
             //}
             VertexDataBuilder.AppliedShapePositions = AppliedShapes;
             VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
+
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
         }
 
@@ -296,13 +299,13 @@ namespace Xande.Models.Import {
                 var weldedVerts = new Dictionary<int, List<int>>();
                 var tempVertices = new List<int>();
 
-                for( var oIdx = 0; oIdx < positions.Count; oIdx++ ) {
+                for( var oIdx = 0; oIdx < positions?.Count; oIdx++ ) {
                     var idx = -1;
                     for( var nIdx = 0; nIdx < tempVertices.Count; nIdx++ ) {
                         if( positions[nIdx] == positions[oIdx]
-                            && uvs[nIdx] == uvs[oIdx]
-                            && normals[nIdx] == normals[oIdx]
-                            && colors[nIdx] != colors[oIdx] ) {
+                            && uvs?[nIdx] == uvs?[oIdx]
+                            && normals?[nIdx] == normals?[oIdx]
+                            && colors?[nIdx] != colors?[oIdx] ) {
                             var alreadyMergedVerts = weldedVerts[nIdx];
                             var alreadyConnectedOldVerts = new HashSet<int>();
                             foreach( var amIdx in alreadyMergedVerts ) {
@@ -422,7 +425,7 @@ namespace Xande.Models.Import {
                 }
             }
             catch( Exception ex ) {
-                PluginLog.Error( $"Could not calculate bitangents. {ex.Message}" );
+                _logger?.Error( $"Could not calculate bitangents. {ex}" );
             }
         }
 

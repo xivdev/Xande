@@ -8,6 +8,17 @@
         "resolved": "2.1.12",
         "contentHash": "Sc0PVxvgg4NQjcI8n10/VfUQBAS4O+Fw2pZrAqBdRMbthYGeogzu5+xmIGCGmsEZ/ukMOBuAqiNiB5qA3MRalg=="
       },
+      "Penumbra.Api": {
+        "type": "Direct",
+        "requested": "[1.0.11, )",
+        "resolved": "1.0.11",
+        "contentHash": "MscPf7uEoe2Dza09mZD8CqDhfSBr3hcwH15jTTQTStfyTnAVLPGRLPIhYM2aC83Qt1blE855xO9O2ox9mV2K2Q=="
+      },
+      "Lumina": {
+        "type": "Transitive",
+        "resolved": "3.11.0",
+        "contentHash": "G7HQq2i5k4eL8kXxQCtrwQtRBuQi5qW1reb5oYZv+hazgOgpqX6YAX56dW6r5uraef1L1j/jMXMlXQDb3wMUmQ=="
+      },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
         "resolved": "8.0.0-preview.2.23128.3",
@@ -39,7 +50,16 @@
         "dependencies": {
           "SharpGLTF.Core": "[1.0.0-alpha0028, )",
           "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )",
-          "System.Drawing.Common": "[8.0.0-preview.2.23128.3, )"
+          "System.Drawing.Common": "[8.0.0-preview.2.23128.3, )",
+          "Xande.GltfImporter": "[1.0.0, )"
+        }
+      },
+      "xande.gltfimporter": {
+        "type": "Project",
+        "dependencies": {
+          "Lumina": "[3.11.0, )",
+          "SharpGLTF.Core": "[1.0.0-alpha0028, )",
+          "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )"
         }
       }
     }
