@@ -16,15 +16,15 @@ namespace Xande.TestPlugin.Windows;
 
 public class MainWindow : Window, IDisposable {
     private readonly FileDialogManager _fileDialogManager;
-    private readonly HavokConverter _converter;
-    private readonly LuminaManager _luminaManager;
-    private readonly ModelConverter _modelConverter;
-    private readonly SklbResolver _sklbResolver;
+    private readonly HavokConverter    _converter;
+    private readonly LuminaManager     _luminaManager;
+    private readonly ModelConverter    _modelConverter;
+    private readonly SklbResolver      _sklbResolver;
 
     private const string SklbFilter = "FFXIV Skeleton{.sklb}";
-    private const string PbdFilter = "FFXIV Bone Deformer{.pbd}";
-    private const string HkxFilter = "Havok Packed File{.hkx}";
-    private const string XmlFilter = "Havok XML File{.xml}";
+    private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
+    private const string HkxFilter  = "Havok Packed File{.hkx}";
+    private const string XmlFilter  = "Havok XML File{.xml}";
     private const string GltfFilter = "glTF 2.0 File{.gltf,.glb}";
 
     enum ExportStatus {
@@ -37,23 +37,24 @@ public class MainWindow : Window, IDisposable {
 
     private ExportStatus _exportStatus = ExportStatus.Idle;
 
-    private string _modelPaths = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
-    private string _skeletonPaths = string.Empty;
-    private string _gltfPath = string.Empty;
-    private string _outputMdlPath = string.Empty;
-    private string _inputMdl = string.Empty;
-    private ExportModelType _exportModelType = ExportModelType.DEFAULT;
+    private string          _modelPaths      = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
+    private string          _skeletonPaths   = string.Empty;
+    private string          _gltfPath        = string.Empty;
+    private string          _outputMdlPath   = string.Empty;
+    private string          _inputMdl        = string.Empty;
+    private int             _deform          = 0;
+    private ExportModelType _exportModelType = ExportModelType.UNMODDED;
 
     public MainWindow() : base( "Xande.TestPlugin" ) {
         _fileDialogManager = new FileDialogManager();
-        _converter = new HavokConverter( Service.PluginInterface );
+        _converter         = new HavokConverter( Service.PluginInterface );
         if( GetQuickAccessFolders( out var folders ) ) {
             foreach( var folder in folders ) {
                 _fileDialogManager.CustomSideBarItems.Add(
-                    (folder.Name,
-                    folder.Path,
-                    FontAwesomeIcon.Folder,
-                    -1
+                    ( folder.Name,
+                        folder.Path,
+                        FontAwesomeIcon.Folder,
+                        -1
                     ) );
             }
         }
@@ -63,10 +64,10 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
+        _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
         _modelConverter = new ModelConverter( _luminaManager, new PenumbraIPCPathResolver( Service.PluginInterface ), new DalamudLogger() );
-        _sklbResolver = new SklbResolver( Service.PluginInterface );
-        IsOpen = Plugin.Configuration.AutoOpen;
+        _sklbResolver   = new SklbResolver( Service.PluginInterface );
+        IsOpen          = Plugin.Configuration.AutoOpen;
     }
 
     public void Dispose() { }
@@ -103,8 +104,8 @@ public class MainWindow : Window, IDisposable {
     }
 
     // Thank you Otter: https://github.com/Ottermandias/OtterGui/blob/main/Functions.cs#L186
-    public static bool GetQuickAccessFolders( out List<(string Name, string Path)> folders ) {
-        folders = new List<(string Name, string Path)>();
+    public static bool GetQuickAccessFolders( out List< (string Name, string Path) > folders ) {
+        folders = new List< (string Name, string Path) >();
         try {
             var shellAppType = Type.GetTypeFromProgID( "Shell.Application" );
             if( shellAppType == null )
@@ -112,8 +113,7 @@ public class MainWindow : Window, IDisposable {
 
             var shell = Activator.CreateInstance( shellAppType );
 
-            var obj = shellAppType.InvokeMember( "NameSpace", BindingFlags.InvokeMethod, null, shell, new object[]
-            {
+            var obj = shellAppType.InvokeMember( "NameSpace", BindingFlags.InvokeMethod, null, shell, new object[] {
                 "shell:::{679f85cb-0220-4080-b29b-5540cc05aab6}",
             } );
             if( obj == null )
@@ -124,25 +124,18 @@ public class MainWindow : Window, IDisposable {
                 if( !fi.IsLink && !fi.IsFolder )
                     continue;
 
-                folders.Add( (fi.Name, fi.Path) );
+                folders.Add( ( fi.Name, fi.Path ) );
             }
 
             return true;
-        }
-        catch {
-            return false;
-        }
+        } catch { return false; }
     }
 
     private void DrawImportTab() {
-        var cra = ImGui.GetContentRegionAvail();
+        var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
 
-        if( ImGui.Button( "Browse .gltf" ) ) {
-            OpenFileDialog( "Select gltf file", GltfFilter, path => {
-                _gltfPath = path;
-            } );
-        }
+        if( ImGui.Button( "Browse .gltf" ) ) { OpenFileDialog( "Select gltf file", GltfFilter, path => { _gltfPath = path; } ); }
         ImGui.SameLine();
         ImGui.InputText( "gltf file", ref _gltfPath, 1024 );
 
@@ -167,20 +160,14 @@ public class MainWindow : Window, IDisposable {
                             File.WriteAllBytes( path2, data );
                             Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
                         } );
-                    }
-                    catch( Exception ex ) {
-                        PluginLog.Error( $"Model could not be imported.\n{ex}" );
-                    }
-                    finally {
-                        _exportStatus = ExportStatus.Idle;
-                    }
+                    } catch( Exception ex ) { PluginLog.Error( $"Model could not be imported.\n{ex}" ); } finally { _exportStatus = ExportStatus.Idle; }
                 } );
             }
         }
     }
 
     private void DrawExportTab() {
-        var cra = ImGui.GetContentRegionAvail();
+        var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
 
         ImGui.Text( $"Model file" );
@@ -201,8 +188,7 @@ public class MainWindow : Window, IDisposable {
                     var tempDir = await DoTheThingWithTheModels( _inputMdl.Trim().Split( '\n' ), _skeletonPaths.Trim().Split( '\n' ) );
                     Process.Start( "explorer.exe", tempDir );
                 } );
-            }
-            else {
+            } else {
                 Task.Run( async () => {
                     var s = _sklbResolver.Resolve( _inputMdl );
 
@@ -230,14 +216,15 @@ public class MainWindow : Window, IDisposable {
         }
         */
     }
+
     private void DrawStatus() {
         var status = _exportStatus switch {
-            ExportStatus.Idle => "Idle",
+            ExportStatus.Idle             => "Idle",
             ExportStatus.ParsingSkeletons => "Parsing skeletons",
-            ExportStatus.ExportingModel => "Exporting model",
-            ExportStatus.Done => "Done",
-            ExportStatus.Error => "Error exporting model",
-            _ => ""
+            ExportStatus.ExportingModel   => "Exporting model",
+            ExportStatus.Done             => "Done",
+            ExportStatus.Error            => "Error exporting model",
+            _                             => ""
         };
 
         ImGui.Text( $"Export status: {status}" );
@@ -254,7 +241,7 @@ public class MainWindow : Window, IDisposable {
         DrawConvert();
     }
 
-    private Task<string> DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null ) {
+    private Task< string > DoTheThingWithTheModels( string[] models, string[] skeletons, ushort? deform = null, ExportModelType type = ExportModelType.UNMODDED ) {
         var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
         Directory.CreateDirectory( tempDir );
 
@@ -264,9 +251,9 @@ public class MainWindow : Window, IDisposable {
         return Service.Framework.RunOnTick( () => {
             _exportStatus = ExportStatus.ParsingSkeletons;
             var skellies = skeletons.Select( path => {
-                var file = _luminaManager.GetFile<FileResource>( path );
+                var file = _luminaManager.GetFile< FileResource >( path );
                 var sklb = SklbFile.FromStream( file.Reader.BaseStream );
-                var xml = _converter.HkxToXml( sklb.HkxData );
+                var xml  = _converter.HkxToXml( sklb.HkxData );
                 return new HavokXml( xml );
             } ).ToArray();
 
@@ -275,11 +262,10 @@ public class MainWindow : Window, IDisposable {
 
                 try {
                     //_modelConverter.ExportModel( tempPath, models, skellies, deform, _exportModelType );
-                    _modelConverter.ExportModel( tempPath, models, skellies, deform, ExportModelType.UNMODDED );
+                    _modelConverter.ExportModel( tempPath, models, skellies, deform, type );
                     PluginLog.Information( "Exported model to {0}", tempPath );
                     _exportStatus = ExportStatus.Done;
-                }
-                catch( Exception e ) {
+                } catch( Exception e ) {
                     PluginLog.Error( e, "Failed to export model" );
                     _exportStatus = ExportStatus.Error;
                 }
@@ -289,21 +275,21 @@ public class MainWindow : Window, IDisposable {
         } );
     }
 
-    private Task<string> DoTheThingWithTheModels( string[] models, string? baseModel = null ) {
+    private Task< string > DoTheThingWithTheModels( string[] models, string? baseModel = null, ushort? deform = null, ExportModelType type = ExportModelType.UNMODDED ) {
         var skeletons = _sklbResolver.ResolveAll( models );
         if( baseModel != null )
             skeletons = skeletons.Prepend( baseModel ).ToArray();
-        return DoTheThingWithTheModels( models, skeletons );
+        return DoTheThingWithTheModels( models, skeletons, deform: deform, type: type );
     }
 
-    private void OpenFileDialog( string title, string filters, Action<string> callback ) {
+    private void OpenFileDialog( string title, string filters, Action< string > callback ) {
         _fileDialogManager.OpenFileDialog( title, filters, ( result, path ) => {
             if( !result ) return;
             Service.Framework.RunOnTick( () => { callback( path ); } );
         } );
     }
 
-    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action<string> callback ) {
+    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action< string > callback ) {
         _fileDialogManager.SaveFileDialog( title, filters, defaultFileName, defaultExtension, ( result, path ) => {
             if( !result ) return;
             Service.Framework.RunOnTick( () => { callback( path ); } );
@@ -399,11 +385,11 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Model export & import test" ) ) {
             Task.Run( async () => {
-                var model = "chara/equipment/e6111/model/c0201e6111_sho.mdl";
+                var model    = "chara/equipment/e6111/model/c0201e6111_sho.mdl";
                 var skellies = new[] { "chara/human/c0801/skeleton/base/b0001/skl_c0801b0001.sklb" };
 
                 var tempDir = await DoTheThingWithTheModels( new[] { model }, skellies );
-                var file = Path.Combine( tempDir, "mesh.glb" );
+                var file    = Path.Combine( tempDir, "mesh.glb" );
                 PluginLog.Log( "Importing model..." );
                 var bytes = _modelConverter.ImportModel( file, model );
                 File.WriteAllBytes( Path.Combine( tempDir, "mesh.mdl" ), bytes );
@@ -418,7 +404,7 @@ public class MainWindow : Window, IDisposable {
             var sklb = SklbFile.FromStream( file.Reader.BaseStream );
 
             var headerHex = BitConverter.ToString( sklb.RawHeader ).Replace( "-", " " );
-            var hkxHex = BitConverter.ToString( sklb.HkxData ).Replace( "-", " " );
+            var hkxHex    = BitConverter.ToString( sklb.HkxData ).Replace( "-", " " );
             PluginLog.Debug( "Header (len {0}): {1}", sklb.RawHeader.Length, headerHex );
             PluginLog.Debug( "HKX data (len {0}): {1}", sklb.HkxData.Length, hkxHex );
         }
@@ -426,20 +412,20 @@ public class MainWindow : Window, IDisposable {
         ImGui.SameLine();
 
         if( ImGui.Button( "Parse .pbd" ) ) {
-            var pbd = _luminaManager.GameData.GetFile<PbdFile>( "chara/xls/boneDeformer/human.pbd" )!;
+            var pbd = _luminaManager.GameData.GetFile< PbdFile >( "chara/xls/boneDeformer/human.pbd" )!;
 
             PluginLog.Debug( "Header count: {0}", pbd.Headers.Length );
             for( var i = 0; i < pbd.Headers.Length; i++ ) {
-                var header = pbd.Headers[i];
+                var header = pbd.Headers[ i ];
                 PluginLog.Debug( "\tHeader {0} - ID: {1}, offset: {2}", i, header.Id, header.Offset );
             }
 
             PluginLog.Debug( "Deformer count: {0}", pbd.Deformers.Length );
             for( var i = 0; i < pbd.Deformers.Length; i++ ) {
-                var (offset, deformer) = pbd.Deformers[i];
+                var (offset, deformer) = pbd.Deformers[ i ];
                 PluginLog.Debug( "\tDeformer {0} (offset {1}) - bone count: {2}", i, offset, deformer.BoneCount );
                 for( var j = 0; j < deformer.BoneCount; j++ ) {
-                    PluginLog.Debug( "\t\tBone {0} - name: {1}, deform matrix: {2}", j, deformer.BoneNames[j], deformer.DeformMatrices[j] );
+                    PluginLog.Debug( "\t\tBone {0} - name: {1}, deform matrix: {2}", j, deformer.BoneNames[ j ], deformer.DeformMatrices[ j ] );
                 }
             }
         }
@@ -460,8 +446,8 @@ public class MainWindow : Window, IDisposable {
     private void DrawConvert() {
         if( ImGui.Button( "SKLB->HKX" ) ) {
             OpenFileDialog( "Select SKLB file", SklbFilter, path => {
-                var sklbData = File.ReadAllBytes( path );
-                var sklb = SklbFile.FromStream( new MemoryStream( sklbData ) );
+                var sklbData   = File.ReadAllBytes( path );
+                var sklb       = SklbFile.FromStream( new MemoryStream( sklbData ) );
                 var outputName = Path.GetFileNameWithoutExtension( path ) + ".hkx";
                 SaveFileDialog( "Save HKX file", HkxFilter, outputName, ".hkx", path2 => { File.WriteAllBytes( path2, sklb.HkxData ); } );
             } );
@@ -471,10 +457,10 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "SKLB->XML" ) ) {
             OpenFileDialog( "Select SKLB file", SklbFilter, path => {
-                var sklbData = File.ReadAllBytes( path );
+                var sklbData   = File.ReadAllBytes( path );
                 var readStream = new MemoryStream( sklbData );
-                var sklb = SklbFile.FromStream( readStream );
-                var xml = _converter.HkxToXml( sklb.HkxData );
+                var sklb       = SklbFile.FromStream( readStream );
+                var xml        = _converter.HkxToXml( sklb.HkxData );
                 var outputName = Path.GetFileNameWithoutExtension( path ) + ".xml";
                 SaveFileDialog( "Save XML file", XmlFilter, outputName, ".xml", path2 => { File.WriteAllText( path2, xml ); } );
             } );
@@ -482,8 +468,8 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "HKX->XML" ) ) {
             OpenFileDialog( "Select HKX file", HkxFilter, path => {
-                var hkx = File.ReadAllBytes( path );
-                var xml = _converter.HkxToXml( hkx );
+                var hkx        = File.ReadAllBytes( path );
+                var xml        = _converter.HkxToXml( hkx );
                 var outputName = Path.GetFileNameWithoutExtension( path ) + ".xml";
                 SaveFileDialog( "Save XML file", XmlFilter, outputName, ".xml", path2 => { File.WriteAllText( path2, xml ); } );
             } );
@@ -491,8 +477,8 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "XML->HKX" ) ) {
             OpenFileDialog( "Select XML file", XmlFilter, path => {
-                var xml = File.ReadAllText( path );
-                var hkx = _converter.XmlToHkx( xml );
+                var xml        = File.ReadAllText( path );
+                var hkx        = _converter.XmlToHkx( xml );
                 var outputName = Path.GetFileNameWithoutExtension( path ) + ".hkx";
                 SaveFileDialog( "Save HKX file", HkxFilter, outputName, ".hkx", path2 => { File.WriteAllBytes( path2, hkx ); } );
             } );
@@ -503,11 +489,11 @@ public class MainWindow : Window, IDisposable {
         if( ImGui.Button( "XML->SKLB" ) ) {
             OpenFileDialog( "Select XML file", XmlFilter, path => {
                 OpenFileDialog( "Select original SKLB file", SklbFilter, path2 => {
-                    var xml = File.ReadAllText( path );
-                    var hkx = _converter.XmlToHkx( xml );
-                    var sklbData = File.ReadAllBytes( path2 );
+                    var xml        = File.ReadAllText( path );
+                    var hkx        = _converter.XmlToHkx( xml );
+                    var sklbData   = File.ReadAllBytes( path2 );
                     var readStream = new MemoryStream( sklbData );
-                    var sklb = SklbFile.FromStream( readStream );
+                    var sklb       = SklbFile.FromStream( readStream );
 
                     sklb.ReplaceHkxData( hkx );
 
@@ -534,7 +520,13 @@ public class MainWindow : Window, IDisposable {
                                + "When importing a model, put the original path in the models textbox."
         );
 
-        var cra = ImGui.GetContentRegionAvail();
+        ImGui.InputInt( "Character deformation", ref _deform );
+
+        var names     = Enum.GetNames( typeof( ExportModelType ) );
+        var modelType = ( int )_exportModelType;
+        if( ImGui.Combo( "Export type", ref modelType, names, names.Length ) ) { _exportModelType = ( ExportModelType )modelType; }
+
+        var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
 
         ImGui.InputTextMultiline( "Model paths", ref _modelPaths, 1024 * 16, textSize );
@@ -547,9 +539,10 @@ public class MainWindow : Window, IDisposable {
                 var skeletons = _skeletonPaths.Trim().Split( '\n' )
                     .Where( x => x.Trim() != string.Empty ).ToArray();
 
+                ushort? deform = _deform == 0 ? null : ( ushort )_deform;
                 var tempDir = skeletons.Length == 0
-                                  ? await DoTheThingWithTheModels( models )
-                                  : await DoTheThingWithTheModels( models, skeletons );
+                                  ? await DoTheThingWithTheModels( models, deform: deform, type: _exportModelType )
+                                  : await DoTheThingWithTheModels( models, skeletons, deform: deform, type: _exportModelType );
 
                 Process.Start( "explorer.exe", tempDir );
             } );
@@ -559,8 +552,8 @@ public class MainWindow : Window, IDisposable {
 
         if( ImGui.Button( "Import (create MDL)" ) ) {
             OpenFileDialog( "Select glTF", GltfFilter, path => {
-                var firstModel = _modelPaths.Trim().Split( '\n' )[0];
-                var data = _modelConverter.ImportModel( path, firstModel );
+                var firstModel = _modelPaths.Trim().Split( '\n' )[ 0 ];
+                var data       = _modelConverter.ImportModel( path, firstModel );
 
                 var tempDir = Path.Combine( Path.GetTempPath(), "Xande.TestPlugin" );
                 Directory.CreateDirectory( tempDir );
