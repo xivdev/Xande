@@ -85,19 +85,17 @@ public class ModelConverter {
 
     private ImageBuilder ComposeTexture( string path, Bitmap bitmap ) {
         bitmap.Save( path );
-        var builder = ImageBuilder.From(path);
+        var builder = ImageBuilder.From( path );
         builder.AlternateWriteFileName = Path.GetFileName( path );
         return builder;
     }
 
     private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir ) {
-        var xivTextureMap     = new Dictionary< TextureUsage, Bitmap >();
-        var xivTextureNameMap = new Dictionary< TextureUsage, string >();
+        var xivTextureMap = new Dictionary< TextureUsage, Bitmap >();
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
-            xivTextureNameMap.Add( xivTexture.TextureUsageRaw, Path.GetFileNameWithoutExtension( xivTexture.TexturePath ) );
         }
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
@@ -169,8 +167,11 @@ public class ModelConverter {
 
         var num = 0;
         foreach( var xivTexture in xivTextureMap ) {
-            var    name = xivTextureNameMap[ xivTexture.Key ];
-            var    tex  = xivTexture.Value;
+            var name = glTFMaterial.Name
+                .Split( "/" )
+                .Last()
+                .Replace( ".mtrl", "" );
+            var    tex = xivTexture.Value;
             string texturePath;
             switch( xivTexture.Key ) {
                 case TextureUsage.SamplerColorMap0:
@@ -285,7 +286,9 @@ public class ModelConverter {
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
-                try { ComposeTextures( glTFMaterial, xivMaterial, outputDir ); } catch { }
+                try { ComposeTextures( glTFMaterial, xivMaterial, outputDir ); } catch( Exception e ) {
+                    PluginLog.Error(e, "Error composing textures");
+                }
 
                 var boneSet       = xivMesh.BoneTable();
                 var boneSetJoints = boneSet?.Select( n => boneMap[ n ] ).ToArray();
