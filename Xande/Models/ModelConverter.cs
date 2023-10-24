@@ -23,14 +23,14 @@ namespace Xande.Models;
 
 public static class ModelExtensions {
     public static string[]? BoneTable( this Mesh mesh ) {
-        var rawMesh = mesh.Parent.File!.Meshes[mesh.MeshIndex];
+        var rawMesh = mesh.Parent.File!.Meshes[ mesh.MeshIndex ];
         if( rawMesh.BoneTableIndex == 255 ) { return null; }
 
-        var rawTable = mesh.Parent.File!.BoneTables[rawMesh.BoneTableIndex];
-        return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[( int )mesh.Parent.File!.BoneNameOffsets[b]] ).ToArray();
+        var rawTable = mesh.Parent.File!.BoneTables[ rawMesh.BoneTableIndex ];
+        return rawTable.BoneIndex.Take( rawTable.BoneCount ).Select( b => mesh.Parent.StringOffsetToStringMap[ ( int )mesh.Parent.File!.BoneNameOffsets[ b ] ] ).ToArray();
     }
 
-    public static Vertex VertexByIndex( this Mesh mesh, int index ) => mesh.Vertices[mesh.Indices[index]];
+    public static Vertex VertexByIndex( this Mesh mesh, int index ) => mesh.Vertices[ mesh.Indices[ index ] ];
 }
 
 public enum ExportModelType {
@@ -40,19 +40,19 @@ public enum ExportModelType {
 }
 
 public class ModelConverter {
-    private readonly LuminaManager _lumina;
-    private readonly PbdFile _pbd;
+    private readonly LuminaManager  _lumina;
+    private readonly PbdFile        _pbd;
     private readonly IPathResolver? _pathResolver;
 
-    private Dictionary<string, Lumina.Models.Materials.Material> _materials = new();
-    private Dictionary<string, Texture> _textures = new();
+    private Dictionary< string, Lumina.Models.Materials.Material > _materials = new();
+    private Dictionary< string, Texture >                          _textures  = new();
 
     private ILogger? _logger;
 
     public ModelConverter( LuminaManager lumina, IPathResolver? pathResolver = null, ILogger? logger = null ) {
-        _logger = logger;
-        _lumina = lumina;
-        _pbd = lumina.GetPbdFile();
+        _logger       = logger;
+        _lumina       = lumina;
+        _pbd          = lumina.GetPbdFile();
         _pathResolver = pathResolver;
     }
 
@@ -83,18 +83,26 @@ public class ModelConverter {
     VertexPosition
     */
 
+    private ImageBuilder ComposeTexture( string path, Bitmap bitmap ) {
+        bitmap.Save( path );
+        var builder = ImageBuilder.From(path);
+        builder.AlternateWriteFileName = Path.GetFileName( path );
+        return builder;
+    }
 
     private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir ) {
-        var xivTextureMap = new Dictionary<TextureUsage, Bitmap>();
+        var xivTextureMap     = new Dictionary< TextureUsage, Bitmap >();
+        var xivTextureNameMap = new Dictionary< TextureUsage, string >();
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
             xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
+            xivTextureNameMap.Add( xivTexture.TextureUsageRaw, Path.GetFileNameWithoutExtension( xivTexture.TexturePath ) );
         }
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
             if( xivTextureMap.TryGetValue( TextureUsage.SamplerNormal, out var normal ) ) {
-                var diffuse = ( Bitmap )normal.Clone();
+                var diffuse  = ( Bitmap )normal.Clone();
                 var specular = ( Bitmap )normal.Clone();
                 var emission = ( Bitmap )normal.Clone();
 
@@ -104,19 +112,19 @@ public class ModelConverter {
 
                         //var b = (Math.Clamp(normalPixel.B, (byte)0, (byte)128) * 255) / 128;
                         var colorSetIndex1 = normalPixel.A / 17 * 16;
-                        var colorSetBlend = normalPixel.A % 17 / 17.0;
+                        var colorSetBlend  = normalPixel.A % 17 / 17.0;
                         //var colorSetIndex2 = (((normalPixel.A / 17) + 1) % 16) * 16;
                         var colorSetIndexT2 = normalPixel.A / 17;
-                        var colorSetIndex2 = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
+                        var colorSetIndex2  = ( colorSetIndexT2 >= 15 ? 15 : colorSetIndexT2 + 1 ) * 16;
 
                         normal.SetPixel( x, y, Color.FromArgb( 255, normalPixel.R, normalPixel.G, 255 ) );
 
                         var diffuseBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, normalPixel.B, colorSetBlend,
-                            ColorUtility.TextureType.Diffuse );
+                                                                             ColorUtility.TextureType.Diffuse );
                         var specularBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, 255, colorSetBlend,
-                            ColorUtility.TextureType.Specular );
+                                                                              ColorUtility.TextureType.Specular );
                         var emissionBlendColour = ColorUtility.BlendColorSet( in xivMaterial.File!.ColorSetInfo, colorSetIndex1, colorSetIndex2, 255, colorSetBlend,
-                            ColorUtility.TextureType.Emissive );
+                                                                              ColorUtility.TextureType.Emissive );
 
                         diffuse.SetPixel( x, y, diffuseBlendColour );
                         specular.SetPixel( x, y, specularBlendColour );
@@ -135,23 +143,23 @@ public class ModelConverter {
 
                 for( var x = 0; x < mask.Width; x++ ) {
                     for( var y = 0; y < mask.Height; y++ ) {
-                        var maskPixel = mask.GetPixel( x, y );
+                        var maskPixel     = mask.GetPixel( x, y );
                         var specularPixel = specularMap.GetPixel( x, y );
 
                         specularMap.SetPixel( x, y, Color.FromArgb(
-                            specularPixel.A,
-                            Convert.ToInt32( specularPixel.R * Math.Pow( maskPixel.G / 255.0, 2 ) ),
-                            Convert.ToInt32( specularPixel.G * Math.Pow( maskPixel.G / 255.0, 2 ) ),
-                            Convert.ToInt32( specularPixel.B * Math.Pow( maskPixel.G / 255.0, 2 ) )
-                        ) );
+                                                  specularPixel.A,
+                                                  Convert.ToInt32( specularPixel.R * Math.Pow( maskPixel.G / 255.0, 2 ) ),
+                                                  Convert.ToInt32( specularPixel.G * Math.Pow( maskPixel.G / 255.0, 2 ) ),
+                                                  Convert.ToInt32( specularPixel.B * Math.Pow( maskPixel.G / 255.0, 2 ) )
+                                              ) );
 
                         var occlusionPixel = occlusion.GetPixel( x, y );
                         occlusion.SetPixel( x, y, Color.FromArgb(
-                            255,
-                            occlusionPixel.R,
-                            occlusionPixel.R,
-                            occlusionPixel.R
-                        ) );
+                                                255,
+                                                occlusionPixel.R,
+                                                occlusionPixel.R,
+                                                occlusionPixel.R
+                                            ) );
                     }
                 }
 
@@ -161,43 +169,47 @@ public class ModelConverter {
 
         var num = 0;
         foreach( var xivTexture in xivTextureMap ) {
+            var    name = xivTextureNameMap[ xivTexture.Key ];
+            var    tex  = xivTexture.Value;
             string texturePath;
             switch( xivTexture.Key ) {
                 case TextureUsage.SamplerColorMap0:
                 case TextureUsage.SamplerDiffuse:
-                    texturePath = $"diffuse_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, Path.Combine( outputDir, texturePath ) );
+                    texturePath = $"{name}_diffuse_{num}.png";
+                    glTFMaterial.WithChannelImage( KnownChannel.BaseColor, ComposeTexture( texturePath, tex ) );
                     break;
+
                 case TextureUsage.SamplerNormalMap0:
                 case TextureUsage.SamplerNormal:
-                    texturePath = $"normal_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Normal, Path.Combine( outputDir, texturePath ) );
+                    texturePath = $"{name}_normal_{num}.png";
+                    glTFMaterial.WithChannelImage( KnownChannel.Normal, ComposeTexture( texturePath, tex ) );
                     break;
+
                 case TextureUsage.SamplerSpecularMap0:
                 case TextureUsage.SamplerSpecular:
-                    texturePath = $"specular_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
+                    texturePath = $"{name}_specular_{num}.png";
                     //glTFMaterial.WithChannelImage( KnownChannel.SpecularColor, Path.GetFullPath( Path.Combine( outputDir, texturePath ) ) );
-                    glTFMaterial.WithSpecularColor( Path.Combine( outputDir, texturePath ) );
+                    glTFMaterial.WithSpecularColor( ComposeTexture( texturePath, tex ) );
                     break;
+
                 case TextureUsage.SamplerWaveMap:
-                    texturePath = $"occlusion_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, Path.Combine( outputDir, texturePath ) );
+                    texturePath = $"{name}_occlusion_{num}.png";
+                    glTFMaterial.WithChannelImage( KnownChannel.Occlusion, ComposeTexture( texturePath, tex ) );
                     break;
+
                 case TextureUsage.SamplerReflection:
-                    texturePath = $"emissive_{num}.png";
-                    xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
-                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, Path.Combine( outputDir, texturePath ) );
-                    glTFMaterial.WithEmissive( Path.Combine( outputDir, texturePath ), new Vector3( 255, 255, 255 ) );
+                    texturePath = $"{name}_emissive_{num}.png";
+                    var img = ComposeTexture( texturePath, tex );
+                    glTFMaterial.WithChannelImage( KnownChannel.Emissive, img );
+                    glTFMaterial.WithEmissive( img, new Vector3( 255, 255, 255 ) );
                     break;
+
                 case TextureUsage.SamplerMask:
-                    texturePath = $"mask_{num}.png";
+                    texturePath = $"{name}_mask_{num}.png";
                     xivTexture.Value.Save( Path.Combine( outputDir, texturePath ) );
                     // ...what do I do with this?
                     break;
+
                 default:
                     PluginLog.Warning( "Fucked shit, got unhandled TextureUsage " + xivTexture.Key );
                     break;
@@ -214,31 +226,30 @@ public class ModelConverter {
     /// <param name="skeletons">A list of HavokXml instances.</param>
     /// <param name="root">The root bone node.</param>
     /// <returns>A mapping of bone name to node in the scene.</returns>
-    private Dictionary<string, NodeBuilder> GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
-        Dictionary<string, NodeBuilder> boneMap = new();
+    private Dictionary< string, NodeBuilder > GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
+        Dictionary< string, NodeBuilder > boneMap = new();
         root = null;
 
         foreach( var xml in skeletons ) {
-            var skeleton = xml.GetMainSkeleton();
-            var boneNames = skeleton.BoneNames;
-            var refPose = skeleton.ReferencePose;
+            var skeleton      = xml.GetMainSkeleton();
+            var boneNames     = skeleton.BoneNames;
+            var refPose       = skeleton.ReferencePose;
             var parentIndices = skeleton.ParentIndices;
 
             for( var j = 0; j < boneNames.Length; j++ ) {
-                var name = boneNames[j];
+                var name = boneNames[ j ];
                 if( boneMap.ContainsKey( name ) ) continue;
 
                 var bone = new NodeBuilder( name );
-                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[j] ), false );
+                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[ j ] ), false );
 
-                var boneRootId = parentIndices[j];
+                var boneRootId = parentIndices[ j ];
                 if( boneRootId != -1 ) {
-                    var parent = boneMap[boneNames[boneRootId]];
+                    var parent = boneMap[ boneNames[ boneRootId ] ];
                     parent.AddNode( bone );
-                }
-                else { root = bone; }
+                } else { root = bone; }
 
-                boneMap[name] = bone;
+                boneMap[ name ] = bone;
             }
         }
 
@@ -253,46 +264,41 @@ public class ModelConverter {
     public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, ExportModelType exportType = ExportModelType.DEFAULT ) {
         // TT-exported mdls have incorrect SubmeshBoneMaps (or at least, incompatible with standard Lumina)
         // TODO: Try to correct the submeshbonemap to enable exporting modded models?
-        var boneMap = GetBoneMap( skeletons, out var root );
-        var joints = boneMap.Values.ToArray();
+        var boneMap      = GetBoneMap( skeletons, out var root );
+        var joints       = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
-        var glTFScene = new SceneBuilder( models.Length > 0 ? models[0] : "scene" );
+        var glTFScene    = new SceneBuilder( models.Length > 0 ? models[ 0 ] : "scene" );
         if( root != null ) glTFScene.AddNode( root );
 
         foreach( var path in models ) {
             var resolvedMdlPath = ResolvePath( path, exportType );
-            var xivModel = _lumina.GetModel( resolvedMdlPath );
+            var xivModel        = _lumina.GetModel( resolvedMdlPath );
             //File.WriteAllText(Path.Combine(outputDir, Path.GetFileNameWithoutExtension( path ) + ".mdl" ), JsonSerializer.Serialize( xivModel.File));
-            var name = Path.GetFileNameWithoutExtension( path );
+            var name     = Path.GetFileNameWithoutExtension( path );
             var raceCode = raceDeformer.RaceCodeFromPath( path );
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
-                var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
+                var mtrlPath         = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
                 var resolvedMtrlPath = ResolvePath( mtrlPath );
-                var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
+                var xivMaterial      = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
-                try {
-                    ComposeTextures( glTFMaterial, xivMaterial, outputDir );
-                }
-                catch { }
+                try { ComposeTextures( glTFMaterial, xivMaterial, outputDir ); } catch { }
 
-                var boneSet = xivMesh.BoneTable();
-                var boneSetJoints = boneSet?.Select( n => boneMap[n] ).ToArray();
-                var useSkinning = boneSet != null;
+                var boneSet       = xivMesh.BoneTable();
+                var boneSetJoints = boneSet?.Select( n => boneMap[ n ] ).ToArray();
+                var useSkinning   = boneSet != null;
 
                 // Mapping between ID referenced in the mesh and in Havok
-                Dictionary<int, int> jointIDMapping = new();
+                Dictionary< int, int > jointIDMapping = new();
                 for( var i = 0; i < boneSetJoints?.Length; i++ ) {
-                    var joint = boneSetJoints[i];
-                    var idx = joints.ToList().IndexOf( joint );
-                    jointIDMapping[i] = idx;
+                    var joint = boneSetJoints[ i ];
+                    var idx   = joints.ToList().IndexOf( joint );
+                    jointIDMapping[ i ] = idx;
                 }
-                if( xivMesh.Vertices.Length == 0 ) {
-                    continue;
-                }
+                if( xivMesh.Vertices.Length == 0 ) { continue; }
                 // Handle submeshes and the main mesh
                 var meshBuilder = new MeshBuilder(
                     xivMesh,
@@ -307,18 +313,17 @@ public class ModelConverter {
 
                 meshBuilder.BuildVertices();
 
-                _logger?.Debug( $"{xivMesh.Submeshes.Length}" );
+                //_logger?.Debug( $"{xivMesh.Submeshes.Length}" );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
-                        var xivSubmesh = xivMesh.Submeshes[i];
-                        var subMesh = meshBuilder.BuildSubmesh( xivSubmesh );
+                        var xivSubmesh = xivMesh.Submeshes[ i ];
+                        var subMesh    = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                         meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
-                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
+                                                 ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
                         if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); } else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
-                }
-                else {
+                } else {
                     var mesh = meshBuilder.BuildMesh();
                     mesh.Name = $"{name}_{xivMesh.MeshIndex}";
                     meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), mesh, 0, xivMesh.Indices.Length );
@@ -333,7 +338,7 @@ public class ModelConverter {
         glTFModel.SaveGLTF( Path.Combine( outputDir, "mesh.gltf" ) );
     }
 
-    private string ResolvePath(string path, ExportModelType type = ExportModelType.DEFAULT) {
+    private string ResolvePath( string path, ExportModelType type = ExportModelType.DEFAULT ) {
         switch( type ) {
             case ExportModelType.UNMODDED:
                 return path;
@@ -350,10 +355,7 @@ public class ModelConverter {
         var root = ModelRoot.Load( gltfPath );
 
         Model? orig = null;
-        try {
-            orig = _lumina.GetModel( origModel );
-        }
-        catch( FileNotFoundException ) {
+        try { orig = _lumina.GetModel( origModel ); } catch( FileNotFoundException ) {
             PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
             //return Array.Empty<byte>();
         }
@@ -364,17 +366,17 @@ public class ModelConverter {
 
         if( file == null ) {
             PluginLog.Debug( "Could not build MdlFile" );
-            return Array.Empty<byte>();
+            return Array.Empty< byte >();
         }
 
-        using var stream = new MemoryStream();
+        using var stream      = new MemoryStream();
         using var modelWriter = new MdlFileWriter( file, stream );
 
         modelWriter.WriteAll( vertexData, indexData );
         return stream.ToArray();
     }
 
-    public async Task<byte[]> ImportModelAsync( string gltfPath, string origModel ) {
+    public async Task< byte[] > ImportModelAsync( string gltfPath, string origModel ) {
         throw new Exception();
         /*
         PluginLog.Warning( $"Importing Async. Shapes are incorrect." );
