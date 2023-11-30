@@ -223,40 +223,6 @@ public class ModelConverter {
         glTFMaterial.WithMetallicRoughness( 0 );
     }
 
-    /// <summary>Builds a skeleton tree from a list of .sklb paths.</summary>
-    /// <param name="skeletons">A list of HavokXml instances.</param>
-    /// <param name="root">The root bone node.</param>
-    /// <returns>A mapping of bone name to node in the scene.</returns>
-    private Dictionary< string, NodeBuilder > GetBoneMap( HavokXml[] skeletons, out NodeBuilder? root ) {
-        Dictionary< string, NodeBuilder > boneMap = new();
-        root = null;
-
-        foreach( var xml in skeletons ) {
-            var skeleton      = xml.GetMainSkeleton();
-            var boneNames     = skeleton.BoneNames;
-            var refPose       = skeleton.ReferencePose;
-            var parentIndices = skeleton.ParentIndices;
-
-            for( var j = 0; j < boneNames.Length; j++ ) {
-                var name = boneNames[ j ];
-                if( boneMap.ContainsKey( name ) ) continue;
-
-                var bone = new NodeBuilder( name );
-                bone.SetLocalTransform( XmlUtils.CreateAffineTransform( refPose[ j ] ), false );
-
-                var boneRootId = parentIndices[ j ];
-                if( boneRootId != -1 ) {
-                    var parent = boneMap[ boneNames[ boneRootId ] ];
-                    parent.AddNode( bone );
-                } else { root = bone; }
-
-                boneMap[ name ] = bone;
-            }
-        }
-
-        return boneMap;
-    }
-
     /// <summary>Exports a model(s) to glTF.</summary>
     /// <param name="outputDir">A directory to write files and textures to.</param>
     /// <param name="models">A list of .mdl paths.</param>
@@ -265,7 +231,7 @@ public class ModelConverter {
     public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, ExportModelType exportType = ExportModelType.DEFAULT ) {
         // TT-exported mdls have incorrect SubmeshBoneMaps (or at least, incompatible with standard Lumina)
         // TODO: Try to correct the submeshbonemap to enable exporting modded models?
-        var boneMap      = GetBoneMap( skeletons, out var root );
+        var boneMap      = ModelHelpers.GetBoneMap( skeletons, out var root );
         var joints       = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
         var glTFScene    = new SceneBuilder( models.Length > 0 ? models[ 0 ] : "scene" );
@@ -369,37 +335,6 @@ public class ModelConverter {
 
         if( file == null ) {
             PluginLog.Debug( "Could not build MdlFile" );
-            return Array.Empty< byte >();
-        }
-
-        using var stream      = new MemoryStream();
-        using var modelWriter = new MdlFileWriter( file, stream );
-
-        modelWriter.WriteAll( vertexData, indexData );
-        return stream.ToArray();
-    }
-
-    public async Task< byte[] > ImportModelAsync( string gltfPath, string origModel ) {
-        throw new Exception();
-        /*
-        PluginLog.Warning( $"Importing Async. Shapes are incorrect." );
-        PluginLog.Debug( $"Importing model" );
-        var root = ModelRoot.Load( gltfPath );
-
-        Model? orig = null;
-        try {
-            orig = _lumina.GetModel( origModel );
-        }
-        catch( FileNotFoundException ) {
-            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
-            //return Array.Empty<byte>();
-        }
-
-        var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
-        //var (file, vertexData, indexData) = await modelFileBuilder.BuildAsync();
-
-        if( file == null ) {
-            PluginLog.Debug( "Could not build MdlFile" );
             return Array.Empty<byte>();
         }
 
@@ -408,6 +343,5 @@ public class ModelConverter {
 
         modelWriter.WriteAll( vertexData, indexData );
         return stream.ToArray();
-        */
     }
 }

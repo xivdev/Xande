@@ -2,46 +2,61 @@
   "version": 1,
   "dependencies": {
     "net7.0-windows7.0": {
-      "SharpGLTF.Core": {
-        "type": "Direct",
-        "requested": "[1.0.0-alpha0028, )",
-        "resolved": "1.0.0-alpha0028",
-        "contentHash": "ALHHo0St08I77sZGEf/eFOIpSFF8aP/nbWNIvh27omQz/ds9MJADU4aF4MyOrHaW4Ir4bwZ1xF3QLwKyIH3Oow=="
-      },
-      "SharpGLTF.Toolkit": {
-        "type": "Direct",
-        "requested": "[1.0.0-alpha0028, )",
-        "resolved": "1.0.0-alpha0028",
-        "contentHash": "CNw7Cc0vPtbeqag4Jv+/x7Dgc5Vfcz6PmE5TiVzfsyLho4uEve2suQO42KSJa85q8g9MeWU/cMVy0ND/9gz+Qw==",
-        "dependencies": {
-          "SharpGLTF.Core": "1.0.0-alpha0028"
-        }
-      },
       "System.Drawing.Common": {
         "type": "Direct",
-        "requested": "[8.0.0-preview.2.23128.3, )",
-        "resolved": "8.0.0-preview.2.23128.3",
-        "contentHash": "kTEwdz83KrBKPVWEcrF4OGqLeJ6aK7jsPWBp/hX7ngT8BCvWLKAaBd5HZ4cmux0t7k5Lka/B/DqmKC8jc8TrOQ==",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "JkbHJjtI/dWc5dfmEdJlbe3VwgZqCkZRtfuWFh5GOv0f+gGCfBtzMpIVkmdkj2AObO9y+oiOi81UGwH3aBYuqA==",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "8.0.0-preview.2.23128.3"
+          "Microsoft.Win32.SystemEvents": "8.0.0"
         }
-      },
-      "Lumina": {
-        "type": "Transitive",
-        "resolved": "3.11.0",
-        "contentHash": "G7HQq2i5k4eL8kXxQCtrwQtRBuQi5qW1reb5oYZv+hazgOgpqX6YAX56dW6r5uraef1L1j/jMXMlXQDb3wMUmQ=="
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "8.0.0-preview.2.23128.3",
-        "contentHash": "2ugSY6UuqJfYhvVUaf4ueuUiMjIyN9dU03wpbKfRDsn13XvZ91yOlw7NLhYvB1Xc8gCAZpND20Tgbe3uBVytKA=="
+        "resolved": "8.0.0",
+        "contentHash": "9opKRyOKMCi2xJ7Bj7kxtZ1r9vbzosMvRrdEhVhDz8j8MoBGgB+WmC94yH839NPH+BclAjtQ/pyagvi/8gDLkw=="
+      },
+      "Serilog": {
+        "type": "Transitive",
+        "resolved": "2.11.0",
+        "contentHash": "ysv+hBzTul6Dp+Hvm10FlhJO3yMQcFKSAleus+LpiIzvNstpeV4Z7gGuIZ1OPNfIMulSHOjmLuGAEDKzpnV8ZQ=="
+      },
+      "SharpGLTF.Core": {
+        "type": "Transitive",
+        "resolved": "1.0.0-alpha0030",
+        "contentHash": "HVL6PcrM0H/uEk96nRZfhtPeYvSFGHnni3g1aIckot2IWVp0jLMH5KWgaWfsatEz4Yds3XcdSLUWmJZivDBUPA=="
+      },
+      "SharpGLTF.Runtime": {
+        "type": "Transitive",
+        "resolved": "1.0.0-alpha0030",
+        "contentHash": "Ysn+fyj9EVXj6mfG0BmzSTBGNi/QvcnTrMd54dBMOlI/TsMRvnOY3JjTn0MpeH2CgHXX4qogzlDt4m+rb3n4Og==",
+        "dependencies": {
+          "SharpGLTF.Core": "1.0.0-alpha0030"
+        }
+      },
+      "SharpGLTF.Toolkit": {
+        "type": "Transitive",
+        "resolved": "1.0.0-alpha0030",
+        "contentHash": "nsoJWAFhXgEky9bVCY0zLeZVDx+S88u7VjvuebvMb6dJiNyFOGF6FrrMHiJe+x5pcVBxxlc3VoXliBF7r/EqYA==",
+        "dependencies": {
+          "SharpGLTF.Runtime": "1.0.0-alpha0030"
+        }
+      },
+      "ffxivclientstructs": {
+        "type": "Project",
+        "dependencies": {
+          "Serilog": "[2.11.0, )"
+        }
+      },
+      "lumina": {
+        "type": "Project"
       },
       "xande.gltfimporter": {
         "type": "Project",
         "dependencies": {
-          "Lumina": "[3.11.0, )",
-          "SharpGLTF.Core": "[1.0.0-alpha0028, )",
-          "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )"
+          "Lumina": "[2.4.2, )",
+          "SharpGLTF.Core": "[1.0.0-alpha0030, )",
+          "SharpGLTF.Toolkit": "[1.0.0-alpha0030, )"
         }
       }
     }

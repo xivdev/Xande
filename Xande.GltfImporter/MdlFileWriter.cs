@@ -1,12 +1,7 @@
 using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Xande.GltfImporter {
     public class MdlFileWriter : IDisposable {

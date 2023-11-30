@@ -1,5 +1,4 @@
 using Lumina;
-using SharpGLTF.Schema2;
 using System.Text;
 
 namespace Xande.GltfImporter;

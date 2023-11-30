@@ -1,12 +1,7 @@
 using Lumina;
 using Lumina.Data.Parsing;
 using SharpGLTF.Schema2;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Xande.GltfImporter {
     internal class ShapeBuilder {

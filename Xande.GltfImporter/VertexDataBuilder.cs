@@ -1,15 +1,8 @@
 using Lumina;
 using Lumina.Data.Parsing;
 using Lumina.Models.Models;
-using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Xande.GltfImporter {
     internal class VertexDataBuilder {

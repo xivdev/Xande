@@ -1,5 +1,4 @@
-﻿using System.Xml;
-using Dalamud.Logging;
+using System.Xml;
 
 // ReSharper disable NotAccessedField.Global
 // ReSharper disable MemberCanBePrivate.Global

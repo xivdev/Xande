@@ -7,9 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Lumina" Version="3.11.0" />
-    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0028" />
-    <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0-alpha0028" />
+    <PackageReference Include="SharpGLTF.Core" Version="1.0.0-alpha0030" />
+    <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0-alpha0030" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Lumina\src\Lumina\Lumina.csproj" />
   </ItemGroup>
 
 </Project>
