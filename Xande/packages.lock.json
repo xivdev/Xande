@@ -48,13 +48,13 @@
           "Serilog": "[2.11.0, )"
         }
       },
-      "lumina": {
+      "Lumina2": {
         "type": "Project"
       },
       "xande.gltfimporter": {
         "type": "Project",
         "dependencies": {
-          "Lumina": "[2.4.2, )",
+          "Lumina2": "[2.4.3, )",
           "SharpGLTF.Core": "[1.0.0-alpha0030, )",
           "SharpGLTF.Toolkit": "[1.0.0-alpha0030, )"
         }

@@ -23,10 +23,6 @@
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="Lumina">
-            <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
     </ItemGroup>
 
     <ItemGroup>
@@ -35,6 +31,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" />
+      <ProjectReference Include="..\..\Lumina\src\Lumina\Lumina.csproj" />
       <ProjectReference Include="..\Xande.GltfImporter\Xande.GltfImporter.csproj" />
     </ItemGroup>
 </Project>
