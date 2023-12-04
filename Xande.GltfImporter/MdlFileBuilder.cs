@@ -20,6 +20,7 @@ public class MdlFileBuilder {
     private StringTableBuilder _stringTableBuilder;
     private List<MeshBuilder> _meshBuilders = new();
 
+    // mesh -> submesh -> attribute names
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
     // files exported via Xande don't have the node names set to work with this parsing
