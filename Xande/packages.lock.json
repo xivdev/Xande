@@ -2,19 +2,15 @@
   "version": 1,
   "dependencies": {
     "net7.0-windows7.0": {
-      "System.Drawing.Common": {
+      "SkiaSharp": {
         "type": "Direct",
-        "requested": "[8.0.0, )",
-        "resolved": "8.0.0",
-        "contentHash": "JkbHJjtI/dWc5dfmEdJlbe3VwgZqCkZRtfuWFh5GOv0f+gGCfBtzMpIVkmdkj2AObO9y+oiOi81UGwH3aBYuqA==",
+        "requested": "[2.88.6, )",
+        "resolved": "2.88.6",
+        "contentHash": "wdfeBAQrEQCbJIRgAiargzP1Uy+0grZiG4CSgBnhAgcJTsPzlifIaO73JRdwIlT3TyBoeU9jEqzwFUhl4hTYnQ==",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "8.0.0"
+          "SkiaSharp.NativeAssets.Win32": "2.88.6",
+          "SkiaSharp.NativeAssets.macOS": "2.88.6"
         }
-      },
-      "Microsoft.Win32.SystemEvents": {
-        "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "9opKRyOKMCi2xJ7Bj7kxtZ1r9vbzosMvRrdEhVhDz8j8MoBGgB+WmC94yH839NPH+BclAjtQ/pyagvi/8gDLkw=="
       },
       "Serilog": {
         "type": "Transitive",
@@ -42,6 +38,16 @@
           "SharpGLTF.Runtime": "1.0.0-alpha0030"
         }
       },
+      "SkiaSharp.NativeAssets.macOS": {
+        "type": "Transitive",
+        "resolved": "2.88.6",
+        "contentHash": "Sko9LFxRXSjb3OGh5/RxrVRXxYo48tr5NKuuSy6jB85GrYt8WRqVY1iLOLwtjPiVAt4cp+pyD4i30azanS64dw=="
+      },
+      "SkiaSharp.NativeAssets.Win32": {
+        "type": "Transitive",
+        "resolved": "2.88.6",
+        "contentHash": "7TzFO0u/g2MpQsTty4fyCDdMcfcWI+aLswwfnYXr3gtNS6VLKdMXPMeKpJa3pJSLnUBN6wD0JjuCe8OoLBQ6cQ=="
+      },
       "ffxivclientstructs": {
         "type": "Project",
         "dependencies": {
@@ -54,7 +60,7 @@
       "xande.gltfimporter": {
         "type": "Project",
         "dependencies": {
-          "Lumina2": "[2.4.3, )",
+          "Lumina2": "[2.4.2, )",
           "SharpGLTF.Core": "[1.0.0-alpha0030, )",
           "SharpGLTF.Toolkit": "[1.0.0-alpha0030, )"
         }

@@ -1,17 +1,44 @@
-﻿using System.Numerics;
+using System.Numerics;
 using SharpGLTF.Scenes;
 using Xande.Files;
 
 namespace Xande.Models.Export;
 
+public class BoneNodeBuilder : NodeBuilder {
+    public string BoneName { get; set; }
+    private int? suffix;
+    public int? Suffix {
+        get => suffix;
+        set {
+            suffix = value;
+            Name =
+                suffix is int val ?
+                    $"{BoneName}_{val}" :
+                    BoneName;
+        }
+    }
+
+    public BoneNodeBuilder( string name ) : base( name ) {
+        BoneName = name;
+    }
+
+    public void SetSuffixRecursively( int? suffix ) {
+        Suffix = suffix;
+        foreach( var child in VisualChildren ) {
+            if( child is BoneNodeBuilder boneChild )
+                boneChild.SetSuffixRecursively( suffix );
+        }
+    }
+}
+
 /// <summary>Calculates deformations from a PBD file.</summary>
 public class RaceDeformer {
-    public readonly  PbdFile                           PbdFile;
-    private readonly Dictionary< string, NodeBuilder > _boneMap;
+    public PbdFile PbdFile { get; }
+    private List<BoneNodeBuilder> BoneMap { get; }
 
-    public RaceDeformer( PbdFile pbd, Dictionary< string, NodeBuilder > boneMap ) {
+    public RaceDeformer( PbdFile pbd, List<BoneNodeBuilder> boneMap ) {
         PbdFile  = pbd;
-        _boneMap = boneMap;
+        BoneMap = boneMap;
     }
 
     /// <summary>Gets the parent of a given race code.</summary>
@@ -45,8 +72,8 @@ public class RaceDeformer {
         if( boneIdx != -1 ) { return deformer.DeformMatrices[ boneIdx ]; }
 
         // Try and get it from the parent
-        var boneNode = _boneMap[ name ];
-        if( boneNode.Parent != null ) { return ResolveDeformation( deformer, boneNode.Parent.Name ); }
+        var boneNode = BoneMap.First(b => b.BoneName.Equals(name, StringComparison.Ordinal));
+        if( boneNode.Parent != null ) { return ResolveDeformation( deformer, (boneNode.Parent as BoneNodeBuilder ?? throw new InvalidOperationException("Parent isn't a bone node")).BoneName ); }
 
         // No deformation, just use identity
         return new float[] {
@@ -62,9 +89,7 @@ public class RaceDeformer {
     /// <param name="origPos">The original position of the vertex.</param>
     /// <returns>The deformed position of the vertex.</returns>
     public Vector3? DeformVertex( PbdFile.Deformer deformer, int nameIndex, Vector3 origPos ) {
-        var boneNames = _boneMap.Keys.ToArray();
-        var boneName  = boneNames[ nameIndex ];
-        var matrix    = ResolveDeformation( deformer, boneName );
+        var matrix    = ResolveDeformation( deformer, BoneMap[nameIndex].BoneName );
         if( matrix != null ) { return MatrixTransform( origPos, matrix ); }
 
         return null;

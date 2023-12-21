@@ -6,6 +6,7 @@ using Lumina.Data;
 using Lumina.Data.Files;
 using Lumina.Models.Materials;
 using Lumina.Models.Models;
+using SkiaSharp;
 using Xande.Files;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -78,25 +79,32 @@ public class LuminaManager {
     }
 
     /// <summary>Obtain and parse a texture to a Bitmap.</summary>
-    public unsafe Bitmap GetTextureBuffer( string path, string? origPath = null ) {
+    public unsafe SKBitmap GetTextureBuffer( string path, string? origPath = null ) {
         var texFile = GetFile< TexFile >( path, origPath );
         if( texFile == null ) throw new Exception( $"Lumina was unable to fetch a .tex file from {path}." );
         var texBuffer = texFile.TextureBuffer.Filter( format: TexFile.TextureFormat.B8G8R8A8 );
-        fixed( byte* raw = texBuffer.RawData ) { return new Bitmap( texBuffer.Width, texBuffer.Height, texBuffer.Width * 4, PixelFormat.Format32bppArgb, ( nint )raw ); }
+        var bitmap = new SKBitmap( texBuffer.Width, texBuffer.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul );
+        bitmap.Erase(new(0));
+        fixed( byte* raw = texBuffer.RawData )
+            bitmap.InstallPixels(new SKImageInfo(texBuffer.Width, texBuffer.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul), (nint)raw, texBuffer.Width * 4 );
+        return bitmap;
     }
 
     /// <inheritdoc cref="GetTextureBuffer(string)"/>
-    public Bitmap GetTextureBuffer( Texture texture ) => GetTextureBuffer( texture.TexturePath );
+    public SKBitmap GetTextureBuffer( Texture texture ) => GetTextureBuffer( texture.TexturePath );
 
     /// <summary>Save a texture to PNG.</summary>
     /// <param name="basePath">The directory the file should be saved in.</param>
     /// <param name="texture">The texture to be saved.</param>
     /// <returns></returns>
     public string SaveTexture( string basePath, Texture texture ) {
-        var png      = GetTextureBuffer( texture );
+        using var png      = GetTextureBuffer( texture );
         var convPath = texture.TexturePath[ ( texture.TexturePath.LastIndexOf( '/' ) + 1 ).. ] + ".png";
 
-        png.Save( basePath + convPath, ImageFormat.Png );
+        using var pngData = png.Encode( SKEncodedImageFormat.Png, 100 );
+        using var pngStream = pngData.AsStream();
+        using var fileStream = File.Create( basePath + convPath );
+        pngStream.CopyTo( fileStream );
         return convPath;
     }
 }
